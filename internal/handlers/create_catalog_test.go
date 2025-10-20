@@ -63,6 +63,10 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		Architecture: "arm64",
 		OS:           "linux",
 	}
+	platformLinux386 := cranev1.Platform{
+		Architecture: "386",
+		OS:           "linux",
+	}
 	platformUnknown := cranev1.Platform{
 		Architecture: "unknown",
 		OS:           "unknown",
@@ -71,6 +75,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 	digestLinuxAmd64, err := cranev1.NewHash("sha256:8ec69d882e7f29f0652d537557160e638168550f738d0d49f90a7ef96bf31787")
 	require.NoError(t, err)
 	digestLinuxArm64, err := cranev1.NewHash("sha256:ca9d8b5d1cc2f2186983fc6b9507da6ada5eb92f2b518c06af1128d5396c6f34")
+	require.NoError(t, err)
+	digestLinux386, err := cranev1.NewHash("sha256:8fd4c2b9e1a68e52d77b30c9f2e3b3f8e9e2b7484c0b4a7e1d2e5a9c1b3d4f67")
 	require.NoError(t, err)
 	digestUnknown, err := cranev1.NewHash("sha256:f1c2e7a5b4d3c8a9e6f5d4c3b2a1908f7e6d5c4b3a29180f7e6d5c4b3a291807")
 	require.NoError(t, err)
@@ -97,6 +103,16 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				URLs:         []string{},
 				Annotations:  map[string]string{},
 				Platform:     &platformLinuxArm64,
+				ArtifactType: "",
+			},
+			{
+				MediaType:    types.OCIManifestSchema1,
+				Size:         100,
+				Digest:       digestLinux386,
+				Data:         []byte(""),
+				URLs:         []string{},
+				Annotations:  map[string]string{},
+				Platform:     &platformLinux386,
 				ArtifactType: "",
 			},
 			{
@@ -136,6 +152,16 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		Spec: v1alpha1.RegistrySpec{
 			URI:          registryURI,
 			Repositories: []string{repositoryName},
+			Platforms: []v1alpha1.Platform{
+				{
+					OS:   "linux",
+					Arch: "amd64",
+				},
+				{
+					OS:   "linux",
+					Arch: "arm64",
+				},
+			},
 		},
 	}
 	registryData, err := json.Marshal(registry)
@@ -1076,4 +1102,75 @@ func TestCreateCatalogHandler_Handle_PrivateRegistry(t *testing.T) {
 	assert.Equal(t, 0, updatedScanJob.Status.ScannedImagesCount)
 	assert.True(t, updatedScanJob.IsInProgress())
 	assert.Equal(t, v1alpha1.ReasonSBOMGenerationInProgress, meta.FindStatusCondition(updatedScanJob.Status.Conditions, v1alpha1.ConditionTypeInProgress).Reason)
+}
+
+func Test_isPlatformAllowed(t *testing.T) {
+	tests := []struct {
+		name             string // description of this test case
+		platform         cranev1.Platform
+		allowedPlatforms []v1alpha1.Platform
+		want             bool
+	}{
+		{
+			name: "no platforms provided",
+			platform: cranev1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			},
+			allowedPlatforms: []v1alpha1.Platform{},
+			want:             true,
+		},
+		{
+			name: "platform matches",
+			platform: cranev1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			},
+			allowedPlatforms: []v1alpha1.Platform{
+				{
+					Arch: "amd64",
+					OS:   "linux",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "platform doesn't match",
+			platform: cranev1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			},
+			allowedPlatforms: []v1alpha1.Platform{
+				{
+					Arch:    "arm",
+					OS:      "linux",
+					Variant: "v7",
+				},
+			},
+			want: false,
+		},
+		{
+			name: "platform is unknown",
+			platform: cranev1.Platform{
+				Architecture: "unknown",
+				OS:           "unknown",
+			},
+			allowedPlatforms: []v1alpha1.Platform{
+				{
+					Arch:    "arm",
+					OS:      "linux",
+					Variant: "v7",
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPlatformAllowed(tt.platform, tt.allowedPlatforms)
+			if got != tt.want {
+				t.Errorf("isPlatformAllowed() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
