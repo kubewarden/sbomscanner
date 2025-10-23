@@ -26,18 +26,18 @@ import (
 
 func main() { //nolint:funlen // This function is intentionally long to keep the main logic together.
 	var natsURL string
-	var natsCert string
-	var natsKey string
-	var natsCA string
+	var natsCertFile string
+	var natsKeyFile string
+	var natsCAFile string
 	var logLevel string
 	var trivyDBRepository string
 	var trivyJavaDBRepository string
 	var runDir string
 
 	flag.StringVar(&natsURL, "nats-url", "localhost:4222", "The URL of the NATS server.")
-	flag.StringVar(&natsCert, "nats-cert", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
-	flag.StringVar(&natsKey, "nats-key", "/nats/tls/tls.key", "The path to the NATS client key.")
-	flag.StringVar(&natsCA, "nats-ca", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
+	flag.StringVar(&natsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
+	flag.StringVar(&natsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
+	flag.StringVar(&natsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
 	flag.StringVar(&runDir, "run-dir", "/var/run/worker", "Directory to store temporary files.")
 	flag.StringVar(&trivyDBRepository, "trivy-db-repository", "public.ecr.aws/aquasecurity/trivy-db", "OCI repository to retrieve trivy-db.")
 	flag.StringVar(&trivyJavaDBRepository, "trivy-java-db-repository", "public.ecr.aws/aquasecurity/trivy-java-db", "OCI repository to retrieve trivy-java-db.")
@@ -94,8 +94,8 @@ func main() { //nolint:funlen // This function is intentionally long to keep the
 
 	nc, err := nats.Connect(natsURL,
 		nats.RetryOnFailedConnect(true),
-		nats.RootCAs(natsCA),
-		nats.ClientCert(natsCert, natsKey),
+		nats.RootCAs(natsCAFile),
+		nats.ClientCert(natsCertFile, natsKeyFile),
 	)
 	if err != nil {
 		logger.Error("Unable to connect to NATS server", "error", err, "natsURL", natsURL)

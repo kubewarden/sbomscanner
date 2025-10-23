@@ -8,8 +8,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic"
 )
 
-type RestOptionsGetter struct {
-}
+type RestOptionsGetter struct{}
 
 // GetRESTOptions implements the generic.RESTOptionsGetter interface to ensure the GarbageCollection is enabled.
 // ResourcePrefix is set to "/<group>/<resource>", compatible with the storage Key format: /storage.sbomscanner.kubewarden.io/<resource>/<namespace>/<name>.

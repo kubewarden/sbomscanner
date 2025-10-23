@@ -10,8 +10,9 @@ Please follow the instructions in the [quickstart guide](../installation/quickst
 helm repo add kubewarden https://charts.kubewarden.io
 helm repo update
 helm upgrade --install sbomscanner kubewarden/sbomscanner \
+  --set=controller.logLevel=debug \
+  --set=storage.logLevel=debug \
   --set=worker.logLevel=debug \
-  --set=controller.logLevel=debug
   --namespace sbomscanner \
   --create-namespace \
   --wait

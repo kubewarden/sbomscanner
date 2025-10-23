@@ -25,7 +25,6 @@ spec:
           securityContext:
             {{ include "sbomscanner.securityContext" . | nindent 12 }}
           args:
-            - --cert-dir=/certs
           {{- if .Values.storage.logLevel }}
             - -log-level={{ .Values.storage.logLevel }}
           {{- end }}

@@ -44,8 +44,7 @@ func TestRegistryCreation(t *testing.T) {
 					"--set", "storage.image.tag=latest",
 					"--set", "worker.image.tag=latest",
 					"--set", "controller.logLevel=debug",
-					// TODO:: Uncomment when storage log level is supported
-					// "--set", "storage.logLevel=debug",
+					"--set", "storage.logLevel=debug",
 					"--set", "worker.logLevel=debug",
 				),
 				helm.WithTimeout("3m"))
