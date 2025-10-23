@@ -61,6 +61,16 @@ spec:
             - name: pg-server-ca
               mountPath: /pg/tls/server/
               readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 443
+              scheme: HTTPS
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 443
+              scheme: HTTPS
       volumes:
         - name: storage-tls
           secret:

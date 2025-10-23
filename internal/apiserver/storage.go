@@ -14,6 +14,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
+	"k8s.io/apiserver/pkg/server/healthz"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	basecompatibility "k8s.io/component-base/compatibility"
@@ -107,6 +108,10 @@ func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slo
 	if err := recommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, fmt.Errorf("error applying options to server config: %w", err)
 	}
+
+	databaseChecker := newDatabaseChecker(db, logger)
+	serverConfig.AddReadyzChecks(databaseChecker)
+	serverConfig.AddHealthChecks(healthz.PingHealthz)
 
 	// Create generic server
 	genericServer, err := serverConfig.Complete().New("sbom-storage-apiserver", genericapiserver.NewEmptyDelegate())
