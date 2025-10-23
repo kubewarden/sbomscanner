@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/containerd/platforms"
 	"github.com/go-logr/logr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -156,6 +157,25 @@ func validateRepositories(registry *v1alpha1.Registry) error {
 	return nil
 }
 
+func validatePlatforms(registry *v1alpha1.Registry) error {
+	if registry.Spec.Platforms == nil {
+		return nil
+	}
+	for _, platform := range registry.Spec.Platforms {
+		parsedPlatform, err := platforms.Parse(platform.String())
+		if err != nil {
+			return fmt.Errorf("%s is not a valid platform format: %w", platform.String(), err)
+		}
+		matcher := platforms.Only(parsedPlatform)
+		isAllowed := slices.ContainsFunc(allowedPlatforms, matcher.Match)
+
+		if !isAllowed {
+			return fmt.Errorf("%s is not an allowed platform", platform.String())
+		}
+	}
+	return nil
+}
+
 func validateRegistry(registry *v1alpha1.Registry) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -172,6 +192,10 @@ func validateRegistry(registry *v1alpha1.Registry) field.ErrorList {
 	if err := validateRepositories(registry); err != nil {
 		fieldPath := field.NewPath("spec").Child("repositories")
 		allErrs = append(allErrs, field.Invalid(fieldPath, registry.Spec.Repositories, err.Error()))
+	}
+	if err := validatePlatforms(registry); err != nil {
+		filepath := field.NewPath("spec").Child("platforms")
+		allErrs = append(allErrs, field.Invalid(filepath, registry.Spec.Platforms, err.Error()))
 	}
 
 	return allErrs

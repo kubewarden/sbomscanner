@@ -163,6 +163,44 @@ var registryTestCases = []registryTestCase{
 		expectedField: "spec.catalogType",
 		expectedError: "is not a valid CatalogType",
 	},
+	{
+		name: "should allow creation when platforms are valid",
+		registry: &v1alpha1.Registry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-registry",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.RegistrySpec{
+				URI: "registry.test.local",
+				Platforms: []v1alpha1.Platform{
+					{
+						Arch: "amd64",
+						OS:   "linux",
+					},
+				},
+			},
+		},
+	},
+	{
+		name: "should deny creation when platforms are not valid",
+		registry: &v1alpha1.Registry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-registry",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.RegistrySpec{
+				URI: "registry.test.local",
+				Platforms: []v1alpha1.Platform{
+					{
+						Arch: "xxx",
+						OS:   "yyy",
+					},
+				},
+			},
+		},
+		expectedField: "spec.platforms",
+		expectedError: "is not an allowed platform",
+	},
 }
 
 func TestRegistryCustomValidator_ValidateCreate(t *testing.T) {
