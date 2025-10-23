@@ -89,8 +89,7 @@ yaml = helm(
         "storage.replicas=1",
         "worker.replicas=1",
         "controller.logLevel=debug",
-        #  TODO: uncomment this, when the log parser in storage is implemented
-        # "storage.logLevel=debug", 
+        "storage.logLevel=debug", 
         "worker.logLevel=debug",
     ],
 )

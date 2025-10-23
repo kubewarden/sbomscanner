@@ -333,7 +333,7 @@ linters:
         shadow:
           # Whether to be strict about shadowing; can be noisy.
           # Default: false
-          strict: false
+          strict: true
 
     inamedparam:
       # Skips check for interface methods with only a single parameter.
@@ -444,6 +444,10 @@ linters:
       - common-false-positives
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
+        # Allow "err" and "ok" vars to shadow existing declarations, otherwise we get too many false positives.
+      - text: '^shadow: declaration of "(err|ok)" shadows declaration'
+        linters:
+          - govet
       - source: "TODO"
         linters: [godot]
       - text: "should have a package comment"
@@ -485,3 +489,4 @@ linters:
       - path: ^internal/storage/.*\.go$
         linters:
           - dupl
+

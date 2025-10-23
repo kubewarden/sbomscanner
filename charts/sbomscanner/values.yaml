@@ -28,7 +28,7 @@ storage:
     tag: v0.7.1
     pullPolicy: IfNotPresent
   replicas: 3
-  # logLevel: "debug" //TODO: uncomment this, when the log parser in storage is implemented
+  logLevel: "info"
   resources:
     limits:
       cpu: 500m
