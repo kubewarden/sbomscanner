@@ -15,14 +15,23 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/kubewarden/sbomscanner/internal/apiserver"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
 	"github.com/kubewarden/sbomscanner/internal/storage"
 )
 
 func main() {
+	var certFile string
+	var keyFile string
+	var pgURIFile string
+	var pgTLSCAFile string
 	var logLevel string
 
+	flag.StringVar(&certFile, "cert-file", "/tls/tls.crt", "Path to the TLS certificate file for serving HTTPS requests.")
+	flag.StringVar(&keyFile, "key-file", "/tls/tls.key", "Path to the TLS private key file for serving HTTPS requests.")
+	flag.StringVar(&pgURIFile, "pg-uri-file", "/pg/uri", "Path to file containing the PostgreSQL connection URI (format: postgresql://username:password@hostname:5432/dbname). Any sslmode or ssl* parameters in the URI are ignored. TLS with CA verification is always enforced using the certificate from pg-tls-ca-file.")
+	flag.StringVar(&pgTLSCAFile, "pg-tls-ca-file", "/pg/tls/server/ca.crt", "Path to PostgreSQL server CA certificate for TLS verification.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.Parse()
 
@@ -32,9 +41,11 @@ func main() {
 		slog.Error("error initializing the logger", "error", err)
 		os.Exit(1)
 	}
+
 	opts := slog.HandlerOptions{
 		Level: slogLevel,
 	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &opts)).With("component", "storage")
 	logger.Info("Starting storage")
 
@@ -42,19 +53,20 @@ func main() {
 	klog.SetSlogLogger(logger)
 
 	ctx := genericapiserver.SetupSignalContext()
-	if err := run(ctx, logger); err != nil {
+
+	if err := run(ctx, certFile, keyFile, pgURIFile, pgTLSCAFile, logger); err != nil {
 		logger.Error("failed to run server", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, logger *slog.Logger) error {
-	dbURI, err := os.ReadFile("/pg/uri")
+func run(ctx context.Context, certFile, keyFile, pgURIFile, pgTLSCAFile string, logger *slog.Logger) error {
+	connString, err := os.ReadFile(pgURIFile)
 	if err != nil {
 		return fmt.Errorf("reading database URI: %w", err)
 	}
 
-	config, err := pgxpool.ParseConfig(string(dbURI))
+	config, err := pgxpool.ParseConfig(string(connString))
 	if err != nil {
 		return fmt.Errorf("parsing database URI: %w", err)
 	}
@@ -66,7 +78,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	config.BeforeConnect = func(_ context.Context, connConfig *pgx.ConnConfig) error {
 		connConfig.Fallbacks = nil // disable TLS fallback to force TLS connection
 
-		serverCA, err := os.ReadFile("/pg/tls/server/ca.crt")
+		serverCA, err := os.ReadFile(pgTLSCAFile)
 		if err != nil {
 			return fmt.Errorf("reading database server CA certificate: %w", err)
 		}
@@ -82,6 +94,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: false,
 		}
+
 		return nil
 	}
 
@@ -102,7 +115,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("creating vulnerability report table: %w", err)
 	}
 
-	srv, err := apiserver.NewStorageAPIServer(db, logger)
+	srv, err := apiserver.NewStorageAPIServer(db, certFile, keyFile, logger)
 	if err != nil {
 		return fmt.Errorf("creating storage server: %w", err)
 	}

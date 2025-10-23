@@ -52,12 +52,12 @@ type StorageAPIServer struct {
 	dynamicCertKeyPairContent *dynamiccertificates.DynamicCertKeyPairContent
 }
 
-func NewStorageAPIServer(db *pgxpool.Pool, logger *slog.Logger) (*StorageAPIServer, error) {
+func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slog.Logger) (*StorageAPIServer, error) {
 	// Setup dynamic certs
 	dynamicCertKeyPairContent, err := dynamiccertificates.NewDynamicServingContentFromFiles(
 		"storage-serving-certs",
-		"/tls/tls.crt",
-		"/tls/tls.key",
+		certFile,
+		keyFile,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating dynamic certificate content provider: %w", err)
