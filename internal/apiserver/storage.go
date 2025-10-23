@@ -108,6 +108,10 @@ func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slo
 		return nil, fmt.Errorf("error applying options to server config: %w", err)
 	}
 
+	databaseChecker := newDatabaseChecker(db, logger)
+	serverConfig.AddReadyzChecks(databaseChecker)
+	serverConfig.AddHealthChecks(databaseChecker)
+
 	// Create generic server
 	genericServer, err := serverConfig.Complete().New("sbom-storage-apiserver", genericapiserver.NewEmptyDelegate())
 	if err != nil {
