@@ -7,3 +7,6 @@ spec:
   uri: dev-registry.default.svc.cluster.local:5000
   catalogType: OCIDistribution
   scanInterval: 1h
+  platforms:
+    - arch: "amd64"
+      os: "linux"

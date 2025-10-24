@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,6 +31,9 @@ type RegistrySpec struct {
 	CABundle string `json:"caBundle,omitempty"`
 	// Insecure allows insecure connections to the registry when set to true.
 	Insecure bool `json:"insecure,omitempty"`
+	// Platforms allows to specify the list of platform to scan.
+	// If not set, the catalog will be triggered to list all the available platforms on the registry.
+	Platforms []Platform `json:"platforms,omitempty"`
 }
 
 // RegistryStatus defines the observed state of Registry
@@ -43,6 +48,28 @@ type RegistryStatus struct {
 	// For further information see: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+}
+
+// Platform describes the platform which the image in the manifest runs on.
+type Platform struct {
+	// Arch field specifies the CPU architecture, for example
+	// `amd64` or `ppc64le`.
+	Arch string `json:"arch"`
+	// OS specifies the operating system, for example `linux` or `windows`.
+	OS string `json:"os"`
+	// Variant is an optional field specifying a variant of the CPU, for
+	// example `v7` to specify ARMv7 when architecture is `arm`.
+	Variant string `json:"variant,omitempty"`
+}
+
+// String returns the expected platform string in the following format:
+// <os>/<arch>[/<variant>]
+func (p *Platform) String() string {
+	platform := fmt.Sprintf("%s/%s", p.OS, p.Arch)
+	if p.Variant != "" {
+		platform += fmt.Sprintf("/%s", p.Variant)
+	}
+	return platform
 }
 
 // +kubebuilder:object:root=true

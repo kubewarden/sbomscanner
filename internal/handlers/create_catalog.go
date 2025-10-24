@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	cranev1 "github.com/google/go-containerregistry/pkg/v1"
@@ -270,7 +271,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	}
 
 	for _, image := range discoveredImages {
-		h.logger.DebugContext(ctx, "Sending generate SBOM  message", "image", image.Name, "namespace", image.Namespace)
+		h.logger.DebugContext(ctx, "Sending generate SBOM message", "image", image.Name, "namespace", image.Namespace)
 
 		messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.UID, image.Name)
 		message, err := json.Marshal(&GenerateSBOMMessage{
@@ -354,7 +355,7 @@ func (h *CreateCatalogHandler) refToImages(
 	registry *v1alpha1.Registry,
 	message messaging.Message,
 ) ([]storagev1alpha1.Image, error) {
-	platforms, err := h.refToPlatforms(registryClient, ref)
+	platforms, err := h.refToPlatforms(registryClient, ref, registry.Spec.Platforms)
 	if err != nil {
 		return []storagev1alpha1.Image{}, fmt.Errorf("cannot get platforms for %s: %w", ref, err)
 	}
@@ -367,6 +368,11 @@ func (h *CreateCatalogHandler) refToImages(
 		if err != nil {
 			h.logger.WarnContext(ctx, "cannot get image details", "reference", ref.Name(), "platform", imageDetails.Platform, "error", err)
 			// Avoid blocking other images to be cataloged
+			continue
+		}
+		// If the image is single-arch we did not know the platform till this point.
+		// This is why we neeed to run the filter again.
+		if !isPlatformAllowed(imageDetails.Platform, registry.Spec.Platforms) {
 			continue
 		}
 
@@ -397,6 +403,7 @@ func (h *CreateCatalogHandler) refToImages(
 func (h *CreateCatalogHandler) refToPlatforms(
 	registryClient registryclient.Client,
 	ref name.Reference,
+	allowedPlatforms []v1alpha1.Platform,
 ) ([]*cranev1.Platform, error) {
 	imgIndex, err := registryClient.GetImageIndex(ref)
 	if err != nil {
@@ -415,10 +422,7 @@ func (h *CreateCatalogHandler) refToPlatforms(
 
 	platforms := []*cranev1.Platform{}
 	for _, manifest := range manifest.Manifests {
-		// Images can contain "unknown/unknown" layers, which usually contain attestations.
-		// See https://docs.docker.com/build/metadata/attestations/attestation-storage/
-		// We need to skip these images, as they cannot be scanned.
-		if manifest.Platform.OS == "unknown" && manifest.Platform.Architecture == "unknown" {
+		if !isPlatformAllowed(*manifest.Platform, allowedPlatforms) {
 			continue
 		}
 		platforms = append(platforms, manifest.Platform)
@@ -565,4 +569,24 @@ func computeImageUID(ref name.Reference, digest string) string {
 	sha := sha256.New()
 	fmt.Fprintf(sha, "%s:%s@%s", ref.Context().Name(), ref.Identifier(), digest)
 	return hex.EncodeToString(sha.Sum(nil))
+}
+
+// isPlatformAllowed verify if the platform of the image is allowed in the registry filter.
+func isPlatformAllowed(platform cranev1.Platform, allowedPlatforms []v1alpha1.Platform) bool {
+	// Images can contain "unknown/unknown" layers, which usually contain attestations.
+	// See https://docs.docker.com/build/metadata/attestations/attestation-storage/
+	// We need to skip these images, as they cannot be scanned.
+	if platform.OS == "unknown" && platform.Architecture == "unknown" {
+		return false
+	}
+
+	// If no platform is specified in the Registry CR,
+	// we assume the user wants to scan all the platforms.
+	if len(allowedPlatforms) == 0 {
+		return true
+	}
+
+	return slices.ContainsFunc(allowedPlatforms, func(p v1alpha1.Platform) bool {
+		return p.String() == platform.String()
+	})
 }
