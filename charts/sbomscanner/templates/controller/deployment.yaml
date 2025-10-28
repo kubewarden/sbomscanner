@@ -18,6 +18,17 @@ spec:
         {{ include "sbomscanner.labels" . | nindent 8 }}
         app.kubernetes.io/component: controller
     spec:
+      initContainers:
+        - name: wait-for-storage
+          image: '{{ template "system_default_registry" . }}{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}'
+          imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
+          securityContext:
+            {{ include "sbomscanner.securityContext" . | nindent 12 }}
+          args:
+            - --wait-for-storage
+          {{- if .Values.controller.logLevel }}
+            - -log-level={{ .Values.controller.logLevel }}
+          {{- end }}
       containers:
         - command:
             - /controller

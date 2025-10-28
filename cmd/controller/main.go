@@ -19,16 +19,26 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
+	"slices"
+	"time"
+
+	"github.com/avast/retry-go/v4"
+	"github.com/go-logr/logr"
+	"github.com/nats-io/nats.go"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,14 +47,12 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/go-logr/logr"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
 	"github.com/kubewarden/sbomscanner/internal/controller"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 	webhookv1alpha1 "github.com/kubewarden/sbomscanner/internal/webhook/v1alpha1"
-	"github.com/nats-io/nats.go"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -58,11 +66,13 @@ type Config struct {
 	NatsCertFile         string
 	NatsKeyFile          string
 	NatsCAFile           string
+	WaitForStorage       bool
 	LogLevel             string
 }
 
 func parseFlags() Config {
 	var cfg Config
+
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -77,6 +87,7 @@ func parseFlags() Config {
 	flag.StringVar(&cfg.NatsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
 	flag.StringVar(&cfg.NatsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
 	flag.StringVar(&cfg.NatsCAFile, "nats-ca-fil", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
+	flag.BoolVar(&cfg.WaitForStorage, "wait-for-storage", false, "If set to true, the controller will wait for the storage API types to be available and then exit.")
 	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level")
 
 	flag.Parse()
@@ -157,6 +168,19 @@ func main() {
 
 	// +kubebuilder:scaffold:scheme
 
+	// The --wait-for-storage flag is used in the init container to verify that
+	// the storage API types are available before starting the controller.
+	// Since these storage types are provided by an aggregated API server rather than CRDs,
+	// starting the controller before they are ready causes it to exit with an error.
+	if cfg.WaitForStorage {
+		if err := waitForStorageTypes(setupLog); err != nil {
+			setupLog.Error(err, "Failed to wait for the storage types")
+			os.Exit(1)
+		}
+		setupLog.Info("All storage types are available, starting controller")
+		os.Exit(0)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
@@ -175,6 +199,10 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
+		NewCache: func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
+			time.Sleep(20 * time.Second)
+			return cache.New(config, opts)
+		},
 		Cache: cache.Options{
 			DefaultTransform: cache.TransformStripManagedFields(),
 			ByObject: map[client.Object]cache.ByObject{
@@ -291,4 +319,52 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func waitForStorageTypes(log logr.Logger) error {
+	config := ctrl.GetConfigOrDie()
+	httpClient, err := rest.HTTPClientFor(config)
+	if err != nil {
+		return fmt.Errorf("failed to create http client: %w", err)
+	}
+	discoveryClient, err := discovery.NewDiscoveryClientForConfigAndClient(config, httpClient)
+	if err != nil {
+		return fmt.Errorf("failed to create discovery client: %w", err)
+	}
+
+	requiredGVKs := []schema.GroupVersionKind{
+		storagev1alpha1.SchemeGroupVersion.WithKind("Image"),
+		storagev1alpha1.SchemeGroupVersion.WithKind("VulnerabilityReport"),
+	}
+
+	err = retry.Do(
+		func() error {
+			log.Info("checking for storage types")
+			for _, gvk := range requiredGVKs {
+				resources, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+				if err != nil {
+					return fmt.Errorf("group version not available: %s: %w", gvk.GroupVersion().String(), err)
+				}
+
+				if !slices.ContainsFunc(resources.APIResources, func(r metav1.APIResource) bool {
+					return r.Kind == gvk.Kind
+				}) {
+					return fmt.Errorf("required API type not available: %s", gvk.String())
+				}
+			}
+			return nil
+		},
+		retry.Attempts(20),
+		retry.Delay(2*time.Second),
+		retry.DelayType(retry.BackOffDelay),
+		retry.MaxDelay(10*time.Second),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			log.Info("checking for storage types failed, retrying", "attempt", n+1, "error", err)
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("timeout while waiting for storage types: %w", err)
+	}
+	return nil
 }
