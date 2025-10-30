@@ -21,6 +21,7 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -32,6 +33,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -203,6 +205,10 @@ func main() {
 					},
 				},
 			},
+		},
+		Controller: config.Controller{
+			// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
+			ReconciliationTimeout: 30 * time.Second,
 		},
 	})
 	if err != nil {
