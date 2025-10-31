@@ -1,5 +1,10 @@
 # SBOMscanner
 
+![License](https://img.shields.io/github/license/kubewarden/sbomscanner)
+![GitHub branch check runs](https://img.shields.io/github/check-runs/kubewarden/sbomscanner/main)
+![GitHub contributors](https://img.shields.io/github/contributors/kubewarden/sbomscanner)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubewarden/sbomscanner)](https://goreportcard.com/report/github.com/kubewarden/sbomscanner)
+
 A SBOM-centric security scanner for Kubernetes.
 
 This is still being developed. For additional details, please refer to the [RFC](docs/rfc).
@@ -27,6 +32,11 @@ This is still being developed. For additional details, please refer to the [RFC]
 ### Development
 
 - [Contributing guidelines](CONTRIBUTING.md)
+
+
+### Contact
+
+Get in touch with us on Slack: join the [`kubewarden` channel](https://kubernetes.slack.com/?redir=%2Fmessages%2Fkubewarden) hosted by the official Kubernetes workspace 👨‍💻 💬 👩‍💻
 
 # Credits
 
