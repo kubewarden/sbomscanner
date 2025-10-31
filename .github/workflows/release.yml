@@ -10,7 +10,7 @@ jobs:
     permissions:
       packages: write # Pushing images to ghcr.io
       id-token: write # Signing images with cosign
-    uses: ./.github/workflows/container-build.yaml
+    uses: ./.github/workflows/container-build.yml
     with:
       version: ${{ github.ref_name }}
     secrets: inherit
