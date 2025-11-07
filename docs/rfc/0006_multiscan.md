@@ -10,15 +10,24 @@
 
 [summary]: #summary
 
-Support multiple scanning tools.
+Support grype as additional tool to scan for SBOMs.
 
 # Motivation
 
 [motivation]: #motivation
 
-We want to add support for multiple scanning tools (such as grype) in order to enrich the vulnerability reports, making it more complete and accurate.
+We want to add support for `grype` in order to enrich the vulnerability reports, making it more complete and accurate.
 
-This will also allow us to be less vendor centric, since we are currently relying only on trivy to generate SBOMs and scan for vulnerabilities.
+This will allow us to be vendor neutral, since we are currently relying only on `trivy` to generate SBOMs and scan for vulnerabilities.
+
+Additionally, we discovered that `grype` is able to find more vulnerabilities than `trivy`. Below there's a recap about our research:
+
+| image | `trivy` | `grype` |
+|-------|---------|---------|
+| `golang:1.12-alpine` | 45   | 210 |
+| `nginx:1.21.0` | 396 | 522 |
+| `redis:6.2.0-alpine` | 44 | 127 |
+| `postgres:13.0-alpine` | 63 | 151 |
 
 ## Examples / User Stories
 
@@ -40,11 +49,9 @@ For the multiscan feature, we are going to double the following operations:
 
 * sbom scan
 
-This will let grype to generate its own report, so that we can then compare and merge with the one obtained with trivy.
+This will let grype generate its own report, so that we can then compare and merge with the one obtained with trivy.
 
-Since grype and trivy are different tools, we must to take care about their scan processes, synchronizing their flows, to be able to analyze and merge the results.
-
-This will require a synchronization mechanism to allow both of them to generate and scan SBOMs. To achieve this, we must set a timeout for their execution and define a default tool from which to take the results. In this case, we can adopt the following logic to avoid starvation:
+We can run the tools sequentially (1st trivy, 2nd grype) and then apply the following flow to decide what to return:
 
 ```
 if trivy fails:
@@ -64,6 +71,32 @@ We already have defined our own `VulnerabilityReport` format [here](./0004_vulne
 * `kev` is a list of known exploits from the CISA KEV dataset.
 
 * `epss` is a list of Exploit Prediction Scoring System (EPSS) scores for the vulnerability.
+
+* `risk` is the score of the risk.
+
+* `licenses` is a list of the licenses used by all the components within the affected software.
+
+In addition to that, we are going to optionally update/overwrite already existing fields retrivied from `trivy`, in case `grype` has better results:
+
+* `cvss` version and scores.
+
+* `references` with additional links.
+
+* `description` if not provided by trivy.
+
+We cannot be sure that both the tools will find the exact same results, for this reason we have to adopt the following merging strategy:
+
+```
+vuln_report
+for vuln in trivy.vulnerabilities:
+  vuln_report add vuln
+  if grype has vuln:
+    vuln_report add grype.kev
+    vuln_report add grype.epss
+    ...
+for vuln in grype.vulnerabilities:
+  vuln_report add vuln
+```
 
 # Drawbacks
 
