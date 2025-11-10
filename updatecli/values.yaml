@@ -1,7 +1,5 @@
 github:
-  owner: "UPDATECLI_GITHUB_OWNER"
-  token: "UPDATECLI_GITHUB_TOKEN"
   branch: "main"
   author: "SBOMscanner bot"
-  user: "UPDATECLI_GITHUB_OWNER"
   email: "sbomscanner-bot@users.noreply.github.com"
+  owner: "kubewarden"

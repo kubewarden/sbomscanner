@@ -19,31 +19,27 @@ jobs:
     name: Run Updatecli
     runs-on: ubuntu-latest
     permissions:
-      contents: write # for updatecli to update the repository
-      pull-requests: write # for updatecli to create a PR
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install Updatecli in the runner
-        uses: updatecli/updatecli-action@719e3592d124cbf826da704cbe557e1221dd4bba # v2.94.0
+        uses: updatecli/updatecli-action@v2.95.0
 
       - name: Run Updatecli (dryrun)
         if: github.ref != 'refs/heads/main'
         env:
-          # Until this repository is under the kubewarden GitHub organisation
-          # It's easier to use the default GITHUB_TOKEN but ultimately
-          # it's gonna be better to use a GitHub App token
+          # As a reminder, a pipeline create
           UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UPDATECLI_GITHUB_OWNER: ${{ github.repository_owner }}
+          UPDATECLI_GITHUB_USERNAME: ${{ github.repository_owner }}
         run: "updatecli compose diff --file updatecli/updatecli-compose.yaml"
 
       - name: Run Updatecli
         if: github.ref == 'refs/heads/main'
         env:
-          # Until this repository is under the kubewarden GitHub organisation
-          # It's easier to use the default GITHUB_TOKEN but ultimately
-          # it's gonna be better to use a GitHub App token
-          UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UPDATECLI_GITHUB_OWNER: ${{ github.repository_owner }}
+          UPDATECLI_GITHUB_APP_CLIENT_ID: ${{ secrets.APP_ID }}
+          UPDATECLI_GITHUB_APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          UPDATECLI_GITHUB_APP_INSTALLATION_ID: "${{ secrets.APP_INSTALLATION_ID }}"
         run: "updatecli compose apply --file updatecli/updatecli-compose.yaml"
