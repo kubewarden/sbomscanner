@@ -497,5 +497,5 @@ replace (
 	github.com/aquasecurity/trivy => github.com/fabriziosestito/trivy v0.0.0-20251015050612-618ad6a52a52
 
 	// TODO: remove https://github.com/containerd/containerd/issues/12493 is resolved.
-	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.2.1
+	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.3.0
 )
