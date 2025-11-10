@@ -23,6 +23,10 @@ sources:
       versionfilter:
         kind: "semver"
         pattern: ">=0.0.0-0" # include pre-release, release
+  readmeFile:
+    kind: file
+    spec:
+      file: "./README.md"
 
 scms:
   default:
@@ -99,3 +103,9 @@ targets:
     spec:
       file: charts/sbomscanner/values.yaml
       key: $.worker.image.tag
+  update_readme:
+    kind: file
+    sourceid: readmeFile
+    spec:
+      file: charts/sbomscanner/README.md
+      forcecreate: true
