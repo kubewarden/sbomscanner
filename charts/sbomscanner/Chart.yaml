@@ -1,6 +1,19 @@
 apiVersion: v2
 name: sbomscanner
-description: A Helm chart for Kubernetes
+description: A SBOM-centric security scanner for Kubernetes.
+icon: https://www.kubewarden.io/images/icon-kubewarden.svg
+keywords:
+  - Kubewarden
+  - Security
+  - Infrastructure
+  - SBOM
+  - Scanner
+  - Supply Chain
+home: https://www.kubewarden.io/
+maintainers:
+  - name: Kubewarden Maintainers
+    email: cncf-kubewarden-maintainers@lists.cncf.io
+    url: https://github.com/orgs/kubewarden/teams/maintainers
 
 # A chart can be either an 'application' or a 'library' chart.
 #
