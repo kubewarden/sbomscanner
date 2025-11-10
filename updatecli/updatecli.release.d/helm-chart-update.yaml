@@ -104,6 +104,7 @@ targets:
       file: charts/sbomscanner/values.yaml
       key: $.worker.image.tag
   update_readme:
+    scmid: default
     kind: file
     sourceid: readmeFile
     spec:
@@ -112,6 +113,7 @@ targets:
   generate_values_schema:
     kind: shell
     disablesourceinput: true
+    scmid: default
     name: Generate values.schema.json file
     spec:
       changedif:
