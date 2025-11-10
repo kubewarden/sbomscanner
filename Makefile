@@ -6,6 +6,7 @@ MOCKERY_VERSION := v3.3.4
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
 MOCKERY ?= go run github.com/vektra/mockery/v3@$(MOCKERY_VERSION)
+HELM_SCHEMA ?= go run github.com/dadav/helm-schema/cmd/helm-schema@latest
 
 GO_MOD_SRCS := go.mod go.sum
 GO_BUILD_ENV := CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOEXPERIMENT=jsonv2
@@ -87,7 +88,7 @@ worker-image:
 	@echo "Built $(REGISTRY)/$(REPO)/worker:$(TAG)"
 
 .PHONY: generate
-generate: generate-controller generate-storage generate-mocks
+generate: generate-controller generate-storage generate-chart generate-mocks
 
 .PHONY: generate-controller
 generate-controller: manifests  ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -110,6 +111,10 @@ generate-storage-test-crd: ## Generate CRD used by the controller tests to acces
 generate-storage: generate-storage-test-crd ## Generate storage  code in pkg/generated and DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	go install ./hack/tools.go
 	API_KNOWN_VIOLATIONS_DIR=. UPDATE_API_KNOWN_VIOLATIONS=true ./hack/update-codegen.sh
+
+.PHONY: generate-chart
+generate-chart: ## Generate Helm chart values schema.
+	helm schema --values charts/sbomscanner/values.yaml --output charts/sbomscanner/values.schema.json
 
 .PHONY: generate-mocks
 generate-mocks: ## Generate mocks for testing.
