@@ -109,3 +109,15 @@ targets:
     spec:
       file: charts/sbomscanner/README.md
       forcecreate: true
+  generate_values_schema:
+    kind: shell
+    disablesourceinput: true
+    name: Generate values.schema.json file
+    spec:
+      changedif:
+        kind: file/checksum
+        spec:
+          files:
+            - charts/sbomscanner/values.schema.json
+      command: |
+        make generate-chart
