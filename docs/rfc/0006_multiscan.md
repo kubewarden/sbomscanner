@@ -10,17 +10,17 @@
 
 [summary]: #summary
 
-Support grype as additional tool to scan for SBOMs.
+Support grype as an additional tool to scan for SBOMs.
 
 # Motivation
 
 [motivation]: #motivation
 
-We want to add support for `grype` in order to enrich the vulnerability reports, making it more complete and accurate.
+We want to add support for `grype` in order to enrich the vulnerability reports, making them more complete and accurate.
 
-This will allow us to be vendor neutral, since we are currently relying only on `trivy` to generate SBOMs and scan for vulnerabilities.
+This will allow us to be vendor-neutral, since we are currently relying only on `trivy` to generate SBOMs and scan for vulnerabilities.
 
-Additionally, we discovered that `grype` is able to find more vulnerabilities than `trivy`. Below there's a recap about our research:
+Additionally, we discovered that `grype` is able to find more vulnerabilities than `trivy`. Below is a recap of our research:
 
 | image | `trivy` | `grype` |
 |-------|---------|---------|
@@ -41,6 +41,23 @@ As a user, I want to make use of KEV and the EPSS score (which are currently pro
 
 [design]: #detailed-design
 
+For this new feature, we are providing a way to enable it when scanning.
+
+This will impact the `ScanJob` CRD, adding a new boolean field called `multiScan`, set to `false` by default.
+
+To enable it, the `ScanJob` should be set like this:
+
+```yaml
+apiVersion: sbomscanner.kubewarden.io/v1alpha1
+kind: ScanJob
+metadata:
+  name: scanjob-example
+  namespace: default
+spec:
+  registry: example-registry
+  multiScan: true
+```
+
 ## Scan
 
 For the multiscan feature, we are going to double the following operations:
@@ -49,24 +66,15 @@ For the multiscan feature, we are going to double the following operations:
 
 * sbom scan
 
-This will let grype generate its own report, so that we can then compare and merge with the one obtained with trivy.
+This will let `grype` generate its own report, so that we can then compare and merge with the one obtained with trivy.
 
-We can run the tools sequentially (1st trivy, 2nd grype) and then apply the following flow to decide what to return:
-
-```
-if trivy fails:
-  return error
-if grype fails:
-  return trivy.result
-if trivy succed && grype succed:
-  return trivy.result and grype.result
-```
+We can run the tools sequentially (1st trivy, 2nd grype) in case the `multiScan` field is set to `true` in the `ScanJob` CRD.
 
 ## Merge
 
-The second phase, of the multiscan process, is about merging results.
+The second phase of the multiscan process is about merging results.
 
-We already have defined our own `VulnerabilityReport` format [here](./0004_vulnerability_report.md). Starting from here, we are going to enrich the struct with information that are exclusively provided by `grype`:
+If both the scans succeed, then we can merge them together. We already have defined our own `VulnerabilityReport` format [here](./0004_vulnerability_report.md). Starting from here, we are going to enrich the struct with information that is exclusively provided by `grype`:
 
 * `kev` is a list of known exploits from the CISA KEV dataset.
 
@@ -76,7 +84,7 @@ We already have defined our own `VulnerabilityReport` format [here](./0004_vulne
 
 * `licenses` is a list of the licenses used by all the components within the affected software.
 
-In addition to that, we are going to optionally update/overwrite already existing fields retrivied from `trivy`, in case `grype` has better results:
+In addition to that, we are going to optionally update/overwrite already existing fields retrievied from `trivy`, in case `grype` has better results:
 
 * `cvss` version and scores.
 
@@ -84,7 +92,7 @@ In addition to that, we are going to optionally update/overwrite already existin
 
 * `description` if not provided by trivy.
 
-We cannot be sure that both the tools will find the exact same results, for this reason we have to adopt the following merging strategy:
+We cannot be sure that both tools will find the same results. For this reason, we have to adopt the following merging strategy:
 
 ```
 vuln_report
@@ -95,7 +103,8 @@ for vuln in trivy.vulnerabilities:
     vuln_report add grype.epss
     ...
 for vuln in grype.vulnerabilities:
-  vuln_report add vuln
+  if vuln not in vuln_report:
+    vuln_report add vuln
 ```
 
 # Drawbacks
@@ -111,20 +120,9 @@ Why should we **not** do this?
   * will the solution be hard to maintain in the future?
 --->
 
-# Alternatives
+There are no specific concerns about this new feature.
 
-[alternatives]: #alternatives
+By default, the `multiScan` is not enabled, so the user will not hit performance issues.
 
-<!---
-- What other designs/options have been considered?
-- What is the impact of not doing this?
---->
+When the feature is enabled, an additional scan will run, and consequently, its results will be merged. This shouldn't have a huge impact, but users should keep this in mind when enabling it.
 
-# Unresolved questions
-
-[unresolved]: #unresolved-questions
-
-<!---
-- What are the unknowns?
-- What can happen if Murphy's law holds true?
---->
