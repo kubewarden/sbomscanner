@@ -7,8 +7,8 @@ jobs:
     name: Update SBOMscanner charts
     runs-on: ubuntu-latest
     permissions:
-      contents: write # for updatecli to update the repository
-      pull-requests: write # for updatecli to create a PR
+      contents: read
+      pull-requests:  read
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -24,9 +24,7 @@ jobs:
 
       - name: Update SBOMscanner charts
         env:
-          # Until this repository is under the kubewarden GitHub organisation
-          # It's easier to use the default GITHUB_TOKEN but ultimately
-          # it's gonna be better to use a GitHub App token
-          UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UPDATECLI_GITHUB_OWNER: ${{ github.repository_owner }}
+          UPDATECLI_GITHUB_APP_CLIENT_ID: ${{ secrets.APP_ID }}
+          UPDATECLI_GITHUB_APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          UPDATECLI_GITHUB_APP_INSTALLATION_ID: "${{ secrets.APP_INSTALLATION_ID }}"
         run: "updatecli compose apply --file updatecli/updatecli-compose.release.yaml"

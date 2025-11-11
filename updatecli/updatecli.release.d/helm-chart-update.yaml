@@ -13,9 +13,8 @@ sources:
     name: "Get latest sbomscanner version"
     kind: githubrelease
     spec:
-      owner: "{{ requiredEnv .github.owner }}"
+      owner: "{{ .github.owner }}"
       repository: sbomscanner
-      token: "{{ requiredEnv .github.token }}"
       typefilter:
         prerelease: true
         release: true
@@ -34,11 +33,10 @@ scms:
     spec:
       user: "{{ .github.author }}"
       email: "{{ .github.email }}"
-      owner: "{{ requiredEnv .github.owner }}"
+      owner: "{{ .github.owner }}"
       repository: "sbomscanner"
-      token: "{{ requiredEnv .github.token }}"
-      username: "{{ requiredEnv .github.user }}"
       branch: "{{ .github.branch }}"
+      commitusingapi: true
       commitmessage:
         squash: true
         type: "chore"
