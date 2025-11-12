@@ -5,3 +5,11 @@ packages:
         config:
           filename: publisher.go
           dir: "{{.InterfaceDir}}/mocks"
+  
+  github.com/google/go-containerregistry/pkg/v1:
+    interfaces:
+      Layer:
+        config:
+          filename: layer.go
+          dir: internal/handlers/registry/mocks 
+          pkgname: mocks
