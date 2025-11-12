@@ -11,11 +11,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/spdx/tools-golang/spdx"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,8 +29,6 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	messagingMocks "github.com/kubewarden/sbomscanner/internal/messaging/mocks"
 	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
-	corev1 "k8s.io/api/core/v1"
-	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
 func TestGenerateSBOMHandler_Handle(t *testing.T) {
@@ -39,37 +39,37 @@ func TestGenerateSBOMHandler_Handle(t *testing.T) {
 	}{
 		{
 			platform:         "linux/amd64",
-			sha256:           "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028",
+			sha256:           imageDigestLinuxAmd64MultiArch,
 			expectedSPDXJSON: filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-amd64.spdx.json"),
 		},
 		{
 			platform:         "linux/arm/v6",
-			sha256:           "sha256:ea95bb81dab31807beac6c62824c048b1ee96b408f6097ea9dd0204e380f00b2",
+			sha256:           imageDigestLinuxArmV6MultiArch,
 			expectedSPDXJSON: filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-arm-v6.spdx.json"),
 		},
 		{
 			platform:         "linux/arm/v7",
-			sha256:           "sha256:ab389e320938f3bd42f45437d381fab28742dadcb892816236801e24a0bef804",
+			sha256:           imageDigestLinuxArmV7MultiArch,
 			expectedSPDXJSON: filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-arm-v7.spdx.json"),
 		},
 		{
 			platform:         "linux/arm64/v8",
-			sha256:           "sha256:1c96d48d06d96929d41e76e8145eb182ce22983f5e3539a655ec2918604835d0",
+			sha256:           imageDigestLinuxArm64V8MultiArch,
 			expectedSPDXJSON: filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-arm64-v8.spdx.json"),
 		},
 		{
 			platform:         "linux/386",
-			sha256:           "sha256:d8801b3783dd4e4aee273c1a312cc265c832c7f264056d68e7ea73b8e1dd94b0",
+			sha256:           imageDigestLinux386MultiArch,
 			expectedSPDXJSON: filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-386.spdx.json"),
 		},
 		{
 			platform:         "linux/ppc64le",
-			sha256:           "sha256:216cb428a7a53a75ef7806ed1120c409253e3e65bddc6ae0c21f5cd2faf92324",
+			sha256:           imageDigestLinuxPpc64leMultiArch,
 			expectedSPDXJSON: filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-ppc64le.spdx.json"),
 		},
 		{
 			platform:         "linux/s390x",
-			sha256:           "sha256:f2475c61ab276da0882a9637b83b2a5710b289d6d80f3daedb71d4a8eaeb1686",
+			sha256:           imageDigestLinuxS390xMultiArch,
 			expectedSPDXJSON: filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-s390x.spdx.json"),
 		},
 	} {
@@ -595,25 +595,12 @@ func TestGenerateSBOMHandler_Handle_ExistingSBOM(t *testing.T) {
 }
 
 func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
-	suite, err := startTestPrivateRegistry(t.Context())
+	singleArchRef := name.MustParseReference(imageRefSingleArch)
+	testPrivateRegistry, err := runTestRegistry(t.Context(), []name.Reference{
+		singleArchRef,
+	}, true)
 	require.NoError(t, err)
-	defer require.NoError(t, suite.stop(t.Context()))
-
-	image := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "image",
-			Namespace: "default",
-			UID:       "image-uid",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "localhost",
-			RegistryURI: suite.registryURL,
-			Repository:  imageName,
-			Tag:         tag,
-			Platform:    platform,
-			Digest:      digest,
-		},
-	}
+	defer testPrivateRegistry.Terminate(t.Context())
 
 	registry := &v1alpha1.Registry{
 		ObjectMeta: metav1.ObjectMeta{
@@ -621,7 +608,7 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.RegistrySpec{
-			URI:        suite.registryURL,
+			URI:        testPrivateRegistry.RegistryName,
 			AuthSecret: "registry-secret",
 		},
 	}
@@ -642,9 +629,25 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 					    	"auth": "dXNlcjpwYXNzd29yZA=="
 						}
 					}
-				}`, suite.registryURL),
+				}`, testPrivateRegistry.RegistryName),
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
+	}
+
+	image := &storagev1alpha1.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      computeImageUID(fmt.Sprintf("%s/%s", testPrivateRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
+			Namespace: "default",
+			UID:       "image-uid",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: testPrivateRegistry.RegistryName,
+			Repository:  singleArchRef.Context().RepositoryStr(),
+			Tag:         singleArchRef.Identifier(),
+			Platform:    "linux/amd64",
+			Digest:      imageDigestSingleArch,
+		},
 	}
 
 	scanJob := &v1alpha1.ScanJob{
@@ -666,7 +669,7 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	require.NoError(t, err)
 	err = v1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
-	err = k8sscheme.AddToScheme(scheme)
+	err = corev1.AddToScheme(scheme)
 	require.NoError(t, err)
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
