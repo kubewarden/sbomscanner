@@ -3,37 +3,37 @@
 | Feature Name | Scanner architecture and design                      |
 | Start Date   | Oct 24th, 2024                                       |
 | Category     | Architecture                                         |
-| RFC PR       | https://github.com/kubewarden/sbomscanner/pull/9 |
+| RFC PR       |      |
 | State        | **ACCEPTED**                                         |
 
 # Summary
 
 [summary]: #summary
 
-Create a SBOM-centric registry vulnerability scanner that integrates well with Rancher.
+Define way to filter the images being scanned.
 
 # Motivation
 
 [motivation]: #motivation
 
-The purpose of this RFC is to define a vulnerability scanner that scans container images and artifacts in a registry,
-generates a Software Bill of Materials (SBOM), and provides vulnerability reports that include discovered CVEs and other security issues.
+The purpose of this RFC is to define a way to filter certains parameters in order to speed up the scan time.
+Currently, when defining a Registry, the only way to limit the contents being scanned is to provide a list of repositories. However, all the images found inside of these repositories are being scanned. This can lead to scanning a lot of irrelevant images, wasting a lot of time and resources.
 
-Another goal is to create a scanner that integrates seamlessly with Rancher,
-offering an easy way to access scanner results through the Rancher UI and connect with other Rancher components, such as Kubewarden and SUSE Observability.
+We should provide a way to filter the images being scanned.
+
+I would start focusing on two kind of filters:
+
+* platform: many repositories contain multi architecture images. A single image could have been built for linux as an OS, but for different architectures (arm64, amd64, s390x, ppc64 and maybe other flavors of arm). For example, as a user running a `x86_64` cluster, I care about scanning only amd64 images since these are the only ones I can run inside of my cluster
+* tags: certain repositories do not remove old images. It would be useful to provide a way to scan only the images tagged in a specific way. As a possible solution, we might consider to allow the usage of a CEL expression to determine whether a tag is relevant or not. By using CEL the end user would be able to use different methods: regular expressions, semantic versioning checks, etc.
 
 ## Examples / User Stories
 
 [examples]: #examples
 
-- As a user, I want to scan all the images in my registry/repository for vulnerabilities.
-- As a user, I want to see the vulnerabilities found in my images in the Rancher UI.
-- As a user, I want to know which layers of my images are affected by the vulnerabilities.
-
-Examples of user stories that can be achieved with the integration with other Rancher components:
-
-- As a user, I want to deploy/write Kubewarden policies based on the vulnerabilities found in my images.
-- As a user, I want to see the vulnerabilities found in my container images in the SUSE Observability dashboard.
+- As a user, I want to scan only `linux/amd64` based images on my registry.
+- As a user, I want to scan `linux/amd64` and `linux/arm` based images on my registry.
+- As a user, I want to scan only the most recent tags of images on my registry.
+- As a user, I want to scan only the most recent tags, `linux/amd64` based images on my registry.
 
 # Detailed design
 
