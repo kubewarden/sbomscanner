@@ -34,7 +34,7 @@ version: 0.8.2
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
-appVersion: v0.8.2
+appVersion: v0.8.3
 
 dependencies:
   - name: nats
