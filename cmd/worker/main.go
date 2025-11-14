@@ -127,7 +127,7 @@ func main() {
 		logger.Error("Error creating k8s client", "error", err)
 		os.Exit(1)
 	}
-	registryClientFactory := func(transport http.RoundTripper) registry.Client {
+	registryClientFactory := func(transport http.RoundTripper) *registry.Client {
 		return registry.NewClient(transport, logger)
 	}
 

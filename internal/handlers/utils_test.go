@@ -2,33 +2,47 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
-	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
+	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/registry"
-	"github.com/testcontainers/testcontainers-go/wait"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	testTrivyDBRepository     = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-db:2"
-	testTrivyJavaDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-java-db:2"
+	testTrivyJavaDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-java-db:1"
 )
 
 const (
-	registryPort = "5000/tcp"
-	authUser     = "user"
-	authPass     = "password"
-	registryURI  = "ghcr.io/kubewarden/sbomscanner/test-assets"
-	imageName    = "golang"
-	tag          = "1.12-alpine"
-	platform     = "linux/amd64"
-	digest       = "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028"
-	htpasswd     = "user:$2y$10$nTQigvLRGGHCBQwZB4MPPe2SA6GYG218uTe1ntHusNcEjLaAfBive" // user:password
+	authUser = "user"
+	authPass = "password"
+	htpasswd = "user:$2y$10$nTQigvLRGGHCBQwZB4MPPe2SA6GYG218uTe1ntHusNcEjLaAfBive" // user:password
 )
 
+const (
+	imageRefSingleArch    = "ghcr.io/kubewarden/sbomscanner/test-assets/nginx:1.27.1"
+	imageDigestSingleArch = "sha256:f41b7d70c5779beba4a570ca861f788d480156321de2876ce479e072fb0246f1"
+
+	imageRefMultiArch                = "ghcr.io/kubewarden/sbomscanner/test-assets/golang:1.12-alpine"
+	imageDigestLinuxAmd64MultiArch   = "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028"
+	imageDigestLinuxArmV6MultiArch   = "sha256:ea95bb81dab31807beac6c62824c048b1ee96b408f6097ea9dd0204e380f00b2"
+	imageDigestLinuxArmV7MultiArch   = "sha256:ab389e320938f3bd42f45437d381fab28742dadcb892816236801e24a0bef804"
+	imageDigestLinuxArm64V8MultiArch = "sha256:1c96d48d06d96929d41e76e8145eb182ce22983f5e3539a655ec2918604835d0"
+	imageDigestLinux386MultiArch     = "sha256:d8801b3783dd4e4aee273c1a312cc265c832c7f264056d68e7ea73b8e1dd94b0"
+	imageDigestLinuxPpc64leMultiArch = "sha256:216cb428a7a53a75ef7806ed1120c409253e3e65bddc6ae0c21f5cd2faf92324"
+	imageDigestLinuxS390xMultiArch   = "sha256:f2475c61ab276da0882a9637b83b2a5710b289d6d80f3daedb71d4a8eaeb1686"
+
+	imageRefMultiArchWithUnknownPlatform              = "ghcr.io/kubewarden/sbombscanner/test-assets/udash-front:v0.11.0"
+	imageDigestLinuxAmd64MultiArchWithUnknownPlatform = "sha256:d2fabf8aca7ade7f2bcb63d0ef7966b697bed9482197d9906cf2578202d7f789"
+	imageDigestLinuxArm64MultiArchWithUnknownPlatform = "sha256:6c8913ca09035b8730212b9a5b2f2ce451fe37a36b4e591e3d5af77b2eb60971"
+)
+
+// testMessage is a simple implementation of a message used for testing purposes.
 type testMessage struct {
 	data []byte
 }
@@ -41,75 +55,83 @@ func (m *testMessage) InProgress() error {
 	return nil
 }
 
-type testPrivateRegistry struct {
-	registry    *registry.RegistryContainer
-	registryURL string
+// Custom keychain for the test registry
+type staticKeychain struct {
+	registry string
+	auth     authn.Authenticator
 }
 
-func startTestPrivateRegistry(ctx context.Context) (*testPrivateRegistry, error) {
-	registryContainer, err := registry.Run(
+func (k *staticKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
+	if target.RegistryStr() == k.registry {
+		return k.auth, nil
+	}
+	return authn.Anonymous, nil
+}
+
+// runTestRegistry starts a test container registry, optionally with authentication, and pushes the provided test images to it.
+func runTestRegistry(ctx context.Context, testImages []name.Reference, private bool) (*registry.RegistryContainer, error) {
+	opts := []testcontainers.ContainerCustomizer{}
+	if private {
+		opts = append(opts, registry.WithHtpasswd(htpasswd))
+	}
+
+	registryTestcontainer, err := registry.Run(
 		ctx,
 		registry.DefaultImage,
-		registry.WithHtpasswd(htpasswd),
-		testcontainers.WithWaitStrategy(
-			wait.ForHTTP("/v2/").
-				WithPort(registryPort).
-				WithStatusCodeMatcher(func(status int) bool {
-					// Registry should return 401 (Unauthorized) for unauthenticated requests
-					return status == http.StatusUnauthorized
-				}).
-				WithStartupTimeout(5*time.Minute),
-		),
+		opts...,
 	)
 	if err != nil {
-		return &testPrivateRegistry{}, fmt.Errorf("unable to start registry: %w", err)
+		return nil, fmt.Errorf("unable to start registry testcontainer: %w", err)
 	}
 
-	// Get registry URL
-	registryHostAddress, err := registryContainer.HostAddress(ctx)
+	registryHostAddress, err := registryTestcontainer.HostAddress(ctx)
 	if err != nil {
-		return &testPrivateRegistry{}, fmt.Errorf("unable to get registry host address: %w", err)
+		return nil, fmt.Errorf("unable to get registry host address: %w", err)
 	}
 
-	cleanup, err := registry.SetDockerAuthConfig(
-		registryHostAddress, authUser, authPass,
-	)
-	if err != nil {
-		return &testPrivateRegistry{}, fmt.Errorf("unable to set docker auth config: %w", err)
-	}
-	defer cleanup()
+	keychains := []authn.Keychain{authn.DefaultKeychain}
+	if private {
+		_, err := registry.SetDockerAuthConfig(registryHostAddress, authUser, authPass)
+		if err != nil {
+			return nil, fmt.Errorf("unable to set docker auth config: %w", err)
+		}
 
-	imageRefPull := fmt.Sprintf("%s/%s:%s", registryURI, imageName, tag)
-	err = registryContainer.PullImage(ctx, imageRefPull)
-	if err != nil {
-		return &testPrivateRegistry{}, fmt.Errorf("unable to pull image: %w", err)
-	}
-
-	imageRef := fmt.Sprintf("%s/%s:%s", registryContainer.RegistryName, imageName, tag)
-	err = registryContainer.TagImage(ctx, imageRefPull, imageRef)
-	if err != nil {
-		return &testPrivateRegistry{}, fmt.Errorf("unable to tag image: %w", err)
+		// Add custom keychain for the test registry authentication
+		keychains = append(keychains, &staticKeychain{
+			registry: registryHostAddress,
+			auth: &authn.Basic{
+				Username: authUser,
+				Password: authPass,
+			},
+		})
 	}
 
-	err = registryContainer.PushImage(ctx, imageRef)
-	if err != nil {
-		return &testPrivateRegistry{}, fmt.Errorf("unable to push image: %w", err)
+	for _, image := range testImages {
+		localImageRef := fmt.Sprintf("%s/%s:%s", registryHostAddress, image.Context().RepositoryStr(), image.Identifier())
+
+		// Use crane.Copy to preserve multi-arch manifests
+		if err := crane.Copy(image.String(), localImageRef, crane.WithAuthFromKeychain(authn.NewMultiKeychain(keychains...))); err != nil {
+			return nil, fmt.Errorf("unable to copy image: %w", err)
+		}
 	}
 
-	return &testPrivateRegistry{
-		registry:    registryContainer,
-		registryURL: registryHostAddress,
-	}, nil
+	return registryTestcontainer, nil
 }
 
-func (r *testPrivateRegistry) stop(ctx context.Context) error {
-	if r.registry == nil {
-		return errors.New("registry was not started")
+// imageFactory creates a storagev1alpha1.Image object for testing purposes.
+func imageFactory(registryURI, repository, tag, platform, digest string) *storagev1alpha1.Image {
+	return &storagev1alpha1.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      computeImageUID(fmt.Sprintf("%s/%s", registryURI, repository), tag, digest),
+			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: registryURI,
+			Repository:  repository,
+			Tag:         tag,
+			Platform:    platform,
+			Digest:      digest,
+		},
 	}
-
-	if err := r.registry.Terminate(ctx); err != nil {
-		return fmt.Errorf("cannot stop registry: %w", err)
-	}
-
-	return nil
 }

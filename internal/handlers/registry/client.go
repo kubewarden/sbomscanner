@@ -20,49 +20,21 @@ type ImageDetails struct {
 	Platform cranev1.Platform
 }
 
-//go:generate go run github.com/vektra/mockery/v2@v2.46.2 --name ImageIndex --srcpkg github.com/google/go-containerregistry/pkg/v1 --filename image_index.go
-//go:generate go run github.com/vektra/mockery/v2@v2.46.2 --name Layer --srcpkg github.com/google/go-containerregistry/pkg/v1 --filename layer.go
+type ClientFactory func(http.RoundTripper) *Client
 
-//go:generate go run github.com/vektra/mockery/v2@v2.46.2 --name Client --filename client.go
-type Client interface {
-	// Catalog returns a list of repositories in the registry.
-	// The registries are fully qualified (e.g. registry.example.com/repo)
-	Catalog(ctx context.Context, registry name.Registry) ([]string, error)
-
-	// ListRepositories returns a list of the images defined inside of a repository.
-	//
-	// Params:
-	// - `repository` is the fully qualified name of the repository (e.g. registry.example.com/repo)
-	//
-	// Returns a list of images found inside of the repository.
-	// The name of the image is fully qualified (e.g. registry.example.com/repo:tag)
-	ListRepositoryContents(ctx context.Context, repository name.Repository) ([]string, error)
-
-	// GetIndex returns the ImageIndex of the given image.
-	// Note well: the reference might not point to an ImageIndex,
-	// but to an image manifest. In which case an error will be returned.
-	GetImageIndex(ref name.Reference) (cranev1.ImageIndex, error)
-
-	// GetImageDetails returns the details of the image.
-	// When platform is nil, the default platform is used.
-	GetImageDetails(ref name.Reference, platform *cranev1.Platform) (ImageDetails, error)
-}
-
-type ClientFactory func(http.RoundTripper) Client
-
-type client struct {
+type Client struct {
 	transport http.RoundTripper
 	logger    *slog.Logger
 }
 
-func NewClient(transport http.RoundTripper, logger *slog.Logger) Client {
-	return &client{
+func NewClient(transport http.RoundTripper, logger *slog.Logger) *Client {
+	return &Client{
 		transport: transport,
 		logger:    logger.With("component", "registry_client"),
 	}
 }
 
-func (c *client) Catalog(ctx context.Context, registry name.Registry) ([]string, error) {
+func (c *Client) Catalog(ctx context.Context, registry name.Registry) ([]string, error) {
 	c.logger.DebugContext(ctx, "Catalog called", "registry", registry)
 
 	puller, err := remote.NewPuller(
@@ -99,7 +71,7 @@ func (c *client) Catalog(ctx context.Context, registry name.Registry) ([]string,
 	return repositories, nil
 }
 
-func (c *client) ListRepositoryContents(ctx context.Context, repo name.Repository) ([]string, error) {
+func (c *Client) ListRepositoryContents(ctx context.Context, repo name.Repository) ([]string, error) {
 	c.logger.DebugContext(ctx, "List repository contents", "repository", repo)
 
 	puller, err := remote.NewPuller(
@@ -135,7 +107,7 @@ func (c *client) ListRepositoryContents(ctx context.Context, repo name.Repositor
 	return images, nil
 }
 
-func (c *client) GetImageIndex(ref name.Reference) (cranev1.ImageIndex, error) {
+func (c *Client) GetImageIndex(ref name.Reference) (cranev1.ImageIndex, error) {
 	c.logger.Debug("GetImageIndex called", "image", ref.Name())
 
 	index, err := remote.Index(ref,
@@ -148,7 +120,7 @@ func (c *client) GetImageIndex(ref name.Reference) (cranev1.ImageIndex, error) {
 	return index, nil
 }
 
-func (c *client) GetImageDetails(ref name.Reference, platform *cranev1.Platform) (ImageDetails, error) {
+func (c *Client) GetImageDetails(ref name.Reference, platform *cranev1.Platform) (ImageDetails, error) {
 	c.logger.Debug("GetImageDetails called", "image", ref.Name(), "platform", platform)
 
 	options := []remote.Option{

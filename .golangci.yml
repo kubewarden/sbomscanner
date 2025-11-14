@@ -492,6 +492,7 @@ linters:
           - gosec
           - noctx
           - wrapcheck
+          - gocognit
       - path: '_test\.go'
         linters:
           - revive

@@ -86,6 +86,14 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 		}, scanJob); err != nil {
 			return fmt.Errorf("cannot get scanjob %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
 		}
+
+		if string(scanJob.GetUID()) != createCatalogMessage.ScanJob.UID {
+			return apierrors.NewNotFound(
+				v1alpha1.GroupVersion.WithResource("scanjobs").GroupResource(),
+				fmt.Sprintf("%s/%s", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name),
+			)
+		}
+
 		scanJob.MarkInProgress(v1alpha1.ReasonCatalogCreationInProgress, "Catalog creation in progress")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
@@ -96,11 +104,6 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			return nil
 		}
 		return fmt.Errorf("cannot update scan job status %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
-	}
-	if string(scanJob.GetUID()) != createCatalogMessage.ScanJob.UID {
-		h.logger.InfoContext(ctx, "ScanJob not founnd, stopping SBOM generation (UID changed)", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace,
-			"uid", createCatalogMessage.ScanJob.UID)
-		return nil
 	}
 
 	// Retrieve the registry from the scan job annotations.
@@ -205,7 +208,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 				return fmt.Errorf("cannot get scanjob %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
 			}
 			if string(scanJob.GetUID()) != createCatalogMessage.ScanJob.UID {
-				h.logger.InfoContext(ctx, "ScanJob not founnd, stopping SBOM generation (UID changed)", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace,
+				h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace,
 					"uid", createCatalogMessage.ScanJob.UID)
 				return nil
 			}
@@ -247,6 +250,13 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			Namespace: scanJob.Namespace,
 		}, scanJob); err != nil {
 			return fmt.Errorf("cannot get scan job %s/%s while updating status: %w", scanJob.Namespace, scanJob.Name, err)
+		}
+
+		if string(scanJob.GetUID()) != createCatalogMessage.ScanJob.UID {
+			return apierrors.NewNotFound(
+				v1alpha1.GroupVersion.WithResource("scanjobs").GroupResource(),
+				fmt.Sprintf("%s/%s", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name),
+			)
 		}
 
 		if len(discoveredImages) == 0 {
@@ -299,7 +309,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 // Returns the list of fully qualified repository names (e.g. registryclientexample.com/repo)
 func (h *CreateCatalogHandler) discoverRepositories(
 	ctx context.Context,
-	registryClient registryclient.Client,
+	registryClient *registryclient.Client,
 	registry *v1alpha1.Registry,
 ) ([]string, error) {
 	reg, err := name.NewRegistry(registry.Spec.URI)
@@ -331,7 +341,7 @@ func (h *CreateCatalogHandler) discoverRepositories(
 // Returns the list of fully qualified image names (e.g. registryclientexample.com/repo:tag)
 func (h *CreateCatalogHandler) discoverImages(
 	ctx context.Context,
-	registryClient registryclient.Client,
+	registryClient *registryclient.Client,
 	repository string,
 ) ([]string, error) {
 	repo, err := name.NewRepository(repository)
@@ -350,7 +360,7 @@ func (h *CreateCatalogHandler) discoverImages(
 // refToImages converts a reference to a list of Image resources.
 func (h *CreateCatalogHandler) refToImages(
 	ctx context.Context,
-	registryClient registryclient.Client,
+	registryClient *registryclient.Client,
 	ref name.Reference,
 	registry *v1alpha1.Registry,
 	message messaging.Message,
@@ -401,7 +411,7 @@ func (h *CreateCatalogHandler) refToImages(
 // refToPlatforms returns the list of platforms for the given image reference.
 // If the image is not multi-architecture, it returns an empty list.
 func (h *CreateCatalogHandler) refToPlatforms(
-	registryClient registryclient.Client,
+	registryClient *registryclient.Client,
 	ref name.Reference,
 	allowedPlatforms []v1alpha1.Platform,
 ) ([]*cranev1.Platform, error) {
@@ -543,7 +553,7 @@ func imageDetailsToImage(
 
 	image := storagev1alpha1.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      computeImageUID(ref, details.Digest.String()),
+			Name:      computeImageUID(ref.Context().Name(), ref.Identifier(), details.Digest.String()),
 			Namespace: registry.Namespace,
 			Labels: map[string]string{
 				api.LabelManagedByKey: api.LabelManagedByValue,
@@ -564,10 +574,10 @@ func imageDetailsToImage(
 	return image, nil
 }
 
-// computeImageUID returns the sha256 of “<image-name>@sha256:<digest>`
-func computeImageUID(ref name.Reference, digest string) string {
+// computeImageUID returns a unique identifier for an image.
+func computeImageUID(name, identifier, digest string) string {
 	sha := sha256.New()
-	fmt.Fprintf(sha, "%s:%s@%s", ref.Context().Name(), ref.Identifier(), digest)
+	fmt.Fprintf(sha, "%s:%s@%s", name, identifier, digest)
 	return hex.EncodeToString(sha.Sum(nil))
 }
 
