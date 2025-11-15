@@ -7,7 +7,7 @@ require (
 	github.com/aquasecurity/trivy-db v0.0.0-20251105110430-b244c7744af1
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/aws/smithy-go v1.23.2
-	github.com/docker/cli v29.0.0+incompatible
+	github.com/docker/cli v29.0.1+incompatible
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.6
@@ -498,5 +498,5 @@ replace (
 	github.com/aquasecurity/trivy => github.com/fabriziosestito/trivy v0.0.0-20251015050612-618ad6a52a52
 
 	// TODO: remove https://github.com/containerd/containerd/issues/12493 is resolved.
-	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.2.1
+	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.3.0
 )
