@@ -761,8 +761,6 @@ github.com/aquasecurity/tml v0.6.1 h1:y2ZlGSfrhnn7t4ZJ/0rotuH+v5Jgv6BDDO5jB6A9gw
 github.com/aquasecurity/tml v0.6.1/go.mod h1:OnYMWY5lvI9ejU7yH9LCberWaaTBW7hBFsITiIMY2yY=
 github.com/aquasecurity/trivy-checks v1.12.1 h1:5Uo2XUODGfXP315K78k7OV0bRy67sBBBHGNWl/bKZIg=
 github.com/aquasecurity/trivy-checks v1.12.1/go.mod h1:KwhWzFj++s22cMKRhXR4UHDUHUx3wBsje7AkhEsUjeE=
-github.com/aquasecurity/trivy-db v0.0.0-20251105110430-b244c7744af1 h1:1Q+VAqV4pxbZNHtUa+bsxJRqFQMbuTH8e86Bk6/3XG0=
-github.com/aquasecurity/trivy-db v0.0.0-20251105110430-b244c7744af1/go.mod h1:KL/C38wFKTREFgKSShT3DEmjNYSNXoYQ96wtQXRbnM8=
 github.com/aquasecurity/trivy-db v0.0.0-20251112074131-729fb118f080 h1:9ZirxjNut09h7PaWShNxDaiuESD2WEu0U8WIAr6j24g=
 github.com/aquasecurity/trivy-db v0.0.0-20251112074131-729fb118f080/go.mod h1:KL/C38wFKTREFgKSShT3DEmjNYSNXoYQ96wtQXRbnM8=
 github.com/aquasecurity/trivy-java-db v0.0.0-20250912094916-94bd09842933 h1:al3DxeQrHx7acBjgTomnVngeiN5LxA5m7EsOC52A3oU=
@@ -961,8 +959,8 @@ github.com/distribution/reference v0.6.0/go.mod h1:BbU0aIcezP1/5jX/8MP0YiH4SdvB5
 github.com/dlclark/regexp2 v1.4.0/go.mod h1:2pZnwuY/m+8K6iRw6wQdMtk+rH5tNGR1i55kozfMjCc=
 github.com/dlclark/regexp2 v1.11.5 h1:Q/sSnsKerHeCkc/jSTNq1oCm7KiVgUMZRDUoRu0JQZQ=
 github.com/dlclark/regexp2 v1.11.5/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
-github.com/docker/cli v29.0.0+incompatible h1:KgsN2RUFMNM8wChxryicn4p46BdQWpXOA1XLGBGPGAw=
-github.com/docker/cli v29.0.0+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
+github.com/docker/cli v29.0.2+incompatible h1:iLuKy2GWOSLXGp8feLYBJQVDv7m/8xoofz6lPq41x6A=
+github.com/docker/cli v29.0.2+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/distribution v2.8.3+incompatible h1:AtKxIZ36LoNK51+Z6RpzLpddBirtxJnzDrHLEKxTAYk=
 github.com/docker/distribution v2.8.3+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/docker v28.5.2+incompatible h1:DBX0Y0zAjZbSrm1uzOkdr1onVghKaftjlSWt4AFexzM=
