@@ -28,8 +28,15 @@ var _ = Describe("Registry Controller", func() {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          "ghcr.io/kubewarden",
-					Repositories: []string{"sbomscanner-dev", "sbomscanner-prod"},
+					URI: "ghcr.io/kubewarden",
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: "sbomscanner-dev",
+						},
+						{
+							Name: "sbomscanner-prod",
+						},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, &registry)).To(Succeed())
@@ -69,7 +76,11 @@ var _ = Describe("Registry Controller", func() {
 
 		It("Should delete all Images that are not in the current list of repositories", func(ctx context.Context) {
 			By("Updating the Registry with a new list of repositories")
-			registry.Spec.Repositories = []string{"sbomscanner-prod"}
+			registry.Spec.Repositories = []v1alpha1.Repository{
+				{
+					Name: "sbomscanner-prod",
+				},
+			}
 			Expect(k8sClient.Update(ctx, &registry)).To(Succeed())
 
 			By("Reconciling the Registry")

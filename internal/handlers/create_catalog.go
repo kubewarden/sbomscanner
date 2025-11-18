@@ -331,7 +331,7 @@ func (h *CreateCatalogHandler) discoverRepositories(
 
 	repositories := []string{}
 	for _, repository := range registry.Spec.Repositories {
-		repositories = append(repositories, path.Join(reg.Name(), repository))
+		repositories = append(repositories, path.Join(reg.Name(), repository.Name))
 	}
 
 	return repositories, nil

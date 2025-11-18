@@ -112,10 +112,16 @@ var registryTestCases = []registryTestCase{
 			Spec: v1alpha1.RegistrySpec{
 				URI:         "registry.test.local",
 				CatalogType: "NoCatalog",
-				Repositories: []string{
-					"repo-test-1",
-					"repo-test-2",
-					"repo-test-3",
+				Repositories: []v1alpha1.Repository{
+					{
+						Name: "repo-test-1",
+					},
+					{
+						Name: "repo-test-2",
+					},
+					{
+						Name: "repo-test-3",
+					},
 				},
 			},
 		},

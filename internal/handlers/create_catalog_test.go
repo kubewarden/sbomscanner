@@ -95,8 +95,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{singleArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
@@ -111,8 +115,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
@@ -133,8 +141,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 					Platforms: []v1alpha1.Platform{
 						{OS: "linux", Architecture: "arm", Variant: "v7"},
 					},
@@ -152,8 +164,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchWithUnknownPlatformRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
@@ -169,8 +185,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 					Platforms: []v1alpha1.Platform{
 						{OS: "linux", Architecture: "amd64"},
 					},
@@ -356,8 +376,10 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 		},
 		Spec: v1alpha1.RegistrySpec{
 			URI: "ghcr.io",
-			Repositories: []string{
-				"kubewarden/sbomscanner/test-assets/golang",
+			Repositories: []v1alpha1.Repository{
+				{
+					Name: "kubewarden/sbomscanner/test-assets/golang",
+				},
 			},
 			Platforms: []v1alpha1.Platform{
 				{
@@ -571,8 +593,12 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.RegistrySpec{
-			URI:          registryURI,
-			Repositories: []string{repo},
+			URI: registryURI,
+			Repositories: []v1alpha1.Repository{
+				{
+					Name: repo,
+				},
+			},
 		},
 	}
 

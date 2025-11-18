@@ -69,7 +69,11 @@ func (r *RegistryReconciler) reconcileRegistry(ctx context.Context, registry *v1
 		return ctrl.Result{}, fmt.Errorf("unable to list Images: %w", err)
 	}
 
-	allowedRepositories := sets.NewString(registry.Spec.Repositories...)
+	var repositories []string
+	for _, repo := range registry.Spec.Repositories {
+		repositories = append(repositories, repo.Name)
+	}
+	allowedRepositories := sets.NewString(repositories...)
 
 	for _, image := range images.Items {
 		if allowedRepositories.Has(image.GetImageMetadata().Repository) {
