@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"slices"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	cranev1 "github.com/google/go-containerregistry/pkg/v1"
@@ -32,6 +31,8 @@ import (
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/cel"
+	"github.com/kubewarden/sbomscanner/internal/filters"
 	"github.com/kubewarden/sbomscanner/internal/handlers/dockerauth"
 	registryclient "github.com/kubewarden/sbomscanner/internal/handlers/registry"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
@@ -175,6 +176,11 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 		return fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
+	tagEvaluator, err := cel.NewTagEvaluator()
+	if err != nil {
+		return fmt.Errorf("cannot instantiate new tag evaluator: %w", err)
+	}
+
 	var discoveredImages []storagev1alpha1.Image
 	for newImageName := range discoveredImageReferences {
 		var ref name.Reference
@@ -182,6 +188,19 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 		if err != nil {
 			h.logger.ErrorContext(ctx, "Cannot parse image reference", "reference", newImageName, "error", err)
 			// Avoid blocking other images to be cataloged
+			continue
+		}
+
+		matchConditions := registry.GetMatchConditionsByRepository(ref.Context().RepositoryStr())
+		tagIsAllowed, err := filters.FilterByTag(tagEvaluator, matchConditions, ref.Identifier())
+		if err != nil {
+			h.logger.ErrorContext(ctx, "Cannot evaluate image tag", "reference", newImageName, "error", err)
+			// Avoid blocking other images to be cataloged
+			continue
+		}
+		// if tag is not allowed by the CEL filter,
+		// then skip the image fetching.
+		if !tagIsAllowed {
 			continue
 		}
 
@@ -382,7 +401,11 @@ func (h *CreateCatalogHandler) refToImages(
 		}
 		// If the image is single-arch we did not know the platform till this point.
 		// This is why we neeed to run the filter again.
-		if !isPlatformAllowed(imageDetails.Platform, registry.Spec.Platforms) {
+		if !filters.IsPlatformAllowed(
+			imageDetails.Platform.OS,
+			imageDetails.Platform.Architecture,
+			imageDetails.Platform.Variant,
+			registry.Spec.Platforms) {
 			continue
 		}
 
@@ -432,7 +455,11 @@ func (h *CreateCatalogHandler) refToPlatforms(
 
 	platforms := []*cranev1.Platform{}
 	for _, manifest := range manifest.Manifests {
-		if !isPlatformAllowed(*manifest.Platform, allowedPlatforms) {
+		if !filters.IsPlatformAllowed(
+			manifest.Platform.OS,
+			manifest.Platform.Architecture,
+			manifest.Platform.Variant,
+			allowedPlatforms) {
 			continue
 		}
 		platforms = append(platforms, manifest.Platform)
@@ -579,27 +606,4 @@ func computeImageUID(name, identifier, digest string) string {
 	sha := sha256.New()
 	fmt.Fprintf(sha, "%s:%s@%s", name, identifier, digest)
 	return hex.EncodeToString(sha.Sum(nil))
-}
-
-// isPlatformAllowed verify if the platform of the image is allowed by the registry filter.
-func isPlatformAllowed(platform cranev1.Platform, allowedPlatforms []v1alpha1.Platform) bool {
-	// Images can contain "unknown/unknown" layers, which usually contain attestations.
-	// See https://docs.docker.com/build/metadata/attestations/attestation-storage/
-	// We need to skip these images, as they cannot be scanned.
-	if platform.OS == "unknown" && platform.Architecture == "unknown" {
-		return false
-	}
-
-	// If no platform is specified in the Registry CR,
-	// we assume the user wants to scan all the platforms.
-	if len(allowedPlatforms) == 0 {
-		return true
-	}
-
-	return slices.ContainsFunc(allowedPlatforms, func(allowedPlatform v1alpha1.Platform) bool {
-		if allowedPlatform.Variant == "" {
-			return platform.OS == allowedPlatform.OS && platform.Architecture == allowedPlatform.Architecture
-		}
-		return platform.OS == allowedPlatform.OS && platform.Architecture == allowedPlatform.Architecture && platform.Variant == allowedPlatform.Variant
-	})
 }
