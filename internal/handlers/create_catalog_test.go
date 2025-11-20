@@ -98,7 +98,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
 						{
-							Name: multiArchRef.Context().RepositoryStr(),
+							Name: singleArchRef.Context().RepositoryStr(),
 						},
 					},
 				},
@@ -157,6 +157,56 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "tag filter does not match",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{
+									Name:       "tag ends with '-dev'",
+									Expression: "tag.endsWith('-dev')",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedImages: []*storagev1alpha1.Image{},
+		},
+		{
+			name: "tag filter matches",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{
+									Name:       "tag version is > than 1.20.0",
+									Expression: "semver(tag, true).isGreaterThan(semver('1.20.0'))",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedImages: []*storagev1alpha1.Image{
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch),
+			},
+		},
+		{
 			name: "multiarch image with unknown/unknown platform",
 			registry: &v1alpha1.Registry{
 				ObjectMeta: metav1.ObjectMeta{
@@ -167,7 +217,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
 						{
-							Name: multiArchRef.Context().RepositoryStr(),
+							Name: multiArchWithUnknownPlatformRef.Context().RepositoryStr(),
 						},
 					},
 				},
