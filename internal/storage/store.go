@@ -42,7 +42,7 @@ var _ storage.Interface = &store{}
 
 type store struct {
 	db          *pgxpool.Pool
-	broadcaster *watch.Broadcaster
+	broadcaster *natsBroadcaster
 	table       string
 	newFunc     func() runtime.Object
 	newListFunc func() runtime.Object
