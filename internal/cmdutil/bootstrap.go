@@ -49,6 +49,30 @@ func WaitForStorageTypes(ctx context.Context, config *rest.Config, logger *slog.
 	return nil
 }
 
+// WaitForNATS waits until NATS is available.
+func WaitForNATS(ctx context.Context, url string, opts []nats.Option, logger *slog.Logger) error {
+	err := retry.Do(
+		func() error {
+			logger.InfoContext(ctx, "Checking for NATS availability")
+			nc, err := nats.Connect(url, opts...)
+			if err != nil {
+				return fmt.Errorf("failed to connect to NATS: %w", err)
+			}
+			nc.Close()
+			return nil
+		},
+		retryOptions(ctx, func(n uint, err error) {
+			logger.InfoContext(ctx, "Checking for NATS failed, retrying", "attempt", n+1, "error", err)
+		})...,
+	)
+	if err != nil {
+		return fmt.Errorf("timeout while waiting for NATS: %w", err)
+	}
+
+	logger.InfoContext(ctx, "NATS is available, continuing.")
+	return nil
+}
+
 // WaitForJetStream waits until JetStream is available on the NATS server.
 func WaitForJetStream(ctx context.Context, url string, opts []nats.Option, logger *slog.Logger) error {
 	err := retry.Do(
