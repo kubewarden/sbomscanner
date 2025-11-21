@@ -5,8 +5,13 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats-server/v2/test"
+	"github.com/nats-io/nats.go"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
@@ -29,7 +34,10 @@ type storeTestSuite struct {
 	store       *store
 	db          *pgxpool.Pool
 	broadcaster *watch.Broadcaster
+	watcher     *natsWatcher
 	pgContainer *postgres.PostgresContainer
+	natsServer  *server.Server
+	nc          *nats.Conn
 }
 
 func (suite *storeTestSuite) SetupSuite() {
@@ -54,6 +62,17 @@ func (suite *storeTestSuite) SetupSuite() {
 
 	_, err = db.Exec(ctx, CreateSBOMTableSQL)
 	suite.Require().NoError(err, "failed to create SBOM table")
+
+	// Setup NATS
+	opts := test.DefaultTestOptions
+	opts.Port = -1 // Use a random port
+	opts.JetStream = true
+	opts.StoreDir = suite.T().TempDir()
+	suite.natsServer = test.RunServer(&opts)
+
+	nc, err := nats.Connect(suite.natsServer.ClientURL())
+	suite.Require().NoError(err, "failed to connect to NATS")
+	suite.nc = nc
 }
 
 func (suite *storeTestSuite) TearDownSuite() {
@@ -65,26 +84,35 @@ func (suite *storeTestSuite) TearDownSuite() {
 		err := suite.pgContainer.Terminate(context.Background())
 		suite.Require().NoError(err, "failed to terminate postgres container")
 	}
+
+	if suite.nc != nil {
+		suite.nc.Close()
+	}
+
+	if suite.natsServer != nil {
+		suite.natsServer.Shutdown()
+	}
 }
 
 func (suite *storeTestSuite) SetupTest() {
-	ctx := context.Background()
-	_, err := suite.db.Exec(ctx, "TRUNCATE TABLE sboms")
+	_, err := suite.db.Exec(suite.T().Context(), "TRUNCATE TABLE sboms")
 	suite.Require().NoError(err, "failed to truncate table")
 
-	suite.broadcaster = watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
-	suite.store = &store{
+	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
+	natsBroadcaster := newNatsBroadcaster(suite.nc, "sboms", watchBroadcaster, TransformStripSBOM, slog.Default())
+	store := &store{
 		db:          suite.db,
-		broadcaster: suite.broadcaster,
+		broadcaster: natsBroadcaster,
 		table:       "sboms",
 		newFunc:     func() runtime.Object { return &storagev1alpha1.SBOM{} },
 		newListFunc: func() runtime.Object { return &storagev1alpha1.SBOMList{} },
 		logger:      slog.Default(),
 	}
-}
+	natsWatcher := newNatsWatcher(suite.nc, "sboms", watchBroadcaster, store, slog.Default())
 
-func (suite *storeTestSuite) TearDownTest() {
-	suite.broadcaster.Shutdown()
+	suite.store = store
+	suite.broadcaster = watchBroadcaster
+	suite.watcher = natsWatcher
 }
 
 func TestStoreTestSuite(t *testing.T) {
@@ -182,13 +210,12 @@ func (suite *storeTestSuite) TestWatchEmptyResourceVersion() {
 	key := keyPrefix + "/default/test"
 	opts := k8sstorage.ListOptions{ResourceVersion: ""}
 
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
 
 	suite.broadcaster.Shutdown()
 
-	events := collectEvents(watcher)
-	suite.Require().Empty(events)
+	suite.Require().Empty(w.ResultChan())
 }
 
 func (suite *storeTestSuite) TestWatchResourceVersionZero() {
@@ -204,8 +231,10 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 
 	opts := k8sstorage.ListOptions{ResourceVersion: "0"}
 
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
+
+	go suite.watcher.Start(suite.T().Context())
 
 	validateDeletion := func(_ context.Context, _ runtime.Object) error {
 		return nil
@@ -221,10 +250,7 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 	)
 	suite.Require().NoError(err)
 
-	suite.broadcaster.Shutdown()
-
-	events := collectEvents(watcher)
-	suite.Require().Len(events, 2)
+	events := mustReadEvents(suite.T(), w, 2)
 	suite.Equal(watch.Added, events[0].Type)
 	suite.Equal(sbom, events[0].Object)
 	suite.Equal(watch.Deleted, events[1].Type)
@@ -246,10 +272,12 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 		Predicate:       matcher(labels.Everything(), fields.Everything()),
 	}
 
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
 
-	tryUpdate := func(input runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+	go suite.watcher.Start(suite.T().Context())
+
+	tryUpdate := func(input runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 		return input, ptr.To(uint64(0)), nil
 	}
 	updatedSBOM := &storagev1alpha1.SBOM{}
@@ -264,10 +292,7 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 	)
 	suite.Require().NoError(err)
 
-	suite.broadcaster.Shutdown()
-
-	events := collectEvents(watcher)
-	suite.Require().Len(events, 2)
+	events := mustReadEvents(suite.T(), w, 2)
 	suite.Equal(watch.Added, events[0].Type)
 	suite.Equal(sbom, events[0].Object)
 	suite.Equal(watch.Modified, events[1].Type)
@@ -304,23 +329,31 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 			"sbomscanner.kubewarden.io/test": "true",
 		}), fields.Everything()),
 	}
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
 
-	suite.broadcaster.Shutdown()
+	go suite.watcher.Start(suite.T().Context())
 
-	events := collectEvents(watcher)
+	events := mustReadEvents(suite.T(), w, 1)
 	suite.Require().Len(events, 1)
 	suite.Equal(watch.Added, events[0].Type)
 	suite.Equal(sbom1, events[0].Object)
 }
 
-// collectEvents reads events from the watcher and returns them in a slice.
-func collectEvents(watcher watch.Interface) []watch.Event {
-	var events []watch.Event
-	for event := range watcher.ResultChan() {
-		events = append(events, event)
-	}
+// mustReadEvents reads n events from the watch.Interface or fails the test if not enough events are received in time.
+func mustReadEvents(t *testing.T, w watch.Interface, n int) []watch.Event {
+	events := make([]watch.Event, 0, n)
+
+	require.Eventually(t, func() bool {
+		select {
+		case evt := <-w.ResultChan():
+			events = append(events, evt)
+			return len(events) == n
+		default:
+			return false
+		}
+	}, time.Second, 5*time.Millisecond, "expected %d events", n)
+
 	return events
 }
 
