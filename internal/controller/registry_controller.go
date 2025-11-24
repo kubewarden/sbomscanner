@@ -72,11 +72,10 @@ func (r *RegistryReconciler) reconcileRegistry(ctx context.Context, registry *v1
 		return ctrl.Result{}, fmt.Errorf("unable to list Images: %w", err)
 	}
 
-	var repositories []string
+	allowedRepositories := sets.New[string]()
 	for _, repo := range registry.Spec.Repositories {
-		repositories = append(repositories, repo.Name)
+		allowedRepositories.Insert(repo.Name)
 	}
-	allowedRepositories := sets.NewString(repositories...)
 
 	tagEvaluator, err := cel.NewTagEvaluator()
 	if err != nil {
