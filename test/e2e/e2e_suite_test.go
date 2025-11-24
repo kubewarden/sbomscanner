@@ -66,8 +66,12 @@ func TestRegistryCreation(t *testing.T) {
 					Namespace: cfg.Namespace(),
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          registryURI,
-					Repositories: []string{registryRepository},
+					URI: registryURI,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: registryRepository,
+						},
+					},
 				},
 			}
 			err := cfg.Client().Resources().Create(ctx, registry)

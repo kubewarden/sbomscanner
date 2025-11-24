@@ -20,8 +20,8 @@ type RegistrySpec struct {
 	// CatalogType is the type of catalog used to list the images within the registry.
 	CatalogType string `json:"catalogType,omitempty"`
 	// Repositories is the list of the repositories to be scanned
-	// An empty list means all the repositories found in the registry are going to be scanned
-	Repositories []string `json:"repositories,omitempty"`
+	// An empty list means all the repositories found in the registry are going to be scanned.
+	Repositories []Repository `json:"repositories,omitempty"`
 	// AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry.
 	AuthSecret string `json:"authSecret,omitempty"`
 	// ScanInterval is the interval at which the registry is scanned.
@@ -50,6 +50,25 @@ type RegistryStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
+// Repository specifies an OCI repository and which image tags to scan.
+type Repository struct {
+	// Name is the repository name.
+	Name string `json:"name"`
+	// MatchConditions filters image tags using CEL expressions.
+	MatchConditions []MatchCondition `json:"matchConditions,omitempty"`
+}
+
+// MatchCondition defines a CEL expression to filter image tags.
+type MatchCondition struct {
+	// Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+	// as well as providing an identifier for logging purposes. A good name should be descriptive of
+	// the associated expression.
+	Name string `json:"name"`
+	// Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+	Expression string `json:"expression"`
+}
+
 // Platform describes the platform which the image in the manifest runs on.
 type Platform struct {
 	// Architecture field specifies the CPU architecture, for example
@@ -70,6 +89,17 @@ func (p *Platform) String() string {
 		platform += fmt.Sprintf("/%s", p.Variant)
 	}
 	return platform
+}
+
+// GetMatchConditionsByRepository returns MatchConditions for the given repository.
+// Returns an empty list if the repository doesn't exist or has no MatchConditions.
+func (r *Registry) GetMatchConditionsByRepository(repo string) []MatchCondition {
+	for _, repository := range r.Spec.Repositories {
+		if repository.Name == repo {
+			return repository.MatchConditions
+		}
+	}
+	return nil
 }
 
 // +kubebuilder:object:root=true

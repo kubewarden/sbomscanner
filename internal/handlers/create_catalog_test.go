@@ -95,8 +95,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{singleArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+						},
+					},
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
@@ -111,8 +115,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
@@ -133,8 +141,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 					Platforms: []v1alpha1.Platform{
 						{OS: "linux", Architecture: "arm", Variant: "v7"},
 					},
@@ -145,6 +157,56 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			},
 		},
 		{
+			name: "tag filter does not match",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{
+									Name:       "tag ends with '-dev'",
+									Expression: "tag.endsWith('-dev')",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedImages: []*storagev1alpha1.Image{},
+		},
+		{
+			name: "tag filter matches",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{
+									Name:       "tag version is > than 1.20.0",
+									Expression: "semver(tag, true).isGreaterThan(semver('1.20.0'))",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedImages: []*storagev1alpha1.Image{
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch),
+			},
+		},
+		{
 			name: "multiarch image with unknown/unknown platform",
 			registry: &v1alpha1.Registry{
 				ObjectMeta: metav1.ObjectMeta{
@@ -152,8 +214,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchWithUnknownPlatformRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchWithUnknownPlatformRef.Context().RepositoryStr(),
+						},
+					},
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
@@ -169,8 +235,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          testRegistry.RegistryName,
-					Repositories: []string{multiArchRef.Context().RepositoryStr()},
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+						},
+					},
 					Platforms: []v1alpha1.Platform{
 						{OS: "linux", Architecture: "amd64"},
 					},
@@ -356,8 +426,10 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 		},
 		Spec: v1alpha1.RegistrySpec{
 			URI: "ghcr.io",
-			Repositories: []string{
-				"kubewarden/sbomscanner/test-assets/golang",
+			Repositories: []v1alpha1.Repository{
+				{
+					Name: "kubewarden/sbomscanner/test-assets/golang",
+				},
 			},
 			Platforms: []v1alpha1.Platform{
 				{
@@ -571,8 +643,12 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.RegistrySpec{
-			URI:          registryURI,
-			Repositories: []string{repo},
+			URI: registryURI,
+			Repositories: []v1alpha1.Repository{
+				{
+					Name: repo,
+				},
+			},
 		},
 	}
 
@@ -665,110 +741,4 @@ func fakeDigestAndDiffID(layerIndex int) (cranev1.Hash, cranev1.Hash, error) {
 	}
 
 	return digest, diffID, nil
-}
-
-func Test_isPlatformAllowed(t *testing.T) {
-	tests := []struct {
-		name             string // description of this test case
-		platform         cranev1.Platform
-		allowedPlatforms []v1alpha1.Platform
-		want             bool
-	}{
-		{
-			name: "no platforms provided",
-			platform: cranev1.Platform{
-				Architecture: "amd64",
-				OS:           "linux",
-			},
-			allowedPlatforms: []v1alpha1.Platform{},
-			want:             true,
-		},
-		{
-			name: "platform matches",
-			platform: cranev1.Platform{
-				Architecture: "amd64",
-				OS:           "linux",
-			},
-			allowedPlatforms: []v1alpha1.Platform{
-				{
-					Architecture: "amd64",
-					OS:           "linux",
-				},
-			},
-			want: true,
-		},
-		{
-			name: "platform doesn't match",
-			platform: cranev1.Platform{
-				Architecture: "amd64",
-				OS:           "linux",
-			},
-			allowedPlatforms: []v1alpha1.Platform{
-				{
-					Architecture: "arm",
-					OS:           "linux",
-					Variant:      "v7",
-				},
-			},
-			want: false,
-		},
-		{
-			name: "platform is unknown",
-			platform: cranev1.Platform{
-				Architecture: "unknown",
-				OS:           "unknown",
-			},
-			allowedPlatforms: []v1alpha1.Platform{
-				{
-					Architecture: "arm",
-					OS:           "linux",
-					Variant:      "v7",
-				},
-			},
-			want: false,
-		},
-		{
-			name: "platform is linux/arm/v7",
-			platform: cranev1.Platform{
-				Architecture: "arm",
-				OS:           "linux",
-				Variant:      "v7",
-			},
-			allowedPlatforms: []v1alpha1.Platform{
-				{
-					Architecture: "arm",
-					OS:           "linux",
-				},
-			},
-			want: true,
-		},
-		{
-			name: "platform is linux/arm",
-			platform: cranev1.Platform{
-				Architecture: "arm",
-				OS:           "linux",
-			},
-			allowedPlatforms: []v1alpha1.Platform{
-				{
-					Architecture: "arm",
-					OS:           "linux",
-					Variant:      "v7",
-				},
-				{
-					Architecture: "arm",
-					OS:           "linux",
-					Variant:      "v8",
-				},
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isPlatformAllowed(tt.platform, tt.allowedPlatforms)
-			if got != tt.want {
-				t.Errorf("isPlatformAllowed() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }
