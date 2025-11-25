@@ -7,6 +7,11 @@ spec:
   uri: dev-registry.default.svc.cluster.local:5000
   catalogType: OCIDistribution
   scanInterval: 1h
+  repositories:
+    - name: nginx
+      matchConditions:
+        - name: tags greater than v1.12.0
+          expression: "semver(tag, true).isGreaterThan(semver('v1.12.0', true))"
   platforms:
     - arch: "amd64"
       os: "linux"

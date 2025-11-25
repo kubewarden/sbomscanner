@@ -28,8 +28,15 @@ var _ = Describe("Registry Controller", func() {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RegistrySpec{
-					URI:          "ghcr.io/kubewarden",
-					Repositories: []string{"sbomscanner-dev", "sbomscanner-prod"},
+					URI: "ghcr.io/kubewarden",
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: "sbomscanner-dev",
+						},
+						{
+							Name: "sbomscanner-prod",
+						},
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, &registry)).To(Succeed())
@@ -69,7 +76,11 @@ var _ = Describe("Registry Controller", func() {
 
 		It("Should delete all Images that are not in the current list of repositories", func(ctx context.Context) {
 			By("Updating the Registry with a new list of repositories")
-			registry.Spec.Repositories = []string{"sbomscanner-prod"}
+			registry.Spec.Repositories = []v1alpha1.Repository{
+				{
+					Name: "sbomscanner-prod",
+				},
+			}
 			Expect(k8sClient.Update(ctx, &registry)).To(Succeed())
 
 			By("Reconciling the Registry")
@@ -94,6 +105,48 @@ var _ = Describe("Registry Controller", func() {
 
 			Expect(images.Items).To(HaveLen(1))
 			Expect(images.Items[0].GetImageMetadata().Repository).To(Equal("sbomscanner-prod"))
+		})
+
+		It("Should delete all Images that does not match the tag filter", func(ctx context.Context) {
+			By("Updating the Registry with a new configuration of repositories")
+			registry.Spec.Repositories = []v1alpha1.Repository{
+				{
+					Name: "sbomscanner-dev",
+				},
+				{
+					Name: "sbomscanner-prod",
+					MatchConditions: []v1alpha1.MatchCondition{
+						{
+							Name:       "no latest tag",
+							Expression: "tag != 'latest'",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Update(ctx, &registry)).To(Succeed())
+
+			By("Reconciling the Registry")
+			reconciler := RegistryReconciler{
+				Client: k8sClient,
+			}
+
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      registry.Name,
+					Namespace: registry.Namespace,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Expecting that the Images in the sbomscanner-prod repository are deleted")
+			var images storagev1alpha1.ImageList
+			Expect(k8sClient.List(ctx, &images, &client.ListOptions{
+				Namespace:     "default",
+				FieldSelector: fields.SelectorFromSet(fields.Set{storagev1alpha1.IndexImageMetadataRegistry: registry.Name}),
+			})).To(Succeed())
+
+			Expect(images.Items).To(HaveLen(1))
+			Expect(images.Items[0].GetImageMetadata().Repository).To(Equal("sbomscanner-dev"))
 		})
 	})
 })

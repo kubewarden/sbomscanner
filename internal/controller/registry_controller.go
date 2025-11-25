@@ -2,8 +2,10 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/kubewarden/sbomscanner/internal/cel"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -13,6 +15,7 @@ import (
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/filters"
 )
 
 // RegistryReconciler reconciles a Registry object
@@ -69,10 +72,27 @@ func (r *RegistryReconciler) reconcileRegistry(ctx context.Context, registry *v1
 		return ctrl.Result{}, fmt.Errorf("unable to list Images: %w", err)
 	}
 
-	allowedRepositories := sets.NewString(registry.Spec.Repositories...)
+	allowedRepositories := sets.New[string]()
+	for _, repo := range registry.Spec.Repositories {
+		allowedRepositories.Insert(repo.Name)
+	}
 
+	tagEvaluator, err := cel.NewTagEvaluator()
+	if err != nil {
+		return ctrl.Result{}, errors.New("cannot instantiate new tag evaluator")
+	}
 	for _, image := range images.Items {
-		if allowedRepositories.Has(image.GetImageMetadata().Repository) {
+		matchConditions := registry.GetMatchConditionsByRepository(image.GetImageMetadata().Repository)
+		tagIsAllowed, err := filters.FilterByTag(tagEvaluator, matchConditions, image.Tag)
+		if err != nil {
+			// we are quite sure this will never happen, since we are
+			// validating the CEL expression with a webhook.
+			return ctrl.Result{}, fmt.Errorf("cannot evaluate image tag: %w", err)
+		}
+		// if repository name is in the list and
+		// tag is allowed by the CEL filter,
+		// then skip the image deletion.
+		if allowedRepositories.Has(image.GetImageMetadata().Repository) && tagIsAllowed {
 			continue
 		}
 
