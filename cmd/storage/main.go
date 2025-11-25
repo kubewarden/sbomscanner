@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats.go"
 
 	"github.com/kubewarden/sbomscanner/internal/apiserver"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
@@ -31,18 +32,26 @@ func main() {
 
 func run() error {
 	var (
-		certFile    string
-		keyFile     string
-		pgURIFile   string
-		pgTLSCAFile string
-		logLevel    string
-		init        bool
+		certFile     string
+		keyFile      string
+		pgURIFile    string
+		pgTLSCAFile  string
+		natsURL      string
+		natsCertFile string
+		natsKeyFile  string
+		natsCAFile   string
+		logLevel     string
+		init         bool
 	)
 
 	flag.StringVar(&certFile, "cert-file", "/tls/tls.crt", "Path to the TLS certificate file for serving HTTPS requests.")
 	flag.StringVar(&keyFile, "key-file", "/tls/tls.key", "Path to the TLS private key file for serving HTTPS requests.")
 	flag.StringVar(&pgURIFile, "pg-uri-file", "/pg/uri", "Path to file containing the PostgreSQL connection URI (format: postgresql://username:password@hostname:5432/dbname). Any sslmode or ssl* parameters in the URI are ignored. TLS with CA verification is always enforced using the certificate from pg-tls-ca-file.")
 	flag.StringVar(&pgTLSCAFile, "pg-tls-ca-file", "/pg/tls/server/ca.crt", "Path to PostgreSQL server CA certificate for TLS verification.")
+	flag.StringVar(&natsURL, "nats-url", "localhost:4222", "The URL of the NATS server.")
+	flag.StringVar(&natsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
+	flag.StringVar(&natsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
+	flag.StringVar(&natsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.Parse()
@@ -70,6 +79,11 @@ func run() error {
 	}
 	defer db.Close()
 
+	natsOpts := []nats.Option{
+		nats.RootCAs(natsCAFile),
+		nats.ClientCert(natsCertFile, natsKeyFile),
+	}
+
 	if init {
 		logger = logger.With("task", "init")
 
@@ -83,10 +97,24 @@ func run() error {
 		}
 		logger.Info("Migrations completed successfully.")
 
+		if err := cmdutil.WaitForNATS(ctx, natsURL, natsOpts, logger); err != nil {
+			logger.Error("Error waiting for NATS", "error", err)
+			return fmt.Errorf("waiting for Nats: %w", err)
+		}
+		logger.Info("Initialization tasks completed successfully.")
+
 		return nil
 	}
 
-	if err := runServer(ctx, db, certFile, keyFile, logger); err != nil {
+	nc, err := nats.Connect(natsURL,
+		natsOpts...,
+	)
+	if err != nil {
+		logger.Error("Unable to connect to NATS server", "error", err, "natsURL", natsURL)
+		return fmt.Errorf("connecting to NATS server: %w", err)
+	}
+
+	if err := runServer(ctx, db, nc, certFile, keyFile, logger); err != nil {
 		return fmt.Errorf("running server: %w", err)
 	}
 
@@ -139,8 +167,8 @@ func newDB(ctx context.Context, pgURIFile, pgTLSCAFile string) (*pgxpool.Pool, e
 	return db, nil
 }
 
-func runServer(ctx context.Context, db *pgxpool.Pool, certFile, keyFile string, logger *slog.Logger) error {
-	srv, err := apiserver.NewStorageAPIServer(db, certFile, keyFile, logger)
+func runServer(ctx context.Context, db *pgxpool.Pool, nc *nats.Conn, certFile, keyFile string, logger *slog.Logger) error {
+	srv, err := apiserver.NewStorageAPIServer(db, nc, certFile, keyFile, logger)
 	if err != nil {
 		return fmt.Errorf("creating storage API server: %w", err)
 	}

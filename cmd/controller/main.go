@@ -48,6 +48,7 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
 	"github.com/kubewarden/sbomscanner/internal/controller"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/storage"
 	webhookv1alpha1 "github.com/kubewarden/sbomscanner/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -226,28 +227,10 @@ func main() {
 			DefaultTransform: cache.TransformStripManagedFields(),
 			ByObject: map[client.Object]cache.ByObject{
 				&storagev1alpha1.Image{}: {
-					Transform: func(obj interface{}) (interface{}, error) {
-						image, ok := obj.(*storagev1alpha1.Image)
-						if !ok {
-							return obj, nil
-						}
-
-						image.Layers = nil
-
-						return cache.TransformStripManagedFields()(image)
-					},
+					Transform: storage.TransformStripImage,
 				},
 				&storagev1alpha1.VulnerabilityReport{}: {
-					Transform: func(obj interface{}) (interface{}, error) {
-						vulnerabilityReport, ok := obj.(*storagev1alpha1.VulnerabilityReport)
-						if !ok {
-							return obj, nil
-						}
-
-						vulnerabilityReport.Report.Results = nil
-
-						return cache.TransformStripManagedFields()(vulnerabilityReport)
-					},
+					Transform: storage.TransformStripVulnerabilityReport,
 				},
 			},
 		},

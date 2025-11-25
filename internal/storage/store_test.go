@@ -5,8 +5,13 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats-server/v2/test"
+	"github.com/nats-io/nats.go"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
@@ -16,10 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/storage"
+	k8sstorage "k8s.io/apiserver/pkg/storage"
 	"k8s.io/utils/ptr"
 
-	"github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 )
 
 const keyPrefix = "/storage.sbomscanner.kubewarden.io/sboms"
@@ -29,7 +34,10 @@ type storeTestSuite struct {
 	store       *store
 	db          *pgxpool.Pool
 	broadcaster *watch.Broadcaster
+	watcher     *natsWatcher
 	pgContainer *postgres.PostgresContainer
+	natsServer  *server.Server
+	nc          *nats.Conn
 }
 
 func (suite *storeTestSuite) SetupSuite() {
@@ -54,6 +62,17 @@ func (suite *storeTestSuite) SetupSuite() {
 
 	_, err = db.Exec(ctx, CreateSBOMTableSQL)
 	suite.Require().NoError(err, "failed to create SBOM table")
+
+	// Setup NATS
+	opts := test.DefaultTestOptions
+	opts.Port = -1 // Use a random port
+	opts.JetStream = true
+	opts.StoreDir = suite.T().TempDir()
+	suite.natsServer = test.RunServer(&opts)
+
+	nc, err := nats.Connect(suite.natsServer.ClientURL())
+	suite.Require().NoError(err, "failed to connect to NATS")
+	suite.nc = nc
 }
 
 func (suite *storeTestSuite) TearDownSuite() {
@@ -65,26 +84,35 @@ func (suite *storeTestSuite) TearDownSuite() {
 		err := suite.pgContainer.Terminate(context.Background())
 		suite.Require().NoError(err, "failed to terminate postgres container")
 	}
-}
 
-func (suite *storeTestSuite) SetupTest() {
-	ctx := context.Background()
-	_, err := suite.db.Exec(ctx, "TRUNCATE TABLE sboms")
-	suite.Require().NoError(err, "failed to truncate table")
+	if suite.nc != nil {
+		suite.nc.Close()
+	}
 
-	suite.broadcaster = watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
-	suite.store = &store{
-		db:          suite.db,
-		broadcaster: suite.broadcaster,
-		table:       "sboms",
-		newFunc:     func() runtime.Object { return &v1alpha1.SBOM{} },
-		newListFunc: func() runtime.Object { return &v1alpha1.SBOMList{} },
-		logger:      slog.Default(),
+	if suite.natsServer != nil {
+		suite.natsServer.Shutdown()
 	}
 }
 
-func (suite *storeTestSuite) TearDownTest() {
-	suite.broadcaster.Shutdown()
+func (suite *storeTestSuite) SetupTest() {
+	_, err := suite.db.Exec(suite.T().Context(), "TRUNCATE TABLE sboms")
+	suite.Require().NoError(err, "failed to truncate table")
+
+	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
+	natsBroadcaster := newNatsBroadcaster(suite.nc, "sboms", watchBroadcaster, TransformStripSBOM, slog.Default())
+	store := &store{
+		db:          suite.db,
+		broadcaster: natsBroadcaster,
+		table:       "sboms",
+		newFunc:     func() runtime.Object { return &storagev1alpha1.SBOM{} },
+		newListFunc: func() runtime.Object { return &storagev1alpha1.SBOMList{} },
+		logger:      slog.Default(),
+	}
+	natsWatcher := newNatsWatcher(suite.nc, "sboms", watchBroadcaster, store, slog.Default())
+
+	suite.store = store
+	suite.broadcaster = watchBroadcaster
+	suite.watcher = natsWatcher
 }
 
 func TestStoreTestSuite(t *testing.T) {
@@ -92,7 +120,7 @@ func TestStoreTestSuite(t *testing.T) {
 }
 
 func (suite *storeTestSuite) TestCreate() {
-	sbom := &v1alpha1.SBOM{
+	sbom := &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
@@ -100,7 +128,7 @@ func (suite *storeTestSuite) TestCreate() {
 	}
 
 	key := keyPrefix + "/default/test"
-	out := &v1alpha1.SBOM{}
+	out := &storagev1alpha1.SBOM{}
 	err := suite.store.Create(context.Background(), key, sbom, out, 0)
 	suite.Require().NoError(err)
 
@@ -108,11 +136,11 @@ func (suite *storeTestSuite) TestCreate() {
 	suite.Equal("1", out.ResourceVersion)
 
 	err = suite.store.Create(context.Background(), key, sbom, out, 0)
-	suite.Require().Equal(storage.NewKeyExistsError(key, 0).Error(), err.Error())
+	suite.Require().Equal(k8sstorage.NewKeyExistsError(key, 0).Error(), err.Error())
 }
 
 func (suite *storeTestSuite) TestDelete() {
-	sbom := &v1alpha1.SBOM{
+	sbom := &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
@@ -123,13 +151,13 @@ func (suite *storeTestSuite) TestDelete() {
 
 	tests := []struct {
 		name             string
-		preconditions    *storage.Preconditions
-		validateDeletion storage.ValidateObjectFunc
+		preconditions    *k8sstorage.Preconditions
+		validateDeletion k8sstorage.ValidateObjectFunc
 		expectedError    error
 	}{
 		{
 			name:          "happy path",
-			preconditions: &storage.Preconditions{},
+			preconditions: &k8sstorage.Preconditions{},
 			validateDeletion: func(_ context.Context, _ runtime.Object) error {
 				return nil
 			},
@@ -137,11 +165,11 @@ func (suite *storeTestSuite) TestDelete() {
 		},
 		{
 			name:          "deletion fails with incorrect UID precondition",
-			preconditions: &storage.Preconditions{UID: ptr.To(types.UID("incorrect-uid"))},
+			preconditions: &k8sstorage.Preconditions{UID: ptr.To(types.UID("incorrect-uid"))},
 			validateDeletion: func(_ context.Context, _ runtime.Object) error {
 				return nil
 			},
-			expectedError: storage.NewInvalidObjError(
+			expectedError: k8sstorage.NewInvalidObjError(
 				key,
 				"Precondition failed: UID in precondition: incorrect-uid, UID in object meta: ",
 			),
@@ -150,10 +178,10 @@ func (suite *storeTestSuite) TestDelete() {
 
 	for _, test := range tests {
 		suite.Run(test.name, func() {
-			err := suite.store.Create(context.Background(), key, sbom, &v1alpha1.SBOM{}, 0)
+			err := suite.store.Create(context.Background(), key, sbom, &storagev1alpha1.SBOM{}, 0)
 			suite.Require().NoError(err)
 
-			out := &v1alpha1.SBOM{}
+			out := &storagev1alpha1.SBOM{}
 			err = suite.store.Delete(
 				context.Background(),
 				key,
@@ -161,7 +189,7 @@ func (suite *storeTestSuite) TestDelete() {
 				test.preconditions,
 				test.validateDeletion,
 				nil,
-				storage.DeleteOptions{},
+				k8sstorage.DeleteOptions{},
 			)
 
 			if test.expectedError != nil {
@@ -171,8 +199,8 @@ func (suite *storeTestSuite) TestDelete() {
 				suite.Require().NoError(err)
 				suite.Equal(sbom, out)
 
-				err = suite.store.Get(context.Background(), key, storage.GetOptions{}, &v1alpha1.SBOM{})
-				suite.True(storage.IsNotFound(err))
+				err = suite.store.Get(context.Background(), key, k8sstorage.GetOptions{}, &storagev1alpha1.SBOM{})
+				suite.True(k8sstorage.IsNotFound(err))
 			}
 		})
 	}
@@ -180,32 +208,33 @@ func (suite *storeTestSuite) TestDelete() {
 
 func (suite *storeTestSuite) TestWatchEmptyResourceVersion() {
 	key := keyPrefix + "/default/test"
-	opts := storage.ListOptions{ResourceVersion: ""}
+	opts := k8sstorage.ListOptions{ResourceVersion: ""}
 
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
 
 	suite.broadcaster.Shutdown()
 
-	events := collectEvents(watcher)
-	suite.Require().Empty(events)
+	suite.Require().Empty(w.ResultChan())
 }
 
 func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 	key := keyPrefix + "/default/test"
-	sbom := &v1alpha1.SBOM{
+	sbom := &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 		},
 	}
-	err := suite.store.Create(context.Background(), key, sbom, &v1alpha1.SBOM{}, 0)
+	err := suite.store.Create(context.Background(), key, sbom, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
-	opts := storage.ListOptions{ResourceVersion: "0"}
+	opts := k8sstorage.ListOptions{ResourceVersion: "0"}
 
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
+
+	go suite.watcher.Start(suite.T().Context())
 
 	validateDeletion := func(_ context.Context, _ runtime.Object) error {
 		return nil
@@ -213,18 +242,15 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 	err = suite.store.Delete(
 		context.Background(),
 		key,
-		&v1alpha1.SBOM{},
-		&storage.Preconditions{},
+		&storagev1alpha1.SBOM{},
+		&k8sstorage.Preconditions{},
 		validateDeletion,
 		nil,
-		storage.DeleteOptions{},
+		k8sstorage.DeleteOptions{},
 	)
 	suite.Require().NoError(err)
 
-	suite.broadcaster.Shutdown()
-
-	events := collectEvents(watcher)
-	suite.Require().Len(events, 2)
+	events := mustReadEvents(suite.T(), w, 2)
 	suite.Equal(watch.Added, events[0].Type)
 	suite.Equal(sbom, events[0].Object)
 	suite.Equal(watch.Deleted, events[1].Type)
@@ -233,41 +259,40 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 
 func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 	key := keyPrefix + "/default"
-	sbom := &v1alpha1.SBOM{
+	sbom := &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 		},
 	}
-	suite.Require().NoError(suite.store.Create(context.Background(), key+"/test", sbom, &v1alpha1.SBOM{}, 0))
+	suite.Require().NoError(suite.store.Create(context.Background(), key+"/test", sbom, &storagev1alpha1.SBOM{}, 0))
 
-	opts := storage.ListOptions{
+	opts := k8sstorage.ListOptions{
 		ResourceVersion: "1",
 		Predicate:       matcher(labels.Everything(), fields.Everything()),
 	}
 
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
 
-	tryUpdate := func(input runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+	go suite.watcher.Start(suite.T().Context())
+
+	tryUpdate := func(input runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 		return input, ptr.To(uint64(0)), nil
 	}
-	updatedSBOM := &v1alpha1.SBOM{}
+	updatedSBOM := &storagev1alpha1.SBOM{}
 	err = suite.store.GuaranteedUpdate(
 		context.Background(),
 		key+"/test",
 		updatedSBOM,
 		false,
-		&storage.Preconditions{},
+		&k8sstorage.Preconditions{},
 		tryUpdate,
 		nil,
 	)
 	suite.Require().NoError(err)
 
-	suite.broadcaster.Shutdown()
-
-	events := collectEvents(watcher)
-	suite.Require().Len(events, 2)
+	events := mustReadEvents(suite.T(), w, 2)
 	suite.Equal(watch.Added, events[0].Type)
 	suite.Equal(sbom, events[0].Object)
 	suite.Equal(watch.Modified, events[1].Type)
@@ -276,7 +301,7 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 
 func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 	key := keyPrefix + "/default"
-	sbom1 := &v1alpha1.SBOM{
+	sbom1 := &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test1",
 			Namespace: "default",
@@ -285,48 +310,56 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 			},
 		},
 	}
-	err := suite.store.Create(context.Background(), key+"/test1", sbom1, &v1alpha1.SBOM{}, 0)
+	err := suite.store.Create(context.Background(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
-	sbom2 := &v1alpha1.SBOM{
+	sbom2 := &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test2",
 			Namespace: "default",
 			Labels:    map[string]string{},
 		},
 	}
-	err = suite.store.Create(context.Background(), key+"/test2", sbom2, &v1alpha1.SBOM{}, 0)
+	err = suite.store.Create(context.Background(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
-	opts := storage.ListOptions{
+	opts := k8sstorage.ListOptions{
 		ResourceVersion: "1",
 		Predicate: matcher(labels.SelectorFromSet(labels.Set{
 			"sbomscanner.kubewarden.io/test": "true",
 		}), fields.Everything()),
 	}
-	watcher, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(context.Background(), key, opts)
 	suite.Require().NoError(err)
 
-	suite.broadcaster.Shutdown()
+	go suite.watcher.Start(suite.T().Context())
 
-	events := collectEvents(watcher)
+	events := mustReadEvents(suite.T(), w, 1)
 	suite.Require().Len(events, 1)
 	suite.Equal(watch.Added, events[0].Type)
 	suite.Equal(sbom1, events[0].Object)
 }
 
-// collectEvents reads events from the watcher and returns them in a slice.
-func collectEvents(watcher watch.Interface) []watch.Event {
-	var events []watch.Event
-	for event := range watcher.ResultChan() {
-		events = append(events, event)
-	}
+// mustReadEvents reads n events from the watch.Interface or fails the test if not enough events are received in time.
+func mustReadEvents(t *testing.T, w watch.Interface, n int) []watch.Event {
+	events := make([]watch.Event, 0, n)
+
+	require.Eventually(t, func() bool {
+		select {
+		case evt := <-w.ResultChan():
+			events = append(events, evt)
+			return len(events) == n
+		default:
+			return false
+		}
+	}, time.Second, 5*time.Millisecond, "expected %d events", n)
+
 	return events
 }
 
 func (suite *storeTestSuite) TestGetList() {
 	key := keyPrefix + "/default"
-	sbom1 := v1alpha1.SBOM{
+	sbom1 := storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test1",
 			Namespace: "default",
@@ -338,7 +371,7 @@ func (suite *storeTestSuite) TestGetList() {
 	err := suite.store.Create(context.Background(), key+"/test1", &sbom1, nil, 0)
 	suite.Require().NoError(err)
 
-	sbom2 := v1alpha1.SBOM{
+	sbom2 := storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test2",
 			Namespace: "default",
@@ -350,7 +383,7 @@ func (suite *storeTestSuite) TestGetList() {
 	err = suite.store.Create(context.Background(), key+"/test2", &sbom2, nil, 0)
 	suite.Require().NoError(err)
 
-	sbom3 := v1alpha1.SBOM{
+	sbom3 := storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test3",
 			Namespace: "default",
@@ -365,69 +398,69 @@ func (suite *storeTestSuite) TestGetList() {
 
 	tests := []struct {
 		name          string
-		listOptions   storage.ListOptions
-		expectedItems []v1alpha1.SBOM
+		listOptions   k8sstorage.ListOptions
+		expectedItems []storagev1alpha1.SBOM
 	}{
 		{
 			name:          "list all",
-			expectedItems: []v1alpha1.SBOM{sbom1, sbom2, sbom3},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom1, sbom2, sbom3},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(labels.Everything(), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (=)",
-			expectedItems: []v1alpha1.SBOM{sbom1},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom1},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env=test"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (!=)",
-			expectedItems: []v1alpha1.SBOM{sbom2, sbom3},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom2, sbom3},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env!=test"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (in)",
-			expectedItems: []v1alpha1.SBOM{sbom2, sbom3},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom2, sbom3},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env in (dev,prod)"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (notin)",
-			expectedItems: []v1alpha1.SBOM{sbom3},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom3},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env notin (test,dev)"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (exists)",
-			expectedItems: []v1alpha1.SBOM{sbom3},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom3},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/critical"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (does not exist)",
-			expectedItems: []v1alpha1.SBOM{sbom1, sbom2},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom1, sbom2},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(mustParseLabelSelector("!sbomscanner.kubewarden.io/critical"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list field selector (=)",
-			expectedItems: []v1alpha1.SBOM{sbom1},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom1},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(labels.Everything(), mustParseFieldSelector("metadata.name=test1")),
 			},
 		},
 		{
 			name:          "list field selector (!=)",
-			expectedItems: []v1alpha1.SBOM{sbom2, sbom3},
-			listOptions: storage.ListOptions{
+			expectedItems: []storagev1alpha1.SBOM{sbom2, sbom3},
+			listOptions: k8sstorage.ListOptions{
 				Predicate: matcher(labels.Everything(), mustParseFieldSelector("metadata.name!=test1")),
 			},
 		},
@@ -435,7 +468,7 @@ func (suite *storeTestSuite) TestGetList() {
 
 	for _, test := range tests {
 		suite.Run(test.name, func() {
-			sbomList := &v1alpha1.SBOMList{}
+			sbomList := &storagev1alpha1.SBOMList{}
 			err = suite.store.GetList(context.Background(), key, test.listOptions, sbomList)
 			suite.Require().NoError(err)
 			suite.ElementsMatch(test.expectedItems, sbomList.Items)
@@ -465,18 +498,18 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 		name                string
 		key                 string
 		ignoreNotFound      bool
-		preconditions       *storage.Preconditions
-		tryUpdate           storage.UpdateFunc
-		sbom                *v1alpha1.SBOM
-		expectedUpdatedSBOM *v1alpha1.SBOM
+		preconditions       *k8sstorage.Preconditions
+		tryUpdate           k8sstorage.UpdateFunc
+		sbom                *storagev1alpha1.SBOM
+		expectedUpdatedSBOM *storagev1alpha1.SBOM
 		expectedError       error
 	}{
 		{
 			name:          "happy path",
 			key:           keyPrefix + "/default/test1",
-			preconditions: &storage.Preconditions{},
-			tryUpdate: func(input runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
-				sbom, ok := input.(*v1alpha1.SBOM)
+			preconditions: &k8sstorage.Preconditions{},
+			tryUpdate: func(input runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
+				sbom, ok := input.(*storagev1alpha1.SBOM)
 				if !ok {
 					return nil, ptr.To(uint64(0)), errors.New("input is not of type *v1alpha1.SBOM")
 				}
@@ -485,7 +518,7 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 
 				return input, ptr.To(uint64(0)), nil
 			},
-			sbom: &v1alpha1.SBOM{
+			sbom: &storagev1alpha1.SBOM{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test1",
 					Namespace: "default",
@@ -495,7 +528,7 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 					Raw: []byte("{}"),
 				},
 			},
-			expectedUpdatedSBOM: &v1alpha1.SBOM{
+			expectedUpdatedSBOM: &storagev1alpha1.SBOM{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "test1",
 					Namespace:       "default",
@@ -510,14 +543,14 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 		{
 			name: "preconditions failed",
 			key:  keyPrefix + "/default/test2",
-			preconditions: &storage.Preconditions{
+			preconditions: &k8sstorage.Preconditions{
 				UID: ptr.To(types.UID("incorrect-uid")),
 			},
-			tryUpdate: func(_ runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+			tryUpdate: func(_ runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 				suite.Fail("tryUpdate should not be called when preconditions fail")
 				return nil, nil, nil
 			},
-			sbom: &v1alpha1.SBOM{
+			sbom: &storagev1alpha1.SBOM{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test2",
 					Namespace: "default",
@@ -527,17 +560,17 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 					Raw: []byte("{}"),
 				},
 			},
-			expectedError: storage.NewInvalidObjError(keyPrefix+"/default/test2",
+			expectedError: k8sstorage.NewInvalidObjError(keyPrefix+"/default/test2",
 				"Precondition failed: UID in precondition: incorrect-uid, UID in object meta: test2-uid"),
 		},
 		{
 			name:          "tryUpdate failed with a non-conflict error",
 			key:           keyPrefix + "/default/test3",
-			preconditions: &storage.Preconditions{},
-			tryUpdate: func(_ runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
-				return nil, nil, storage.NewInternalError(errors.New("tryUpdate failed"))
+			preconditions: &k8sstorage.Preconditions{},
+			tryUpdate: func(_ runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
+				return nil, nil, k8sstorage.NewInternalError(errors.New("tryUpdate failed"))
 			},
-			sbom: &v1alpha1.SBOM{
+			sbom: &storagev1alpha1.SBOM{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test3",
 					Namespace: "default",
@@ -547,39 +580,39 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 					Raw: []byte("{}"),
 				},
 			},
-			expectedError: storage.NewInternalError(errors.New("tryUpdate failed")),
+			expectedError: k8sstorage.NewInternalError(errors.New("tryUpdate failed")),
 		},
 		{
 			name:          "not found",
 			key:           keyPrefix + "/default/notfound",
-			preconditions: &storage.Preconditions{},
-			tryUpdate: func(_ runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+			preconditions: &k8sstorage.Preconditions{},
+			tryUpdate: func(_ runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 				suite.Fail("tryUpdate should not be called when object is not found")
 				return nil, nil, nil
 			},
-			expectedError: storage.NewKeyNotFoundError(keyPrefix+"/default/notfound", 0),
+			expectedError: k8sstorage.NewKeyNotFoundError(keyPrefix+"/default/notfound", 0),
 		},
 		{
 			name:          "not found with ignore not found",
 			key:           keyPrefix + "/default/notfound",
-			preconditions: &storage.Preconditions{},
-			tryUpdate: func(_ runtime.Object, _ storage.ResponseMeta) (runtime.Object, *uint64, error) {
+			preconditions: &k8sstorage.Preconditions{},
+			tryUpdate: func(_ runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 				suite.Fail("tryUpdate should not be called when object is not found")
 				return nil, nil, nil
 			},
 			ignoreNotFound:      true,
-			expectedUpdatedSBOM: &v1alpha1.SBOM{},
+			expectedUpdatedSBOM: &storagev1alpha1.SBOM{},
 		},
 	}
 
 	for _, test := range tests {
 		suite.Run(test.name, func() {
 			if test.sbom != nil {
-				err := suite.store.Create(context.Background(), test.key, test.sbom, &v1alpha1.SBOM{}, 0)
+				err := suite.store.Create(context.Background(), test.key, test.sbom, &storagev1alpha1.SBOM{}, 0)
 				suite.Require().NoError(err)
 			}
 
-			destinationSBOM := &v1alpha1.SBOM{}
+			destinationSBOM := &storagev1alpha1.SBOM{}
 			err := suite.store.GuaranteedUpdate(
 				context.Background(),
 				test.key,
@@ -590,14 +623,14 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 				nil,
 			)
 
-			currentSBOM := &v1alpha1.SBOM{}
+			currentSBOM := &storagev1alpha1.SBOM{}
 			if test.expectedError != nil {
 				suite.Require().Error(err)
 				suite.Require().Equal(test.expectedError.Error(), err.Error())
 
 				if test.sbom != nil {
 					// If there is an error, the original object should not be updated.
-					err = suite.store.Get(context.Background(), test.key, storage.GetOptions{}, currentSBOM)
+					err = suite.store.Get(context.Background(), test.key, k8sstorage.GetOptions{}, currentSBOM)
 					suite.Require().NoError(err)
 					suite.Equal(test.sbom, currentSBOM)
 				}
@@ -607,7 +640,7 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 
 				if !test.ignoreNotFound {
 					// Verify the object was updated in the store.
-					err = suite.store.Get(context.Background(), test.key, storage.GetOptions{}, currentSBOM)
+					err = suite.store.Get(context.Background(), test.key, k8sstorage.GetOptions{}, currentSBOM)
 					suite.Require().NoError(err)
 					suite.Equal(test.expectedUpdatedSBOM, currentSBOM)
 				}
@@ -617,28 +650,28 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 }
 
 func (suite *storeTestSuite) TestCount() {
-	err := suite.store.Create(context.Background(), keyPrefix+"/default/test1", &v1alpha1.SBOM{
+	err := suite.store.Create(context.Background(), keyPrefix+"/default/test1", &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test1",
 			Namespace: "default",
 		},
-	}, &v1alpha1.SBOM{}, 0)
+	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
-	err = suite.store.Create(context.Background(), keyPrefix+"/default/test2", &v1alpha1.SBOM{
+	err = suite.store.Create(context.Background(), keyPrefix+"/default/test2", &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test2",
 			Namespace: "default",
 		},
-	}, &v1alpha1.SBOM{}, 0)
+	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
-	err = suite.store.Create(context.Background(), keyPrefix+"/other/test4", &v1alpha1.SBOM{
+	err = suite.store.Create(context.Background(), keyPrefix+"/other/test4", &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test4",
 			Namespace: "other",
 		},
-	}, &v1alpha1.SBOM{}, 0)
+	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
 	tests := []struct {

@@ -6,6 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats.go"
+	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,12 +50,13 @@ func init() {
 
 type StorageAPIServer struct {
 	db                        *pgxpool.Pool
+	watchers                  []*storage.RegistryStoreWithWatcher
 	logger                    *slog.Logger
 	server                    *genericapiserver.GenericAPIServer
 	dynamicCertKeyPairContent *dynamiccertificates.DynamicCertKeyPairContent
 }
 
-func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slog.Logger) (*StorageAPIServer, error) {
+func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, certFile, keyFile string, logger *slog.Logger) (*StorageAPIServer, error) {
 	// Setup dynamic certs
 	dynamicCertKeyPairContent, err := dynamiccertificates.NewDynamicServingContentFromFiles(
 		"storage-serving-certs",
@@ -122,12 +125,12 @@ func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slo
 	// Create API group and storage
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(v1alpha1.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 
-	imageStore, err := storage.NewImageStore(Scheme, serverConfig.RESTOptionsGetter, db, logger)
+	imageStore, err := storage.NewImageStore(Scheme, serverConfig.RESTOptionsGetter, db, nc, logger)
 	if err != nil {
 		return nil, fmt.Errorf("error creating Image store: %w", err)
 	}
 
-	sbomStore, err := storage.NewSBOMStore(Scheme, serverConfig.RESTOptionsGetter, db, logger)
+	sbomStore, err := storage.NewSBOMStore(Scheme, serverConfig.RESTOptionsGetter, db, nc, logger)
 	if err != nil {
 		return nil, fmt.Errorf("error creating SBOM store: %w", err)
 	}
@@ -136,6 +139,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slo
 		Scheme,
 		serverConfig.RESTOptionsGetter,
 		db,
+		nc,
 		logger,
 	)
 	if err != nil {
@@ -143,9 +147,9 @@ func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slo
 	}
 
 	v1alpha1storage := map[string]rest.Storage{
-		"images":               imageStore,
-		"sboms":                sbomStore,
-		"vulnerabilityreports": vulnerabilityReportStore,
+		"images":               imageStore.GetStore(),
+		"sboms":                sbomStore.GetStore(),
+		"vulnerabilityreports": vulnerabilityReportStore.GetStore(),
 	}
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1storage
 
@@ -155,6 +159,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, certFile, keyFile string, logger *slo
 
 	return &StorageAPIServer{
 		db:                        db,
+		watchers:                  []*storage.RegistryStoreWithWatcher{imageStore, sbomStore, vulnerabilityReportStore},
 		logger:                    logger,
 		server:                    genericServer,
 		dynamicCertKeyPairContent: dynamicCertKeyPairContent,
@@ -167,8 +172,20 @@ func (s *StorageAPIServer) Start(ctx context.Context) error {
 	s.logger.DebugContext(ctx, "Starting dynamic certificate controller")
 	go s.dynamicCertKeyPairContent.Run(ctx, 1)
 
-	if err := s.server.PrepareRun().RunWithContext(ctx); err != nil {
-		return fmt.Errorf("error running server: %w", err)
+	g, ctx := errgroup.WithContext(ctx)
+	for _, watcher := range s.watchers {
+		g.Go(func() error {
+			return watcher.StartWatcher(ctx)
+		})
+	}
+	g.Go(func() error {
+		if err := s.server.PrepareRun().RunWithContext(ctx); err != nil {
+			return fmt.Errorf("error running server: %w", err)
+		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("storage API server exited with error: %w", err)
 	}
 
 	return nil
