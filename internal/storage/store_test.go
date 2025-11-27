@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -60,7 +61,7 @@ func (suite *storeTestSuite) SetupSuite() {
 	suite.Require().NoError(err, "failed to create connection pool")
 	suite.db = db
 
-	_, err = db.Exec(ctx, CreateSBOMTableSQL)
+	_, err = db.Exec(ctx, createSBOMTableSQL)
 	suite.Require().NoError(err, "failed to create SBOM table")
 
 	// Setup NATS
@@ -472,6 +473,91 @@ func (suite *storeTestSuite) TestGetList() {
 			err = suite.store.GetList(context.Background(), key, test.listOptions, sbomList)
 			suite.Require().NoError(err)
 			suite.ElementsMatch(test.expectedItems, sbomList.Items)
+		})
+	}
+}
+
+func (suite *storeTestSuite) TestGetListWithPagination() {
+	key := keyPrefix + "/default"
+
+	for i := 1; i <= 5; i++ {
+		sbom := &storagev1alpha1.SBOM{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test%d", i),
+				Namespace: "default",
+				Labels: map[string]string{
+					"sbomscanner.kubewarden.io/env": map[bool]string{true: "prod", false: "dev"}[i%2 == 0],
+				},
+			},
+		}
+		err := suite.store.Create(suite.T().Context(), fmt.Sprintf("%s/test%d", key, i), sbom, nil, 0)
+		suite.Require().NoError(err)
+	}
+
+	tests := []struct {
+		name          string
+		limit         int64
+		labelSelector labels.Selector
+		fieldSelector fields.Selector
+		expectedPages [][]string
+	}{
+		{
+			name:          "paginate through all items",
+			limit:         2,
+			labelSelector: labels.Everything(),
+			fieldSelector: fields.Everything(),
+			expectedPages: [][]string{{"test1", "test2"}, {"test3", "test4"}, {"test5"}},
+		},
+		{
+			name:          "no continue token when under limit",
+			limit:         10,
+			labelSelector: labels.Everything(),
+			fieldSelector: fields.Everything(),
+			expectedPages: [][]string{{"test1", "test2", "test3", "test4", "test5"}},
+		},
+		{
+			name:          "paginate with label selector",
+			limit:         1,
+			labelSelector: mustParseLabelSelector("sbomscanner.kubewarden.io/env=prod"),
+			fieldSelector: fields.Everything(),
+			expectedPages: [][]string{{"test2"}, {"test4"}},
+		},
+		{
+			name:          "paginate with field selector",
+			limit:         2,
+			labelSelector: labels.Everything(),
+			fieldSelector: mustParseFieldSelector("metadata.name!=test3"),
+			expectedPages: [][]string{{"test1", "test2"}, {"test4", "test5"}},
+		},
+	}
+
+	for _, test := range tests {
+		suite.Run(test.name, func() {
+			opts := k8sstorage.ListOptions{
+				Predicate: matcher(test.labelSelector, test.fieldSelector),
+			}
+			opts.Predicate.Limit = test.limit
+
+			for i, expectedNames := range test.expectedPages {
+				sbomList := &storagev1alpha1.SBOMList{}
+				err := suite.store.GetList(suite.T().Context(), key, opts, sbomList)
+				suite.Require().NoError(err)
+
+				var names []string
+				for _, item := range sbomList.Items {
+					names = append(names, item.Name)
+				}
+				suite.Equal(expectedNames, names, "page %d", i+1)
+
+				isLastPage := i == len(test.expectedPages)-1
+				if isLastPage {
+					suite.Empty(sbomList.Continue)
+				} else {
+					suite.NotEmpty(sbomList.Continue)
+				}
+
+				opts.Predicate.Continue = sbomList.Continue
+			}
 		})
 	}
 }
