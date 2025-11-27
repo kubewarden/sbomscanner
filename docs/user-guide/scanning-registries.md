@@ -155,7 +155,7 @@ spec:
 
 ## 5. Filtering By Tags
 
-You can filter image tags using CEL](https://kubernetes.io/docs/reference/using-api/cel/) expressions in the `matchConditions` field under `repositories`. This lets you use regex patterns, semantic versioning comparisons, or string operations (like substring matching or contains checks) to select which tags to scan. This filtering capability helps reduce the number of scanned images and lowers the load on the system.
+You can filter image tags using [CEL](https://kubernetes.io/docs/reference/using-api/cel/) expressions in the `matchConditions` field under `repositories`. This lets you use regex patterns, semantic versioning comparisons, or string operations (like substring matching or contains checks) to select which tags to scan. This filtering capability helps reduce the number of scanned images and lowers the load on the system.
 
 Let's see an example:
 
@@ -213,7 +213,7 @@ Here's the most common CEL expressions that can be used for tag filtering:
 
 | function | example | description |
 | --- | --- | ---|
-| `startsWith` | `tag.startsWith('v1')` | Tags that ends with `v1` suffix. |
+| `startsWith` | `tag.startsWith('v1')` | Tags that starts with `v1` prefix. |
 | `endsWith` | `tag.endsWith('-prod')` | Tags that ends with `-prod` suffix. |
 | `matches` | `tag.matches('^v[01]\.*')` | Tags that matches the regex `^v[01]\.*`. |
 

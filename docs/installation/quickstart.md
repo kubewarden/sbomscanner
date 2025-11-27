@@ -136,7 +136,7 @@ metadata:
 spec:
   uri: ghcr.io
   repositories:
-    - kubewarden/sbomscanner/test-assets/golang
+    - name: kubewarden/sbomscanner/test-assets/golang
 ```
 
 ### Create the Registry CR
