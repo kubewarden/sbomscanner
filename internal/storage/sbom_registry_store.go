@@ -21,13 +21,19 @@ const (
 	sbomResourcePluralName   = "sboms"
 )
 
-const CreateSBOMTableSQL = `
+// TODO: ID is a sequential column used for stable pagination cursors.
+// We keep (name, namespace) as primary key to avoid a breaking schema change.
+// Consider switching to ID as primary key when we break the schema for the deduplication feature.
+const createSBOMTableSQL = `
 CREATE TABLE IF NOT EXISTS sboms (
     name VARCHAR(253) NOT NULL,
     namespace VARCHAR(253) NOT NULL,
     object JSONB NOT NULL,
     PRIMARY KEY (name, namespace)
 );
+
+ALTER TABLE sboms ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+CREATE INDEX IF NOT EXISTS idx_sboms_id ON sboms(id);
 `
 
 // NewSBOMStore returns a store registry that will work against API services.

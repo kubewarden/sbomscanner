@@ -21,13 +21,19 @@ const (
 	imageResourcePluralName   = "images"
 )
 
-const CreateImageTableSQL = `
+// TODO: ID is a sequential column used for stable pagination cursors.
+// We keep (name, namespace) as primary key to avoid a breaking schema change.
+// Consider switching to ID as primary key when we break the schema for the deduplication feature.
+const createImageTableSQL = `
 CREATE TABLE IF NOT EXISTS images (
     name VARCHAR(253) NOT NULL,
     namespace VARCHAR(253) NOT NULL,
     object JSONB NOT NULL,
     PRIMARY KEY (name, namespace)
 );
+
+ALTER TABLE images ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+CREATE INDEX IF NOT EXISTS idx_images_id ON images(id);
 `
 
 // NewImageStore returns a store registry that will work against API services.

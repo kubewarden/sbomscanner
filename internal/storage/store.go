@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -31,8 +32,9 @@ import (
 )
 
 // objectSchema is the schema of an object in the database.
-// Note: the struct fields must be exported in order to work.
+// NOTE: the struct fields must be exported in order to work.
 type objectSchema struct {
+	ID        int64  `db:"id"`
 	Name      string `db:"name"`
 	Namespace string `db:"namespace"`
 	Object    []byte `db:"object"`
@@ -300,7 +302,7 @@ func (s *store) Get(ctx context.Context, key string, opts storage.GetOptions, ob
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
 //
-//nolint:gocognit // This function can't be easily split into smaller parts.
+//nolint:gocognit,funlen // This function can't be easily split into smaller parts.
 func (s *store) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	s.logger.DebugContext(ctx, "Getting list",
 		"key", key,
@@ -311,9 +313,19 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		"continue", opts.Predicate.Continue,
 	)
 
+	var continueToken int64
+	if opts.Predicate.Continue != "" {
+		var err error
+		continueToken, err = strconv.ParseInt(opts.Predicate.Continue, 10, 64)
+		if err != nil {
+			return storage.NewInternalError(fmt.Errorf("invalid continue token: %w", err))
+		}
+	}
+
 	queryBuilder := psql.Select(
 		sm.From(psql.Quote(s.table)),
-		sm.Columns("name", "namespace", "object"),
+		sm.Columns("id", "name", "namespace", "object"),
+		sm.OrderBy(psql.Quote("id")),
 	)
 
 	namespace := extractNamespace(key)
@@ -321,6 +333,21 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		queryBuilder.Apply(
 			sm.Where(psql.Quote("namespace").EQ(psql.Arg(namespace))),
 		)
+	}
+
+	if continueToken > 0 {
+		queryBuilder.Apply(
+			sm.Where(psql.Quote("id").GT(psql.Arg(continueToken))),
+		)
+	}
+
+	// Fetch one extra row to determine if there are more results.
+	// This is necessary when using label or field selectors because the SQL
+	// filtering happens at query time, so we can't predict how many rows match.
+	// Without the extra row, we'd return a continue token whenever count equals
+	// limit, which could lead to an empty final page.
+	if opts.Predicate.Limit > 0 {
+		queryBuilder.Apply(sm.Limit(opts.Predicate.Limit + 1))
 	}
 
 	if opts.Predicate.Label != nil {
@@ -359,9 +386,18 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		return err
 	}
 
+	var lastID int64
+	var count int64
+	var hasMore bool
 	for rows.Next() {
+		if opts.Predicate.Limit > 0 && count == opts.Predicate.Limit {
+			hasMore = true
+			break
+		}
+
 		var objectRecord objectSchema
 		err = rows.Scan(
+			&objectRecord.ID,
 			&objectRecord.Name,
 			&objectRecord.Namespace,
 			&objectRecord.Object,
@@ -375,6 +411,10 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 			return storage.NewInternalError(err)
 		}
 
+		// Track last lastID for continue token
+		lastID = objectRecord.ID
+		count++
+
 		// Append the object to the items slice
 		itemsValue.Set(reflect.Append(itemsValue, reflect.ValueOf(obj).Elem()))
 	}
@@ -383,8 +423,13 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		return storage.NewInternalError(err)
 	}
 
-	// TODO: Implement pagination and use a proper resourceVersion
-	if err = s.Versioner().UpdateList(listObj, 1, "", nil); err != nil {
+	// Generate continue token if we hit the limit
+	var nextContinueToken string
+	if hasMore {
+		nextContinueToken = strconv.FormatInt(lastID, 10)
+	}
+
+	if err = s.Versioner().UpdateList(listObj, 1, nextContinueToken, nil); err != nil {
 		return storage.NewInternalError(err)
 	}
 
