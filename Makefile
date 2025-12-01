@@ -114,7 +114,7 @@ generate-storage: generate-storage-test-crd ## Generate storage  code in pkg/gen
 
 .PHONY: generate-chart
 generate-chart: ## Generate Helm chart values schema.
-	$(HELM_SCHEMA) -f charts/sbomscanner/values.yaml --output charts/sbomscanner/values.schema.json
+	$(HELM_SCHEMA)
 
 .PHONY: generate-mocks
 generate-mocks: ## Generate mocks for testing.
