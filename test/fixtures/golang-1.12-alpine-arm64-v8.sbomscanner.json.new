@@ -9,7 +9,7 @@
   },
   "results": [
     {
-      "target": "/tmp/TestScanSBOMHandler_Handle2489466138/001/trivy.sbom.3877088593.json (alpine 3.11.3)",
+      "target": "/tmp/TestScanSBOMHandler_Handle1715063953/001/trivy.sbom.4116898917.json (alpine 3.11.3)",
       "class": "os-pkgs",
       "type": "alpine",
       "vulnerabilities": [
