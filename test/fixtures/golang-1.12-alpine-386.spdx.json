@@ -3,13 +3,13 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "ghcr.io/kubewarden/sbomscanner/test-assets/golang@sha256:d8801b3783dd4e4aee273c1a312cc265c832c7f264056d68e7ea73b8e1dd94b0",
-  "documentNamespace": "http://trivy.dev/container_image/ghcr.io/kubewarden/sbomscanner/test-assets/golang@sha256:d8801b3783dd4e4aee273c1a312cc265c832c7f264056d68e7ea73b8e1dd94b0-7a2ae83e-8851-4f68-84fa-d6ce8a6a7afd",
+  "documentNamespace": "http://trivy.dev/container_image/ghcr.io/kubewarden/sbomscanner/test-assets/golang@sha256:d8801b3783dd4e4aee273c1a312cc265c832c7f264056d68e7ea73b8e1dd94b0-653debae-f9f4-4f17-a9f2-b12decc452c4",
   "creationInfo": {
     "creators": [
       "Organization: aquasecurity",
       "Tool: trivy-dev"
     ],
-    "created": "2025-10-16T06:20:56Z"
+    "created": "2025-12-10T11:43:24Z"
   },
   "packages": [
     {
@@ -28,55 +28,61 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "DiffID: sha256:10f80d9440a211d1612c09a0ba44a0385c6f7f09935d72271a83b7849eafc82b"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "DiffID: sha256:39b920ee0ccffaeb5ad2ff1579a17a4925997ac0321bbe5d0e260179a99dd614"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "DiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "DiffID: sha256:72c460778dbcf1b7ad51303f56781fbef6defac2311c64dfe27d8336cbf73797"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "DiffID: sha256:c33b37c34fce665105e9cc43fb749b00a3d04559accdc305355c310ac2b92971"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "ImageID: sha256:7485f105571097be29584c142fb2231c45b0159e46c8584142d80cb0be7c6a9c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
+          "annotationType": "OTHER",
+          "comment": "Reference: ghcr.io/kubewarden/sbomscanner/test-assets/golang@sha256:d8801b3783dd4e4aee273c1a312cc265c832c7f264056d68e7ea73b8e1dd94b0"
+        },
+        {
+          "annotator": "Tool: trivy-dev",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "RepoDigest: ghcr.io/kubewarden/sbomscanner/test-assets/golang@sha256:d8801b3783dd4e4aee273c1a312cc265c832c7f264056d68e7ea73b8e1dd94b0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "SchemaVersion: 2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "Size: 326920192"
         }
@@ -109,25 +115,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: alpine-baselayout@3.2.0-r3"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -160,25 +166,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: alpine-keys@2.1-r2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -211,25 +217,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: apk-tools@2.10.4-r3"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -262,25 +268,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: busybox@1.31.1-r9"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -313,25 +319,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:10f80d9440a211d1612c09a0ba44a0385c6f7f09935d72271a83b7849eafc82b"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:d51d08eae3dcf47cd450c87c9ea787c8293e63405c12eb6ab24dbc68d5f1c126"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: ca-certificates@20191127-r0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -364,25 +370,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: ca-certificates-cacert@20191127-r0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -415,25 +421,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: libc-utils@0.7.2-r0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -466,25 +472,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: libcrypto1.1@1.1.1d-r3"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -517,25 +523,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: libssl1.1@1.1.1d-r3"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -568,25 +574,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: libtls-standalone@2.9.1-r0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -619,25 +625,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: musl@1.1.24-r0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -670,25 +676,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: musl-utils@1.1.24-r0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -721,25 +727,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: scanelf@1.2.4-r0"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -772,25 +778,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: ssl_client@1.31.1-r9"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -823,25 +829,25 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDiffID: sha256:3e2cf7600e279e883bd1942c3c40709f3748cb24faab3c61c920e8f6ea6fb59c"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "LayerDigest: sha256:f024b1263dc58db07a458b73ae1a2dca02ca55bef1ccd1fa3fd50656551fadf2"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgID: zlib@1.2.11-r3"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "PkgType: alpine"
         }
@@ -857,13 +863,13 @@
       "annotations": [
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "Class: os-pkgs"
         },
         {
           "annotator": "Tool: trivy-dev",
-          "annotationDate": "2025-10-16T06:20:56Z",
+          "annotationDate": "2025-12-10T11:43:24Z",
           "annotationType": "OTHER",
           "comment": "Type: alpine"
         }
