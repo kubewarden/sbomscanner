@@ -18,7 +18,6 @@ k8s_resource(
     port_forwards=5000,
 )
 
-
 # Install cert-manager
 #
 # Note: We are not using the tilt cert-manager extension, since it creates a namespace to test cert-manager,
@@ -91,6 +90,7 @@ yaml = helm(
         "controller.logLevel=debug",
         "storage.logLevel=debug", 
         "worker.logLevel=debug",
+        "controller.pprof=true",
     ],
 )
 
@@ -106,6 +106,12 @@ updated_yaml = encode_yaml_stream(objects)
 k8s_yaml(updated_yaml)
 k8s_kind("Cluster", api_version="postgresql.cnpg.io/v1")
 k8s_resource("sbomscanner-cnpg-cluster", resource_deps=["cloudnativepg"])
+
+# Port forward controller's pprof endpoint
+k8s_resource(
+    "sbomscanner-controller",
+    port_forwards="8082:8082",
+)
 
 # Hot reloading containers
 local_resource(
