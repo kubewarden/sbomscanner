@@ -64,6 +64,7 @@ type Config struct {
 	NatsKeyFile          string
 	NatsCAFile           string
 	Init                 bool
+	Pprof                bool
 	LogLevel             string
 }
 
@@ -84,6 +85,7 @@ func parseFlags() Config {
 	flag.StringVar(&cfg.NatsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
 	flag.StringVar(&cfg.NatsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
 	flag.StringVar(&cfg.NatsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
+	flag.BoolVar(&cfg.Pprof, "pprof", false, "Enable pprof endpoint")
 	flag.BoolVar(&cfg.Init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level")
 
@@ -201,7 +203,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgrOptions := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
@@ -238,7 +240,13 @@ func main() {
 			// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
 			ReconciliationTimeout: 90 * time.Second,
 		},
-	})
+	}
+
+	if cfg.Pprof {
+		mgrOptions.PprofBindAddress = ":8082"
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
