@@ -56,6 +56,7 @@ import (
 type Config struct {
 	MetricsAddr          string
 	ProbeAddr            string
+	PprofAddr            string
 	EnableLeaderElection bool
 	SecureMetrics        bool
 	EnableHTTP2          bool
@@ -64,7 +65,6 @@ type Config struct {
 	NatsKeyFile          string
 	NatsCAFile           string
 	Init                 bool
-	Pprof                bool
 	LogLevel             string
 }
 
@@ -74,6 +74,7 @@ func parseFlags() Config {
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&cfg.PprofAddr, "pprof-bind-address", "0", "The address the pprof endpoint binds to. Leave as 0 to disable the pprof service.")
 	flag.BoolVar(&cfg.EnableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -85,7 +86,6 @@ func parseFlags() Config {
 	flag.StringVar(&cfg.NatsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
 	flag.StringVar(&cfg.NatsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
 	flag.StringVar(&cfg.NatsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
-	flag.BoolVar(&cfg.Pprof, "pprof", false, "Enable pprof endpoint")
 	flag.BoolVar(&cfg.Init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level")
 
@@ -203,9 +203,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgrOptions := ctrl.Options{
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
+		PprofBindAddress:       cfg.PprofAddr,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: cfg.ProbeAddr,
 		LeaderElection:         cfg.EnableLeaderElection,
@@ -240,13 +241,7 @@ func main() {
 			// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
 			ReconciliationTimeout: 90 * time.Second,
 		},
-	}
-
-	if cfg.Pprof {
-		mgrOptions.PprofBindAddress = ":8082"
-	}
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOptions)
+	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
