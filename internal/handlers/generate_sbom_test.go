@@ -203,11 +203,10 @@ func testGenerateSBOM(t *testing.T, platform, sha256, expectedSPDXJSON string) {
 	err = json.Unmarshal(sbom.SPDX.Raw, generatedSPDX)
 	require.NoError(t, err, "failed to unmarshal generated SPDX, with platform %s", platform)
 
-	// Filter out "DocumentNamespace" and any field named "AnnotationDate" or "Created" regardless of nesting,
-	// since they contain timestamps and are not deterministic.
+	// Filter out non-deterministic fields
 	filter := cmp.FilterPath(func(path cmp.Path) bool {
 		lastField := path.Last().String()
-		return lastField == ".DocumentNamespace" || lastField == ".AnnotationDate" || lastField == ".Created"
+		return lastField == ".DocumentNamespace" || lastField == ".AnnotationDate" || lastField == ".Created" || lastField == ".Annotator" || lastField == ".Creator"
 	}, cmp.Ignore())
 	diff := cmp.Diff(expectedSPDX, generatedSPDX, filter, cmpopts.IgnoreUnexported(spdx.Package{}))
 

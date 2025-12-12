@@ -91,8 +91,8 @@ You'll need [Kind](https://kind.sigs.k8s.io/) installed to create local test clu
 
 From time to time, you may need to update the test fixtures.
 
-Update SBOM fixtures (requires `trivy`)
+Update SBOM fixtures
 
 ```shell
-hack/update-sbom-fixtures.sh test/fixtures/
+make generate-fixtures
 ```

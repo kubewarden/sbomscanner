@@ -121,6 +121,10 @@ generate-chart: ## Generate Helm chart values schema.
 generate-mocks: ## Generate mocks for testing.
 	$(MOCKERY)
 
+.PHONY: generate-fixtures
+generate-fixtures: ## Generate test fixtures.
+	$(GO_BUILD_ENV) go run ./hack/generate_fixtures.go ./test/fixtures
+
 ##@ Dependencies
 
 ## Location to install dependencies to
