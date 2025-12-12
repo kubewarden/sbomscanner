@@ -46,6 +46,9 @@
               "v3score": "9.1"
             }
           },
+          "cwes": [
+            "CWE-125"
+          ],
           "suppressed": false
         },
         {
@@ -69,6 +72,9 @@
               "v3score": "7.5"
             }
           },
+          "cwes": [
+            "CWE-125"
+          ],
           "suppressed": false
         },
         {
@@ -108,6 +114,9 @@
               "v3score": "7.5"
             }
           },
+          "cwes": [
+            "CWE-755"
+          ],
           "suppressed": false
         },
         {
@@ -143,6 +152,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -178,6 +190,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -213,6 +228,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -248,6 +266,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -283,6 +304,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -317,6 +341,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -352,6 +379,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -387,6 +417,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -422,6 +455,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -457,6 +493,9 @@
               "v3score": "5.7"
             }
           },
+          "cwes": [
+            "CWE-125"
+          ],
           "suppressed": false
         },
         {
@@ -515,6 +554,9 @@
               "v3score": "9.8"
             }
           },
+          "cwes": [
+            "CWE-120"
+          ],
           "suppressed": false
         },
         {
@@ -590,6 +632,9 @@
               "v3score": "7.5"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -659,6 +704,9 @@
               "v3score": "7.5"
             }
           },
+          "cwes": [
+            "CWE-190"
+          ],
           "suppressed": false
         },
         {
@@ -727,6 +775,9 @@
               "v3score": "7.4"
             }
           },
+          "cwes": [
+            "CWE-295"
+          ],
           "suppressed": false
         },
         {
@@ -796,6 +847,9 @@
               "v3score": "7.4"
             }
           },
+          "cwes": [
+            "CWE-125"
+          ],
           "suppressed": false
         },
         {
@@ -859,6 +913,9 @@
               "v3score": "5.9"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -927,6 +984,9 @@
               "v3score": "5.9"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -1005,6 +1065,9 @@
               "v3score": "5.9"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -1044,6 +1107,9 @@
               "v3score": "3.7"
             }
           },
+          "cwes": [
+            "CWE-327"
+          ],
           "suppressed": false
         },
         {
@@ -1102,6 +1168,9 @@
               "v3score": "9.8"
             }
           },
+          "cwes": [
+            "CWE-120"
+          ],
           "suppressed": false
         },
         {
@@ -1177,6 +1246,9 @@
               "v3score": "7.5"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -1246,6 +1318,9 @@
               "v3score": "7.5"
             }
           },
+          "cwes": [
+            "CWE-190"
+          ],
           "suppressed": false
         },
         {
@@ -1314,6 +1389,9 @@
               "v3score": "7.4"
             }
           },
+          "cwes": [
+            "CWE-295"
+          ],
           "suppressed": false
         },
         {
@@ -1383,6 +1461,9 @@
               "v3score": "7.4"
             }
           },
+          "cwes": [
+            "CWE-125"
+          ],
           "suppressed": false
         },
         {
@@ -1446,6 +1527,9 @@
               "v3score": "5.9"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -1514,6 +1598,9 @@
               "v3score": "5.9"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -1592,6 +1679,9 @@
               "v3score": "5.9"
             }
           },
+          "cwes": [
+            "CWE-476"
+          ],
           "suppressed": false
         },
         {
@@ -1631,6 +1721,9 @@
               "v3score": "3.7"
             }
           },
+          "cwes": [
+            "CWE-327"
+          ],
           "suppressed": false
         },
         {
@@ -1666,6 +1759,9 @@
               "v3score": "5.5"
             }
           },
+          "cwes": [
+            "CWE-787"
+          ],
           "suppressed": false
         },
         {
@@ -1701,6 +1797,9 @@
               "v3score": "5.5"
             }
           },
+          "cwes": [
+            "CWE-787"
+          ],
           "suppressed": false
         },
         {
@@ -1740,6 +1839,9 @@
               "v3score": "7.5"
             }
           },
+          "cwes": [
+            "CWE-755"
+          ],
           "suppressed": false
         },
         {
@@ -1775,6 +1877,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -1810,6 +1915,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -1845,6 +1953,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -1880,6 +1991,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -1915,6 +2029,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -1949,6 +2066,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -1984,6 +2104,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -2019,6 +2142,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -2054,6 +2180,9 @@
               "v3score": "6.6"
             }
           },
+          "cwes": [
+            "CWE-416"
+          ],
           "suppressed": false
         },
         {
@@ -2089,6 +2218,9 @@
               "v3score": "5.7"
             }
           },
+          "cwes": [
+            "CWE-125"
+          ],
           "suppressed": false
         },
         {
@@ -2159,6 +2291,10 @@
               "v3score": "7"
             }
           },
+          "cwes": [
+            "CWE-787",
+            "CWE-120"
+          ],
           "suppressed": false
         }
       ]

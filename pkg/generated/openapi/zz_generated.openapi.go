@@ -727,6 +727,21 @@ func schema_sbomscanner_api_storage_v1alpha1_Vulnerability(ref common.ReferenceC
 							},
 						},
 					},
+					"cwes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CWEs with which the CVE is classified",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 					"suppressed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Suppressed identify when vulnerability has been suppressed by VEX documents",
