@@ -88,15 +88,16 @@ spec:
                   Repositories is the list of the repositories to be scanned
                   An empty list means all the repositories found in the registry are going to be scanned.
                 items:
-                  description: Repository contains fields to identify repositories
-                    from the catalog.
+                  description: Repository specifies an OCI repository and which image
+                    tags to scan.
                   properties:
                     matchConditions:
-                      description: MatchConditions is a list of CEL expressions to
-                        identify the image tag.
+                      description: |-
+                        MatchConditions filters image tags using CEL expressions.
+                        At most 10 MatchConditions are allowed per repository.
                       items:
-                        description: MatchCondition contains the CEL expression to
-                          match for image tags.
+                        description: MatchCondition defines a CEL expression to filter
+                          image tags.
                         properties:
                           expression:
                             description: |-
@@ -113,10 +114,10 @@ spec:
                         - expression
                         - name
                         type: object
+                      maxItems: 10
                       type: array
                     name:
-                      description: Name is an identifier for the image name to be
-                        scanned.
+                      description: Name is the repository name.
                       type: string
                   required:
                   - name

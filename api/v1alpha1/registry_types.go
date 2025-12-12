@@ -55,6 +55,8 @@ type Repository struct {
 	// Name is the repository name.
 	Name string `json:"name"`
 	// MatchConditions filters image tags using CEL expressions.
+	// At most 10 MatchConditions are allowed per repository.
+	// +kubebuilder:validation:MaxItems=10
 	MatchConditions []MatchCondition `json:"matchConditions,omitempty"`
 }
 
