@@ -56,6 +56,7 @@ import (
 type Config struct {
 	MetricsAddr          string
 	ProbeAddr            string
+	PprofAddr            string
 	EnableLeaderElection bool
 	SecureMetrics        bool
 	EnableHTTP2          bool
@@ -73,6 +74,7 @@ func parseFlags() Config {
 	flag.StringVar(&cfg.MetricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&cfg.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&cfg.PprofAddr, "pprof-bind-address", "0", "The address the pprof endpoint binds to. Leave as 0 to disable the pprof service.")
 	flag.BoolVar(&cfg.EnableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -204,6 +206,7 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
+		PprofBindAddress:       cfg.PprofAddr,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: cfg.ProbeAddr,
 		LeaderElection:         cfg.EnableLeaderElection,
