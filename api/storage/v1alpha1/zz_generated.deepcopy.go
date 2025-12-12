@@ -282,6 +282,11 @@ func (in *Vulnerability) DeepCopyInto(out *Vulnerability) {
 			(*out)[key] = val
 		}
 	}
+	if in.CWES != nil {
+		in, out := &in.CWES, &out.CWES
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.VEXStatus != nil {
 		in, out := &in.VEXStatus, &out.VEXStatus
 		*out = new(VEXStatus)
