@@ -5,9 +5,26 @@ import (
 	"fmt"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/ext"
 	"k8s.io/apiserver/pkg/cel/library"
 )
+
+// tagEvaluatorCostLimit is the maximum cost limit for evaluating tag expressions.
+// This is to prevent excessively complex expressions from consuming too many resources.
+const tagEvaluatorCostLimit = 100
+
+// tagSizeEstimator provides size estimates for the tag variable.
+type tagSizeEstimator struct{}
+
+func (t *tagSizeEstimator) EstimateSize(_ checker.AstNode) *checker.SizeEstimate {
+	// OCI distribution spec allows tags up to 128 characters.
+	return &checker.SizeEstimate{Min: 0, Max: 128}
+}
+
+func (t *tagSizeEstimator) EstimateCallCost(_, _ string, _ *checker.AstNode, _ []checker.AstNode) *checker.CallEstimate {
+	return nil
+}
 
 // TagEvaluator is the evaluator for tag filter expressions.
 type TagEvaluator struct {
@@ -16,11 +33,12 @@ type TagEvaluator struct {
 
 func NewTagEvaluator() (*TagEvaluator, error) {
 	env, err := cel.NewEnv(
+		// Clear all default macros (has, all, exists, exists_one, map, filter)
+		// as they are not needed for tag evaluation.
+		cel.ClearMacros(),
 		cel.ASTValidators(
-			cel.ValidateDurationLiterals(),
 			cel.ValidateTimestampLiterals(),
 			cel.ValidateRegexLiterals(),
-			cel.ValidateHomogeneousAggregateLiterals(),
 		),
 		ext.Strings(),
 		library.SemverLib(library.SemverVersion(1)),
@@ -42,7 +60,7 @@ func (e *TagEvaluator) Evaluate(expression string, tag string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	prg, err := e.env.Program(ast)
+	prg, err := e.env.Program(ast, cel.CostLimit(tagEvaluatorCostLimit))
 	if err != nil {
 		return false, fmt.Errorf("failed to create CEL program: %w", err)
 	}
@@ -81,6 +99,16 @@ func (e *TagEvaluator) compile(expression string) (*cel.Ast, error) {
 	ast, issues := e.env.Compile(expression)
 	if issues != nil && issues.Err() != nil {
 		return nil, fmt.Errorf("failed to compile expression: %w", issues.Err())
+	}
+
+	costEst, err := e.env.EstimateCost(ast, &library.CostEstimator{
+		SizeEstimator: &tagSizeEstimator{},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate expression cost: %w", err)
+	}
+	if costEst.Max > tagEvaluatorCostLimit {
+		return nil, fmt.Errorf("expression cost %d exceeds limit %d", costEst.Max, tagEvaluatorCostLimit)
 	}
 
 	return ast, nil
