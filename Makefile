@@ -2,11 +2,12 @@ CONTROLLER_TOOLS_VERSION := v0.16.5
 ENVTEST_VERSION := release-0.19
 ENVTEST_K8S_VERSION := 1.31.0
 MOCKERY_VERSION := v3.3.4
+HELM_VALUES_SCHEMA_JSON_VERSION := v2.3.1
 
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
 MOCKERY ?= go run github.com/vektra/mockery/v3@$(MOCKERY_VERSION)
-HELM_SCHEMA ?= go run github.com/dadav/helm-schema/cmd/helm-schema@latest
+HELM_SCHEMA ?= go run github.com/losisin/helm-values-schema-json/v2@$(HELM_VALUES_SCHEMA_JSON_VERSION)
 
 GO_MOD_SRCS := go.mod go.sum
 GO_BUILD_ENV := CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOEXPERIMENT=jsonv2
@@ -114,7 +115,7 @@ generate-storage: generate-storage-test-crd ## Generate storage  code in pkg/gen
 
 .PHONY: generate-chart
 generate-chart: ## Generate Helm chart values schema.
-	helm schema --values charts/sbomscanner/values.yaml --output charts/sbomscanner/values.schema.json
+	$(HELM_SCHEMA) --values charts/sbomscanner/values.yaml --output charts/sbomscanner/values.schema.json
 
 .PHONY: generate-mocks
 generate-mocks: ## Generate mocks for testing.
