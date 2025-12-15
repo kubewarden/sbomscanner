@@ -26,10 +26,12 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/nats-io/nats.go"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -232,8 +234,15 @@ func main() {
 				&storagev1alpha1.Image{}: {
 					Transform: storage.TransformStripImage,
 				},
-				&storagev1alpha1.VulnerabilityReport{}: {
-					Transform: storage.TransformStripVulnerabilityReport,
+				&metav1.PartialObjectMetadata{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: storagev1alpha1.SchemeGroupVersion.String(),
+						Kind:       "VulnerabilityReport",
+					},
+				}: {
+					Transform: cache.TransformStripManagedFields(),
+					// Metadata-only watch, skip deep copy since we treat it as read-only.
+					UnsafeDisableDeepCopy: ptr.To(true),
 				},
 			},
 		},
