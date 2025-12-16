@@ -92,13 +92,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, certFile, keyFile stri
 	serverConfig.OpenAPIV3Config.Info.Title = "SBOM Scanner Storage"
 	serverConfig.OpenAPIV3Config.Info.Version = "v1alpha1"
 
-	// Disable WatchList for now
-	// TODO: remove this once we implement WatchList in the storage.
-	mutableFeatureGate := utilfeature.DefaultMutableFeatureGate
-	if err = mutableFeatureGate.Set("WatchList=false"); err != nil {
-		return nil, fmt.Errorf("failed to set feature gate: %w", err)
-	}
-	serverConfig.FeatureGate = mutableFeatureGate
+	serverConfig.FeatureGate = utilfeature.DefaultFeatureGate
 	serverConfig.EffectiveVersion = basecompatibility.NewEffectiveVersionFromString(
 		baseversion.DefaultKubeBinaryVersion,
 		"",
