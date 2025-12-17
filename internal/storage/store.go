@@ -56,6 +56,43 @@ func (s *store) Versioner() storage.Versioner {
 	return storage.APIObjectVersioner{}
 }
 
+// nextResourceVersion gets the next resource version from the database sequence.
+func (s *store) nextResourceVersion(ctx context.Context) (uint64, error) {
+	query, args, err := psql.Select(
+		// This is fine since resourceVersionSequenceName is a constant controlled by us
+		sm.Columns(psql.Raw(fmt.Sprintf("nextval('%s')", resourceVersionSequenceName))),
+	).Build(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to build next resource version query: %w", err)
+	}
+
+	var rv uint64
+	if err := s.db.QueryRow(ctx, query, args...).Scan(&rv); err != nil {
+		return 0, fmt.Errorf("failed to get next resource version: %w", err)
+	}
+	return rv, nil
+}
+
+// GetCurrentResourceVersion gets the current resource version from the database sequence.
+func (s *store) GetCurrentResourceVersion(ctx context.Context) (uint64, error) {
+	// This is fine since resourceVersionSequenceName is a constant controlled by us
+	query := fmt.Sprintf("SELECT last_value, is_called FROM %s", resourceVersionSequenceName)
+
+	var rv uint64
+	var isCalled bool
+	if err := s.db.QueryRow(ctx, query).Scan(&rv, &isCalled); err != nil {
+		return 0, fmt.Errorf("failed to get current resource version: %w", err)
+	}
+
+	// If nextval() has never been called, initialize the sequence
+	// to get a valid resource version (1)
+	if !isCalled {
+		return s.nextResourceVersion(ctx)
+	}
+
+	return rv, nil
+}
+
 // Create adds a new object at a key unless it already exists. 'ttl' is time-to-live
 // in seconds (0 means forever). If no error is returned and out is not nil, out will be
 // set to the read value from database.
@@ -67,7 +104,12 @@ func (s *store) Create(ctx context.Context, key string, obj, out runtime.Object,
 		return storage.NewInternalError(fmt.Errorf("invalid key: %s", key))
 	}
 
-	if err := s.Versioner().UpdateObject(obj, 1); err != nil {
+	rv, err := s.nextResourceVersion(ctx)
+	if err != nil {
+		return storage.NewInternalError(err)
+	}
+
+	if err := s.Versioner().UpdateObject(obj, rv); err != nil {
 		return storage.NewInternalError(err)
 	}
 
@@ -94,12 +136,12 @@ func (s *store) Create(ctx context.Context, key string, obj, out runtime.Object,
 		return storage.NewKeyExistsError(key, 0)
 	}
 
-	if err = s.broadcaster.Action(watch.Added, obj); err != nil {
+	if err := s.broadcaster.Action(watch.Added, obj); err != nil {
 		return storage.NewInternalError(err)
 	}
 
 	if out != nil {
-		if err = setValue(obj, out); err != nil {
+		if err := setValue(obj, out); err != nil {
 			return err
 		}
 	}
@@ -256,14 +298,15 @@ func (s *store) Watch(ctx context.Context, key string, opts storage.ListOptions)
 // This reduces memory usage on both server and client for large collections.
 // See: https://kubernetes.io/blog/2025/05/09/kubernetes-v1-33-streaming-list-responses/
 func (s *store) watchList(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
-	currentRV, err := s.GetCurrentResourceVersion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current resource version: %w", err)
-	}
-
 	listObj := s.newListFunc()
 	if err := s.GetList(ctx, key, opts, listObj); err != nil {
 		return nil, err
+	}
+
+	// Get RV from list metadata for the bookmark
+	listMeta, err := meta.ListAccessor(listObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get list accessor: %w", err)
 	}
 
 	itemsValue, err := getItems(listObj)
@@ -287,7 +330,11 @@ func (s *store) watchList(ctx context.Context, key string, opts storage.ListOpti
 
 	// Create bookmark with the annotation that signals initial events are done
 	bookmarkObj := s.newFunc()
-	if err := s.Versioner().UpdateObject(bookmarkObj, currentRV); err != nil {
+	rv, err := strconv.ParseUint(listMeta.GetResourceVersion(), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse resource version: %w", err)
+	}
+	if err := s.Versioner().UpdateObject(bookmarkObj, rv); err != nil {
 		return nil, fmt.Errorf("failed to set resource version on bookmark: %w", err)
 	}
 
@@ -387,6 +434,12 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		"continue", opts.Predicate.Continue,
 	)
 
+	// Parse the requested resource version to determine list semantics.
+	requestedRV, err := s.Versioner().ParseResourceVersion(opts.ResourceVersion)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid resource version: %v", err))
+	}
+
 	var continueToken int64
 	if opts.Predicate.Continue != "" {
 		var err error
@@ -412,6 +465,22 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 	if continueToken > 0 {
 		queryBuilder.Apply(
 			sm.Where(psql.Quote("id").GT(psql.Arg(continueToken))),
+		)
+	}
+
+	// Apply resource version filtering when a specific RV is requested.
+	// Skip this during WatchList since initial events will naturally have RVs
+	// lower than the list RV.
+	//
+	// NOTE: ResourceVersionMatch is ignored. This storage always uses
+	// NotOlderThan semantics, even if Exact is specified.
+	// This matches legacy apiserver behavior from before ResourceVersionMatch
+	// was introduced in Kubernetes 1.19.
+	// True Exact semantics would require MVCC snapshots which PostgreSQL
+	// sequences don't provide.
+	if requestedRV != 0 && (opts.SendInitialEvents == nil || !*opts.SendInitialEvents) {
+		queryBuilder.Apply(
+			sm.Where(psql.Raw("(object->'metadata'->>'resourceVersion')::bigint >= ?", requestedRV)),
 		)
 	}
 
@@ -503,7 +572,18 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		nextContinueToken = strconv.FormatInt(lastID, 10)
 	}
 
-	if err = s.Versioner().UpdateList(listObj, 1, nextContinueToken, nil); err != nil {
+	// Determine the list's resource version.
+	// For RV "" or "0", we generate a new RV to mark this point in time.
+	// This ensures any subsequent watch from this RV won't miss events.
+	listRV := requestedRV
+	if requestedRV == 0 {
+		listRV, err = s.nextResourceVersion(ctx)
+		if err != nil {
+			return storage.NewInternalError(err)
+		}
+	}
+
+	if err := s.Versioner().UpdateList(listObj, listRV, nextContinueToken, nil); err != nil {
 		return storage.NewInternalError(err)
 	}
 
@@ -564,9 +644,8 @@ func (s *store) GuaranteedUpdate(
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return err
+		return storage.NewInternalError(err)
 	}
-
 	defer func() {
 		if err = tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			s.logger.ErrorContext(ctx, "failed to rollback transaction", "error", err)
@@ -627,12 +706,12 @@ func (s *store) GuaranteedUpdate(
 			return err
 		}
 
-		var version uint64
-		version, err = s.Versioner().ObjectResourceVersion(obj)
+		rv, err := s.nextResourceVersion(ctx)
 		if err != nil {
 			return storage.NewInternalError(err)
 		}
-		if err = s.Versioner().UpdateObject(updatedObj, version+1); err != nil {
+
+		if err := s.Versioner().UpdateObject(updatedObj, rv); err != nil {
 			return storage.NewInternalError(err)
 		}
 
@@ -755,14 +834,6 @@ func (s *store) RequestWatchProgress(_ context.Context) error {
 func (s *store) EnableResourceSizeEstimation(_ storage.KeysFunc) error {
 	// No-op implementation - resource size estimation is not implemented for this storage backend
 	return nil
-}
-
-// GetCurrentResourceVersion gets the current resource version from etcd.
-// This method issues an empty list request and reads only the ResourceVersion from the object metadata
-//
-// TODO: this is a dummy implementation to satisfy the storage.Interface.
-func (s *store) GetCurrentResourceVersion(_ context.Context) (uint64, error) {
-	return 0, nil
 }
 
 // extractNameAndNamespace extracts the name and namespace from the key.
