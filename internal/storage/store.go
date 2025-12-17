@@ -75,18 +75,20 @@ func (s *store) nextResourceVersion(ctx context.Context) (uint64, error) {
 
 // GetCurrentResourceVersion gets the current resource version from the database sequence.
 func (s *store) GetCurrentResourceVersion(ctx context.Context) (uint64, error) {
-	query, args, err := psql.Select(
-		sm.Columns("last_value"),
-		sm.From(resourceVersionSequenceName),
-	).Build(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to build current resource version query: %w", err)
-	}
+	// This is fine since resourceVersionSequenceName is a constant controlled by us
+	query := fmt.Sprintf("SELECT last_value, is_called FROM %s", resourceVersionSequenceName)
 
 	var rv uint64
-	if err := s.db.QueryRow(ctx, query, args...).Scan(&rv); err != nil {
+	var isCalled bool
+	if err := s.db.QueryRow(ctx, query).Scan(&rv, &isCalled); err != nil {
 		return 0, fmt.Errorf("failed to get current resource version: %w", err)
 	}
+
+	// If nextval() has never been called, no resource version has been assigned yet
+	if !isCalled {
+		return 0, nil
+	}
+
 	return rv, nil
 }
 
@@ -327,7 +329,10 @@ func (s *store) watchList(ctx context.Context, key string, opts storage.ListOpti
 
 	// Create bookmark with the annotation that signals initial events are done
 	bookmarkObj := s.newFunc()
-	rv, _ := strconv.ParseUint(listMeta.GetResourceVersion(), 10, 64)
+	rv, err := strconv.ParseUint(listMeta.GetResourceVersion(), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse resource version: %w", err)
+	}
 	if err := s.Versioner().UpdateObject(bookmarkObj, rv); err != nil {
 		return nil, fmt.Errorf("failed to set resource version on bookmark: %w", err)
 	}
@@ -610,9 +615,8 @@ func (s *store) GuaranteedUpdate(
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return err
+		return storage.NewInternalError(err)
 	}
-
 	defer func() {
 		if err = tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			s.logger.ErrorContext(ctx, "failed to rollback transaction", "error", err)
