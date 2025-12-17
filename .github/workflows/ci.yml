@@ -36,8 +36,9 @@ jobs:
       - name: Install helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       # Disable plugin verification until the following issue is addressed https://github.com/helm-unittest/helm-unittest/issues/777
+      # Pin to v1.0.2 until https://github.com/helm-unittest/helm-unittest/issues/790 is resolved
       - name: Install Helm-unittest
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false --version v1.0.2
       - run: make helm-unittest
 
   golangci:
