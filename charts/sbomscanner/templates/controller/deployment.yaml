@@ -38,6 +38,9 @@ spec:
       containers:
         - command:
             - /controller
+          env:
+            - name: KUBE_FEATURE_WatchListClient
+              value: "true"
           args:
             - -leader-elect
             - -health-probe-bind-address=:8081

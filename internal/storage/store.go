@@ -193,7 +193,16 @@ func (s *store) Watch(ctx context.Context, key string, opts storage.ListOptions)
 		opts.ResourceVersion,
 		"progressNotify",
 		opts.ProgressNotify,
+		"watchList",
+		opts.SendInitialEvents,
 	)
+
+	// WatchList: streaming list as watch events
+	// When SendInitialEvents is true, we send all existing items as ADDED events,
+	// followed by a BOOKMARK to signal initial list completion.
+	if opts.SendInitialEvents != nil && *opts.SendInitialEvents {
+		return s.watchList(ctx, key, opts)
+	}
 
 	if opts.ResourceVersion == "" {
 		return s.broadcaster.Watch()
@@ -233,6 +242,71 @@ func (s *store) Watch(ctx context.Context, key string, opts storage.ListOptions)
 			Object: item,
 		})
 	}
+
+	return s.broadcaster.WatchWithPrefix(events)
+}
+
+// watchList implements the WatchList (streaming list) pattern introduced in Kubernetes 1.33.
+//
+// Instead of returning a large list response, it streams the initial state as watch events:
+//  1. All existing items are sent as synthetic ADDED events
+//  2. A BOOKMARK event with the "k8s.io/initial-events-end" annotation signals completion
+//  3. Real-time events from the broadcaster continue from that point
+//
+// This reduces memory usage on both server and client for large collections.
+// See: https://kubernetes.io/blog/2025/05/09/kubernetes-v1-33-streaming-list-responses/
+func (s *store) watchList(ctx context.Context, key string, opts storage.ListOptions) (watch.Interface, error) {
+	currentRV, err := s.GetCurrentResourceVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current resource version: %w", err)
+	}
+
+	listObj := s.newListFunc()
+	if err := s.GetList(ctx, key, opts, listObj); err != nil {
+		return nil, err
+	}
+
+	itemsValue, err := getItems(listObj)
+	if err != nil {
+		return nil, err
+	}
+
+	events := make([]watch.Event, 0, itemsValue.Len()+1)
+	for i := range itemsValue.Len() {
+		item, ok := itemsValue.Index(i).Addr().Interface().(runtime.Object)
+		if !ok {
+			return nil, storage.NewInternalError(
+				fmt.Errorf("unexpected item type: %T", itemsValue.Index(i).Addr().Interface()),
+			)
+		}
+		events = append(events, watch.Event{
+			Type:   watch.Added,
+			Object: item,
+		})
+	}
+
+	// Create bookmark with the annotation that signals initial events are done
+	bookmarkObj := s.newFunc()
+	if err := s.Versioner().UpdateObject(bookmarkObj, currentRV); err != nil {
+		return nil, fmt.Errorf("failed to set resource version on bookmark: %w", err)
+	}
+
+	// Set the annotation that tells the client initial events are complete
+	accessor, err := meta.Accessor(bookmarkObj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get object accessor: %w", err)
+	}
+	annotations := accessor.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations["k8s.io/initial-events-end"] = "true"
+	accessor.SetAnnotations(annotations)
+
+	events = append(events, watch.Event{
+		Type:   watch.Bookmark,
+		Object: bookmarkObj,
+	})
 
 	return s.broadcaster.WatchWithPrefix(events)
 }

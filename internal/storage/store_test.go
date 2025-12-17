@@ -341,21 +341,61 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 	suite.Equal(sbom1, events[0].Object)
 }
 
-// mustReadEvents reads n events from the watch.Interface or fails the test if not enough events are received in time.
-func mustReadEvents(t *testing.T, w watch.Interface, n int) []watch.Event {
-	events := make([]watch.Event, 0, n)
+func (suite *storeTestSuite) TestWatchList() {
+	key := keyPrefix + "/default"
 
-	require.Eventually(t, func() bool {
-		select {
-		case evt := <-w.ResultChan():
-			events = append(events, evt)
-			return len(events) == n
-		default:
-			return false
-		}
-	}, time.Second, 5*time.Millisecond, "expected %d events", n)
+	sbom1 := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test1",
+			Namespace: "default",
+		},
+	}
+	err := suite.store.Create(context.Background(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
 
-	return events
+	sbom2 := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test2",
+			Namespace: "default",
+		},
+	}
+	err = suite.store.Create(context.Background(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	opts := k8sstorage.ListOptions{
+		SendInitialEvents: ptr.To(true),
+		Predicate:         matcher(labels.Everything(), fields.Everything()),
+		Recursive:         true,
+	}
+
+	w, err := suite.store.Watch(context.Background(), key, opts)
+	suite.Require().NoError(err)
+
+	// Should receive ADDED events for existing items + BOOKMARK
+	events := mustReadEvents(suite.T(), w, 3)
+
+	// First two events should be ADDED for existing items
+	addedEvents := events[:2]
+	for _, evt := range addedEvents {
+		suite.Equal(watch.Added, evt.Type)
+	}
+
+	// Verify both items were sent (order may vary)
+	addedNames := make([]string, 0, 2)
+	for _, evt := range addedEvents {
+		sbom, ok := evt.Object.(*storagev1alpha1.SBOM)
+		suite.Require().True(ok)
+		addedNames = append(addedNames, sbom.Name)
+	}
+	suite.ElementsMatch([]string{"test1", "test2"}, addedNames)
+
+	// Last event should be BOOKMARK with the initial-events-end annotation
+	bookmarkEvent := events[2]
+	suite.Equal(watch.Bookmark, bookmarkEvent.Type)
+
+	bookmarkObj, ok := bookmarkEvent.Object.(*storagev1alpha1.SBOM)
+	suite.Require().True(ok)
+	suite.Equal("true", bookmarkObj.Annotations["k8s.io/initial-events-end"])
 }
 
 func (suite *storeTestSuite) TestGetList() {
@@ -785,4 +825,21 @@ func (suite *storeTestSuite) TestCount() {
 			suite.Require().Equal(test.expectedCount, count)
 		})
 	}
+}
+
+// mustReadEvents reads n events from the watch.Interface or fails the test if not enough events are received in time.
+func mustReadEvents(t *testing.T, w watch.Interface, n int) []watch.Event {
+	events := make([]watch.Event, 0, n)
+
+	require.Eventually(t, func() bool {
+		select {
+		case evt := <-w.ResultChan():
+			events = append(events, evt)
+			return len(events) == n
+		default:
+			return false
+		}
+	}, time.Second, 5*time.Millisecond, "expected %d events", n)
+
+	return events
 }
