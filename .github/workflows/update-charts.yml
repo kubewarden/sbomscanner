@@ -20,7 +20,8 @@ jobs:
       - name: Install helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
       - name: Install helm values schema json plugin
-        run: helm plugin install https://github.com/losisin/helm-values-schema-json.git
+        # Disable plugin verification until helm v4 is supported
+        run: helm plugin install https://github.com/losisin/helm-values-schema-json.git --verify=false
 
       - name: Update SBOMscanner charts
         env:
