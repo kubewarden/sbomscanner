@@ -84,9 +84,10 @@ func (s *store) GetCurrentResourceVersion(ctx context.Context) (uint64, error) {
 		return 0, fmt.Errorf("failed to get current resource version: %w", err)
 	}
 
-	// If nextval() has never been called, no resource version has been assigned yet
+	// If nextval() has never been called, initialize the sequence
+	// to get a valid resource version (1)
 	if !isCalled {
-		return 0, nil
+		return s.nextResourceVersion(ctx)
 	}
 
 	return rv, nil
