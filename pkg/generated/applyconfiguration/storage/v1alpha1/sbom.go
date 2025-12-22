@@ -11,11 +11,14 @@ import (
 
 // SBOMApplyConfiguration represents a declarative configuration of the SBOM type for use
 // with apply.
+//
+// SBOM represents a Software Bill of Materials of an OCI artifact
 type SBOMApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	ImageMetadata                    *ImageMetadataApplyConfiguration `json:"imageMetadata,omitempty"`
-	SPDX                             *runtime.RawExtension            `json:"spdx,omitempty"`
+	// SPDX contains the SPDX document of the SBOM in JSON format
+	SPDX *runtime.RawExtension `json:"spdx,omitempty"`
 }
 
 // SBOM constructs a declarative configuration of the SBOM type for use with
@@ -28,6 +31,7 @@ func SBOM(name, namespace string) *SBOMApplyConfiguration {
 	b.WithAPIVersion("storage.sbomscanner.kubewarden.io/v1alpha1")
 	return b
 }
+
 func (b SBOMApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
