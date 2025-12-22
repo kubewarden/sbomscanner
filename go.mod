@@ -6,7 +6,6 @@ require (
 	github.com/aquasecurity/trivy v0.68.2
 	github.com/aquasecurity/trivy-db v0.0.0-20251215073616-6d2ce193d235
 	github.com/avast/retry-go/v4 v4.6.1
-	github.com/avast/retry-go/v5 v5.0.0
 	github.com/aws/smithy-go v1.24.0
 	github.com/docker/cli v29.0.4+incompatible
 	github.com/go-logr/logr v1.4.3
