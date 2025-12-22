@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"testing"
 	"time"
 
@@ -681,6 +682,101 @@ func mustParseFieldSelector(selector string) fields.Selector {
 		panic("failed to parse field selector: " + err.Error())
 	}
 	return fieldSelector
+}
+
+func (suite *storeTestSuite) TestGetListResourceVersionSemanntics() {
+	key := keyPrefix + "/default"
+
+	// Create some objects to get different RVs
+	sbom1 := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test1",
+			Namespace: "default",
+		},
+	}
+	err := suite.store.Create(suite.T().Context(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	sbom2 := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test2",
+			Namespace: "default",
+		},
+	}
+	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	sbom3 := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test3",
+			Namespace: "default",
+		},
+	}
+	err = suite.store.Create(suite.T().Context(), key+"/test3", sbom3, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	tests := []struct {
+		name            string
+		resourceVersion string
+		expectedNames   []string
+		expectNewRV     bool
+		expectedListRV  string
+	}{
+		{
+			name:            "empty RV returns all objects and generates new RV",
+			resourceVersion: "",
+			expectedNames:   []string{"test1", "test2", "test3"},
+			expectNewRV:     true,
+		},
+		{
+			name:            "RV 0 returns all objects and generates new RV",
+			resourceVersion: "0",
+			expectedNames:   []string{"test1", "test2", "test3"},
+			expectNewRV:     true,
+		},
+		{
+			name:            "specific RV filters objects with NotOlderThan semantics",
+			resourceVersion: "2",
+			expectedNames:   []string{"test2", "test3"},
+			expectedListRV:  "2",
+		},
+		{
+			name:            "RV higher than all objects returns empty list",
+			resourceVersion: "100",
+			expectedNames:   []string{},
+			expectedListRV:  "100",
+		},
+	}
+
+	for _, test := range tests {
+		suite.Run(test.name, func() {
+			opts := k8sstorage.ListOptions{
+				ResourceVersion: test.resourceVersion,
+				Predicate:       matcher(labels.Everything(), fields.Everything()),
+			}
+
+			sbomList := &storagev1alpha1.SBOMList{}
+			err := suite.store.GetList(suite.T().Context(), key, opts, sbomList)
+			suite.Require().NoError(err)
+
+			var names []string
+			for _, item := range sbomList.Items {
+				names = append(names, item.Name)
+			}
+			suite.ElementsMatch(test.expectedNames, names)
+
+			if test.expectNewRV {
+				suite.NotEmpty(sbomList.ResourceVersion)
+				listRV, err := strconv.ParseUint(sbomList.ResourceVersion, 10, 64)
+				suite.Require().NoError(err)
+				suite.Greater(listRV, uint64(3), "list RV should be a newly generated value")
+			}
+
+			if test.expectedListRV != "" {
+				suite.Equal(test.expectedListRV, sbomList.ResourceVersion)
+			}
+		})
+	}
 }
 
 func (suite *storeTestSuite) TestGuaranteedUpdate() {

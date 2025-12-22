@@ -434,6 +434,12 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		"continue", opts.Predicate.Continue,
 	)
 
+	// Parse the requested resource version to determine list semantics.
+	requestedRV, err := s.Versioner().ParseResourceVersion(opts.ResourceVersion)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("invalid resource version: %v", err))
+	}
+
 	var continueToken int64
 	if opts.Predicate.Continue != "" {
 		var err error
@@ -459,6 +465,22 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 	if continueToken > 0 {
 		queryBuilder.Apply(
 			sm.Where(psql.Quote("id").GT(psql.Arg(continueToken))),
+		)
+	}
+
+	// Apply resource version filtering when a specific RV is requested.
+	// Skip this during WatchList since initial events will naturally have RVs
+	// lower than the list RV.
+	//
+	// NOTE: ResourceVersionMatch is ignored. This storage always uses
+	// NotOlderThan semantics, even if Exact is specified.
+	// This matches legacy apiserver behavior from before ResourceVersionMatch
+	// was introduced in Kubernetes 1.19.
+	// True Exact semantics would require MVCC snapshots which PostgreSQL
+	// sequences don't provide.
+	if requestedRV != 0 && (opts.SendInitialEvents == nil || !*opts.SendInitialEvents) {
+		queryBuilder.Apply(
+			sm.Where(psql.Raw("(object->'metadata'->>'resourceVersion')::bigint >= ?", requestedRV)),
 		)
 	}
 
@@ -550,12 +572,18 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		nextContinueToken = strconv.FormatInt(lastID, 10)
 	}
 
-	rv, err := s.GetCurrentResourceVersion(ctx)
-	if err != nil {
-		return storage.NewInternalError(err)
+	// Determine the list's resource version.
+	// For RV "" or "0", we generate a new RV to mark this point in time.
+	// This ensures any subsequent watch from this RV won't miss events.
+	listRV := requestedRV
+	if requestedRV == 0 {
+		listRV, err = s.nextResourceVersion(ctx)
+		if err != nil {
+			return storage.NewInternalError(err)
+		}
 	}
 
-	if err := s.Versioner().UpdateList(listObj, rv, nextContinueToken, nil); err != nil {
+	if err := s.Versioner().UpdateList(listObj, listRV, nextContinueToken, nil); err != nil {
 		return storage.NewInternalError(err)
 	}
 
