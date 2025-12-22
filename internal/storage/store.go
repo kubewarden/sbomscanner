@@ -750,6 +750,13 @@ func (s *store) RequestWatchProgress(_ context.Context) error {
 	return nil
 }
 
+// EnableResourceSizeEstimation enables estimating resource size by providing function get keys from storage.
+// This is a no-op implementation as resource size estimation is not critical for this PostgreSQL-based storage.
+func (s *store) EnableResourceSizeEstimation(_ storage.KeysFunc) error {
+	// No-op implementation - resource size estimation is not implemented for this storage backend
+	return nil
+}
+
 // GetCurrentResourceVersion gets the current resource version from etcd.
 // This method issues an empty list request and reads only the ResourceVersion from the object metadata
 //
