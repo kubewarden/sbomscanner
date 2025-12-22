@@ -4,10 +4,16 @@ package v1alpha1
 
 // VEXStatusApplyConfiguration represents a declarative configuration of the VEXStatus type for use
 // with apply.
+//
+// VEXStatus represents the status of a vulnerability as declared
+// in a VEX document
 type VEXStatusApplyConfiguration struct {
+	// Repository providing the VEX document
 	Repository *string `json:"repository,omitempty"`
-	Status     *string `json:"status,omitempty"`
-	Statement  *string `json:"statement,omitempty"`
+	// VEX status (e.g., "not_affected", "fixed", "under_investigation")
+	Status *string `json:"status,omitempty"`
+	// Statement optionally explain statement from the VEX document
+	Statement *string `json:"statement,omitempty"`
 }
 
 // VEXStatusApplyConfiguration constructs a declarative configuration of the VEXStatus type for use with

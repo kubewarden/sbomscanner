@@ -4,9 +4,13 @@ package v1alpha1
 
 // CVSSApplyConfiguration represents a declarative configuration of the CVSS type for use
 // with apply.
+//
+// CVSS holds Common Vulnerability Scoring System data for a vulnerability.
 type CVSSApplyConfiguration struct {
+	// V3Vector string (e.g., "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")
 	V3Vector *string `json:"v3vector,omitempty"`
-	V3Score  *string `json:"v3score,omitempty"`
+	// V3Score numerical score
+	V3Score *string `json:"v3score,omitempty"`
 }
 
 // CVSSApplyConfiguration constructs a declarative configuration of the CVSS type for use with

@@ -4,8 +4,12 @@ package v1alpha1
 
 // ReportApplyConfiguration represents a declarative configuration of the Report type for use
 // with apply.
+//
+// Report contains metadata about the scanned image and a list of vulnerability results.
 type ReportApplyConfiguration struct {
+	// Summary of vulnerabilities found
 	Summary *SummaryApplyConfiguration `json:"summary,omitempty"`
+	// Results per target (e.g., layer, package type)
 	Results []ResultApplyConfiguration `json:"results,omitempty"`
 }
 

@@ -10,11 +10,15 @@ import (
 
 // ImageApplyConfiguration represents a declarative configuration of the Image type for use
 // with apply.
+//
+// Image is the Schema for the images API
 type ImageApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
+	// Metadata of the image
 	*ImageMetadataApplyConfiguration `json:"imageMetadata,omitempty"`
-	Layers                           []ImageLayerApplyConfiguration `json:"layers,omitempty"`
+	// List of the layers that make the image
+	Layers []ImageLayerApplyConfiguration `json:"layers,omitempty"`
 }
 
 // Image constructs a declarative configuration of the Image type for use with
@@ -27,6 +31,7 @@ func Image(name, namespace string) *ImageApplyConfiguration {
 	b.WithAPIVersion("storage.sbomscanner.kubewarden.io/v1alpha1")
 	return b
 }
+
 func (b ImageApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

@@ -4,12 +4,20 @@ package v1alpha1
 
 // SummaryApplyConfiguration represents a declarative configuration of the Summary type for use
 // with apply.
+//
+// Summary provides a high-level overview of the vulnerabilities found.
 type SummaryApplyConfiguration struct {
-	Critical   *int `json:"critical,omitempty"`
-	High       *int `json:"high,omitempty"`
-	Medium     *int `json:"medium,omitempty"`
-	Low        *int `json:"low,omitempty"`
-	Unknown    *int `json:"unknown,omitempty"`
+	// Critical vulnerabilities count
+	Critical *int `json:"critical,omitempty"`
+	// High vulnerabilities count
+	High *int `json:"high,omitempty"`
+	// Medium vulnerabilities count
+	Medium *int `json:"medium,omitempty"`
+	// Low vulnerabilities count
+	Low *int `json:"low,omitempty"`
+	// Unknown vulnerabilities count
+	Unknown *int `json:"unknown,omitempty"`
+	// Suppressed vulnerabilities count
 	Suppressed *int `json:"suppressed,omitempty"`
 }
 

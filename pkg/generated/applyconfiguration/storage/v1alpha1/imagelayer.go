@@ -4,10 +4,16 @@ package v1alpha1
 
 // ImageLayerApplyConfiguration represents a declarative configuration of the ImageLayer type for use
 // with apply.
+//
+// ImageLayer define a layer part of an OCI Image
 type ImageLayerApplyConfiguration struct {
+	// command is the command that led to the creation
+	// of the layer. The contents are base64 encoded
 	Command *string `json:"command,omitempty"`
-	Digest  *string `json:"digest,omitempty"`
-	DiffID  *string `json:"diffID,omitempty"`
+	// digest is the Hash of the compressed layer
+	Digest *string `json:"digest,omitempty"`
+	// diffID is the Hash of the uncompressed layer
+	DiffID *string `json:"diffID,omitempty"`
 }
 
 // ImageLayerApplyConfiguration constructs a declarative configuration of the ImageLayer type for use with

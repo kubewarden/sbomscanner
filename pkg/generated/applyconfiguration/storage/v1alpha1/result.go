@@ -8,10 +8,16 @@ import (
 
 // ResultApplyConfiguration represents a declarative configuration of the Result type for use
 // with apply.
+//
+// Result represents scan findings for a specific target and class of packages
 type ResultApplyConfiguration struct {
-	Target          *string                           `json:"target,omitempty"`
-	Class           *storagev1alpha1.Class            `json:"class,omitempty"`
-	Type            *string                           `json:"type,omitempty"`
+	// Target is the specific target scanned
+	Target *string `json:"target,omitempty"`
+	// Class is the classification of the target
+	Class *storagev1alpha1.Class `json:"class,omitempty"`
+	// Type is the language type
+	Type *string `json:"type,omitempty"`
+	// Vulnerabilities found in this target
 	Vulnerabilities []VulnerabilityApplyConfiguration `json:"vulnerabilities,omitempty"`
 }
 

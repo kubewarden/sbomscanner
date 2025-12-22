@@ -4,13 +4,21 @@ package v1alpha1
 
 // ImageMetadataApplyConfiguration represents a declarative configuration of the ImageMetadata type for use
 // with apply.
+//
+// ImageMetadata contains the metadata details of an image.
 type ImageMetadataApplyConfiguration struct {
-	Registry    *string `json:"registry,omitempty"`
+	// Registry specifies the name of the Registry object in the same namespace where the image is stored.
+	Registry *string `json:"registry,omitempty"`
+	// RegistryURI specifies the URI of the registry where the image is stored. Example: "registry-1.docker.io:5000".`
 	RegistryURI *string `json:"registryURI,omitempty"`
-	Repository  *string `json:"repository,omitempty"`
-	Tag         *string `json:"tag,omitempty"`
-	Platform    *string `json:"platform,omitempty"`
-	Digest      *string `json:"digest,omitempty"`
+	// Repository specifies the repository path of the image. Example: "kubewarden/sbomscanner".
+	Repository *string `json:"repository,omitempty"`
+	// Tag specifies the tag of the image. Example: "latest".
+	Tag *string `json:"tag,omitempty"`
+	// Platform specifies the platform of the image. Example "linux/amd64".
+	Platform *string `json:"platform,omitempty"`
+	// Digest specifies the sha256 digest of the image.
+	Digest *string `json:"digest,omitempty"`
 }
 
 // ImageMetadataApplyConfiguration constructs a declarative configuration of the ImageMetadata type for use with
