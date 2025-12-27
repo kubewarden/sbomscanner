@@ -7,18 +7,18 @@ require (
 	github.com/aquasecurity/trivy-db v0.0.0-20251215073616-6d2ce193d235
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/aws/smithy-go v1.24.0
-	github.com/docker/cli v29.0.4+incompatible
+	github.com/docker/cli v29.1.3+incompatible
 	github.com/go-logr/logr v1.4.3
 	github.com/google/cel-go v0.26.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.8.0
 	github.com/nats-io/nats-server/v2 v2.12.3
 	github.com/nats-io/nats.go v1.48.0
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
-	github.com/spdx/tools-golang v0.5.5
+	github.com/spdx/tools-golang v0.5.6
 	github.com/stephenafamo/bob v0.42.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.40.0
@@ -35,7 +35,7 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e
 	k8s.io/utils v0.0.0-20251220205832-9d40a56c1308
-	modernc.org/sqlite v1.41.0
+	modernc.org/sqlite v1.42.1
 	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.1
@@ -498,4 +498,4 @@ require (
 )
 
 // TODO: remove https://github.com/containerd/containerd/issues/12493 is resolved.
-replace github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.2.1
+replace github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.3.0
