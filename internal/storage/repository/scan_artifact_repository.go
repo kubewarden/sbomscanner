@@ -269,11 +269,22 @@ func (r *ScanArtifactRepository) Update(ctx context.Context, tx pgx.Tx, name, na
 		return ErrNotFound
 	}
 
+	// Prepare the artifact object by stripping instance-specific fields
+	artifactObj := obj.DeepCopyObject()
+	if err := stripArtifactFields(artifactObj); err != nil {
+		return fmt.Errorf("failed to strip artifact fields: %w", err)
+	}
+
+	artifactBytes, err := json.Marshal(artifactObj)
+	if err != nil {
+		return fmt.Errorf("failed to marshal artifact object: %w", err)
+	}
+
 	// Update the artifact object.
 	// A row in the artifacts table is guaranteed to exist due to the FK constraint.
 	artifactQuery, artifactArgs, err := psql.Update(
 		um.Table(psql.Quote(r.artifactsTable)),
-		um.SetCol("object").To(psql.Arg(bytes)),
+		um.SetCol("object").To(psql.Arg(artifactBytes)),
 		um.Where(psql.Quote("sha").EQ(psql.Arg(sha))),
 	).Build(ctx)
 	if err != nil {
