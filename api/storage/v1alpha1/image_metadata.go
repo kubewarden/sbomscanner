@@ -24,4 +24,5 @@ type ImageMetadata struct {
 
 type ImageMetadataAccessor interface {
 	GetImageMetadata() ImageMetadata
+	SetImageMetadata(imageMetadata ImageMetadata)
 }

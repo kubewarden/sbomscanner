@@ -18,6 +18,14 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 )
 
+// TODO: Add documentation for ScanArtifactRepository explaining the split storage model
+// and how objects are reconstructed from the two tables.
+
+// TODO: Add repository tests covering:
+// - Deduplication behavior when multiple scans share the same image digest
+// - Object reconstruction verifying that labels, annotations, and other per-scan
+//   metadata are correctly merged with the shared artifact data
+
 type ScanArtifactRepository struct {
 	table          string
 	artifactsTable string
@@ -46,9 +54,15 @@ func (r *ScanArtifactRepository) Create(ctx context.Context, tx pgx.Tx, obj runt
 	}
 	sha := imageAccessor.GetImageMetadata().Digest
 
-	bytes, err := json.Marshal(obj)
+	// Prepare the artifact object by stripping instance-specific fields
+	artifactObj := obj.DeepCopyObject()
+	if err := stripArtifactFields(artifactObj); err != nil {
+		return fmt.Errorf("failed to strip artifact fields: %w", err)
+	}
+
+	artifactBytes, err := json.Marshal(artifactObj)
 	if err != nil {
-		return fmt.Errorf("failed to marshal object: %w", err)
+		return fmt.Errorf("failed to marshal artifact object: %w", err)
 	}
 
 	// Insert the base artifact first (or do nothing if it already exists)
@@ -56,7 +70,7 @@ func (r *ScanArtifactRepository) Create(ctx context.Context, tx pgx.Tx, obj runt
 		im.Into(psql.Quote(r.artifactsTable), "sha", "object"),
 		im.Values(
 			psql.Arg(sha),
-			psql.Arg(bytes),
+			psql.Arg(artifactBytes),
 		),
 		im.OnConflict("sha").DoNothing(),
 	).Build(ctx)
@@ -67,6 +81,11 @@ func (r *ScanArtifactRepository) Create(ctx context.Context, tx pgx.Tx, obj runt
 	_, err = tx.Exec(ctx, artifactQuery, artifactArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to execute artifact insert: %w", err)
+	}
+
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		return fmt.Errorf("failed to marshal object: %w", err)
 	}
 
 	// Insert the scan artifact
@@ -191,14 +210,27 @@ func (r *ScanArtifactRepository) Get(ctx context.Context, db Querier, name, name
 }
 
 func (r *ScanArtifactRepository) List(ctx context.Context, db Querier, namespace string, opts storage.ListOptions) ([]runtime.Object, string, error) {
-	qb := psql.Select(
+	// Build the inner query that joins tables and computes the full Kubernetes object.
+	//
+	// We need a subquery because SQL evaluates WHERE before SELECT.
+	// Without it, any WHERE clause would filter against the artifacts table columns
+	// rather than our computed merged object.
+	// By wrapping in a subquery, the computed object column becomes available
+	// for filtering in the outer query's WHERE clause, allowing label selectors
+	// and field selectors to work against the reconstructed Kubernetes object.
+	innerQuery := psql.Select(
 		sm.Columns(fmt.Sprintf("%s.id", r.table)),
+		sm.Columns(fmt.Sprintf("%s.namespace", r.table)),
 		sm.Columns(r.objectColumn()),
 		sm.From(psql.Quote(r.table)),
 		sm.InnerJoin(psql.Quote(r.artifactsTable)).On(
 			psql.Quote(r.table, "sha").EQ(psql.Quote(r.artifactsTable, "sha")),
 		),
-		sm.OrderBy(psql.Quote(r.table, "id")),
+	)
+	qb := psql.Select(
+		sm.Columns("id", "object"),
+		sm.From(innerQuery).As("subq"),
+		sm.OrderBy(psql.Quote("id")),
 	)
 
 	return list(ctx, db, qb, namespace, opts, r.newFunc)
@@ -237,7 +269,8 @@ func (r *ScanArtifactRepository) Update(ctx context.Context, tx pgx.Tx, name, na
 		return ErrNotFound
 	}
 
-	// Update the artifact object
+	// Update the artifact object.
+	// A row in the artifacts table is guaranteed to exist due to the FK constraint.
 	artifactQuery, artifactArgs, err := psql.Update(
 		um.Table(psql.Quote(r.artifactsTable)),
 		um.SetCol("object").To(psql.Arg(bytes)),
@@ -280,15 +313,45 @@ func (r *ScanArtifactRepository) Count(ctx context.Context, db Querier, namespac
 	return count, nil
 }
 
+// stripArtifactFields removes instance-specific fields from the object.
+// Only resourceVersion is preserved in the artifact since it tracks when the
+// shared payload was last updated.
+func stripArtifactFields(obj runtime.Object) error {
+	imageAccessor, ok := obj.(v1alpha1.ImageMetadataAccessor)
+	if !ok {
+		return fmt.Errorf("expected object to implement ImageMetadataAccessor, got %T", obj)
+	}
+	imageAccessor.SetImageMetadata(v1alpha1.ImageMetadata{})
+
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return fmt.Errorf("failed to get object metadata: %w", err)
+	}
+
+	accessor.SetName("")
+	accessor.SetNamespace("")
+	accessor.SetLabels(nil)
+	accessor.SetAnnotations(nil)
+	accessor.SetFinalizers(nil)
+	accessor.SetOwnerReferences(nil)
+	accessor.SetGeneration(0)
+	accessor.SetManagedFields(nil)
+	accessor.SetDeletionTimestamp(nil)
+	accessor.SetDeletionGracePeriodSeconds(nil)
+	accessor.SetUID("")
+
+	return nil
+}
+
 // objectColumn returns the SQL expression that reconstructs the full Kubernetes
-// object by merging data from the artifacts table with metadata from the scan table.
+// object by merging data from the artifacts table with metadata from the object table.
 func (r *ScanArtifactRepository) objectColumn() string {
 	return fmt.Sprintf(`%s.object || jsonb_build_object(
-		'metadata', (%s.object->'metadata') || %s.metadata || jsonb_build_object('resourceVersion', %s.object->'metadata'->>'resourceVersion'),
+		'metadata', %s.metadata || jsonb_build_object('resourceVersion', %s.object->'metadata'->>'resourceVersion'),
 		'imageMetadata', %s.image_metadata
 	) AS object`,
 		r.artifactsTable,
-		r.artifactsTable, r.table, r.artifactsTable,
+		r.table, r.artifactsTable,
 		r.table,
 	)
 }
