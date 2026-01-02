@@ -54,7 +54,6 @@ func NewImageStore(
 	store := &store{
 		db:          db,
 		broadcaster: natsBroadcaster,
-		table:       imageResourcePluralName,
 		newFunc:     newFunc,
 		newListFunc: newListFunc,
 		logger:      logger.With("store", imageResourceSingularName),

@@ -29,6 +29,7 @@ var _ storage.Interface = &store{}
 
 type store struct {
 	db          *pgxpool.Pool
+	repository  repository.Repository
 	broadcaster *natsBroadcaster
 	newFunc     func() runtime.Object
 	newListFunc func() runtime.Object
@@ -87,6 +88,7 @@ func (s *store) Create(ctx context.Context, key string, obj, out runtime.Object,
 	if err != nil {
 		return storage.NewInternalError(err)
 	}
+
 	if err := s.Versioner().UpdateObject(obj, rv); err != nil {
 		return storage.NewInternalError(err)
 	}
@@ -108,6 +110,7 @@ func (s *store) Create(ctx context.Context, key string, obj, out runtime.Object,
 		return storage.NewInternalError(err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
 		return storage.NewInternalError(err)
 	}
 
@@ -145,7 +148,7 @@ func (s *store) Delete(
 		return storage.NewInternalError(err)
 	}
 	defer func() {
-		if err = tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			s.logger.ErrorContext(ctx, "failed to rollback transaction", "error", err)
 		}
 	}()

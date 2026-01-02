@@ -98,8 +98,8 @@ func (suite *storeTestSuite) TearDownSuite() {
 }
 
 func (suite *storeTestSuite) SetupTest() {
-	_, err := suite.db.Exec(suite.T().Context(), "TRUNCATE TABLE sboms")
-	suite.Require().NoError(err, "failed to truncate table")
+	_, err := suite.db.Exec(suite.T().Context(), "TRUNCATE TABLE sboms, sbom_artifacts")
+	suite.Require().NoError(err, "failed to truncate tables")
 
 	_, err = suite.db.Exec(suite.T().Context(), "ALTER SEQUENCE resource_version_seq RESTART WITH 1")
 	suite.Require().NoError(err, "failed to reset resource version sequence")
@@ -135,6 +135,14 @@ func (suite *storeTestSuite) TestCreate() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/test",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:test",
 		},
 		SPDX: runtime.RawExtension{Raw: []byte(`{"test": true}`)},
 	}
@@ -179,6 +187,14 @@ func (suite *storeTestSuite) TestGet() {
 				"app": "test",
 			},
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/test",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:test",
+		},
 		SPDX: runtime.RawExtension{Raw: []byte(`{"test": true}`)},
 	}
 	err = suite.store.Create(context.Background(), key, sbom, nil, 0)
@@ -199,6 +215,14 @@ func (suite *storeTestSuite) TestDelete() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/test-delete",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:test-delete",
 		},
 	}
 
@@ -295,6 +319,14 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 			Name:      "test",
 			Namespace: "default",
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/watch-rv-zero",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:watch-rv-zero",
+		},
 	}
 	err := suite.store.Create(context.Background(), key, sbom, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
@@ -333,6 +365,14 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/watch-specific-rv",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:watch-specific-rv",
 		},
 	}
 	suite.Require().NoError(suite.store.Create(context.Background(), key+"/test", sbom, &storagev1alpha1.SBOM{}, 0))
@@ -380,6 +420,14 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 				"sbomscanner.kubewarden.io/test": "true",
 			},
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/watch-label-1",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:watch-label-1",
+		},
 	}
 	err := suite.store.Create(context.Background(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
@@ -389,6 +437,14 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 			Name:      "test2",
 			Namespace: "default",
 			Labels:    map[string]string{},
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/watch-label-2",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:watch-label-2",
 		},
 	}
 	err = suite.store.Create(context.Background(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
@@ -419,6 +475,14 @@ func (suite *storeTestSuite) TestWatchList() {
 			Name:      "test1",
 			Namespace: "default",
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/watchlist-1",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:watchlist-1",
+		},
 	}
 	err := suite.store.Create(context.Background(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
@@ -427,6 +491,14 @@ func (suite *storeTestSuite) TestWatchList() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test2",
 			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/watchlist-2",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:watchlist-2",
 		},
 	}
 	err = suite.store.Create(context.Background(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
@@ -479,6 +551,14 @@ func (suite *storeTestSuite) TestGetList() {
 				"sbomscanner.kubewarden.io/env": "test",
 			},
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/getlist-1",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:getlist-1",
+		},
 	}
 	err := suite.store.Create(context.Background(), key+"/test1", &sbom1, nil, 0)
 	suite.Require().NoError(err)
@@ -490,6 +570,14 @@ func (suite *storeTestSuite) TestGetList() {
 			Labels: map[string]string{
 				"sbomscanner.kubewarden.io/env": "dev",
 			},
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/getlist-2",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:getlist-2",
 		},
 	}
 	err = suite.store.Create(context.Background(), key+"/test2", &sbom2, nil, 0)
@@ -503,6 +591,14 @@ func (suite *storeTestSuite) TestGetList() {
 				"sbomscanner.kubewarden.io/env":      "prod",
 				"sbomscanner.kubewarden.io/critical": "true",
 			},
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/getlist-3",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:getlist-3",
 		},
 	}
 	err = suite.store.Create(context.Background(), key+"/test3", &sbom3, nil, 0)
@@ -599,6 +695,14 @@ func (suite *storeTestSuite) TestGetListWithPagination() {
 				Labels: map[string]string{
 					"sbomscanner.kubewarden.io/env": map[bool]string{true: "prod", false: "dev"}[i%2 == 0],
 				},
+			},
+			ImageMetadata: storagev1alpha1.ImageMetadata{
+				Registry:    "test-registry",
+				RegistryURI: "registry-1.docker.io:5000",
+				Repository:  fmt.Sprintf("kubewarden/pagination-%d", i),
+				Tag:         "v1.0.0",
+				Platform:    "linux/amd64",
+				Digest:      fmt.Sprintf("sha256:pagination-%d", i),
 			},
 		}
 		err := suite.store.Create(suite.T().Context(), fmt.Sprintf("%s/test%d", key, i), sbom, nil, 0)
@@ -699,6 +803,14 @@ func (suite *storeTestSuite) TestGetListResourceVersionSemanntics() {
 			Name:      "test1",
 			Namespace: "default",
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/rv-semantics-1",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:rv-semantics-1",
+		},
 	}
 	err := suite.store.Create(suite.T().Context(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
@@ -708,6 +820,14 @@ func (suite *storeTestSuite) TestGetListResourceVersionSemanntics() {
 			Name:      "test2",
 			Namespace: "default",
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/rv-semantics-2",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:rv-semantics-2",
+		},
 	}
 	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
@@ -716,6 +836,14 @@ func (suite *storeTestSuite) TestGetListResourceVersionSemanntics() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test3",
 			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/rv-semantics-3",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:rv-semantics-3",
 		},
 	}
 	err = suite.store.Create(suite.T().Context(), key+"/test3", sbom3, &storagev1alpha1.SBOM{}, 0)
@@ -816,6 +944,14 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 					Namespace: "default",
 					UID:       "test1-uid",
 				},
+				ImageMetadata: storagev1alpha1.ImageMetadata{
+					Registry:    "test-registry",
+					RegistryURI: "registry-1.docker.io:5000",
+					Repository:  "kubewarden/update-test1",
+					Tag:         "v1.0.0",
+					Platform:    "linux/amd64",
+					Digest:      "sha256:update-test1",
+				},
 				SPDX: runtime.RawExtension{
 					Raw: []byte("{}"),
 				},
@@ -826,6 +962,14 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 					Namespace:       "default",
 					UID:             "test1-uid",
 					ResourceVersion: "2",
+				},
+				ImageMetadata: storagev1alpha1.ImageMetadata{
+					Registry:    "test-registry",
+					RegistryURI: "registry-1.docker.io:5000",
+					Repository:  "kubewarden/update-test1",
+					Tag:         "v1.0.0",
+					Platform:    "linux/amd64",
+					Digest:      "sha256:update-test1",
 				},
 				SPDX: runtime.RawExtension{
 					Raw: []byte(`{"foo": "bar"}`),
@@ -848,6 +992,14 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 					Namespace: "default",
 					UID:       "test2-uid",
 				},
+				ImageMetadata: storagev1alpha1.ImageMetadata{
+					Registry:    "test-registry",
+					RegistryURI: "registry-1.docker.io:5000",
+					Repository:  "kubewarden/update-test2",
+					Tag:         "v1.0.0",
+					Platform:    "linux/amd64",
+					Digest:      "sha256:update-test2",
+				},
 				SPDX: runtime.RawExtension{
 					Raw: []byte("{}"),
 				},
@@ -867,6 +1019,14 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 					Name:      "test3",
 					Namespace: "default",
 					UID:       "test3-uid",
+				},
+				ImageMetadata: storagev1alpha1.ImageMetadata{
+					Registry:    "test-registry",
+					RegistryURI: "registry-1.docker.io:5000",
+					Repository:  "kubewarden/update-test3",
+					Tag:         "v1.0.0",
+					Platform:    "linux/amd64",
+					Digest:      "sha256:update-test3",
 				},
 				SPDX: runtime.RawExtension{
 					Raw: []byte("{}"),
@@ -947,6 +1107,14 @@ func (suite *storeTestSuite) TestCount() {
 			Name:      "test1",
 			Namespace: "default",
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/count-1",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:count-1",
+		},
 	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
@@ -955,6 +1123,14 @@ func (suite *storeTestSuite) TestCount() {
 			Name:      "test2",
 			Namespace: "default",
 		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/count-2",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:count-2",
+		},
 	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
@@ -962,6 +1138,14 @@ func (suite *storeTestSuite) TestCount() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test4",
 			Namespace: "other",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/count-4",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:count-4",
 		},
 	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
