@@ -54,7 +54,6 @@ func (r *ScanArtifactRepository) Create(ctx context.Context, tx pgx.Tx, obj runt
 	}
 	sha := imageAccessor.GetImageMetadata().Digest
 
-	// Prepare the artifact object by stripping instance-specific fields
 	artifactObj := obj.DeepCopyObject()
 	if err := stripArtifactFields(artifactObj); err != nil {
 		return fmt.Errorf("failed to strip artifact fields: %w", err)
@@ -65,7 +64,6 @@ func (r *ScanArtifactRepository) Create(ctx context.Context, tx pgx.Tx, obj runt
 		return fmt.Errorf("failed to marshal artifact object: %w", err)
 	}
 
-	// Insert the base artifact first (or do nothing if it already exists)
 	artifactQuery, artifactArgs, err := psql.Insert(
 		im.Into(psql.Quote(r.artifactsTable), "sha", "object"),
 		im.Values(
@@ -88,7 +86,6 @@ func (r *ScanArtifactRepository) Create(ctx context.Context, tx pgx.Tx, obj runt
 		return fmt.Errorf("failed to marshal object: %w", err)
 	}
 
-	// Insert the scan artifact
 	query, args, err := psql.Insert(
 		im.Into(psql.Quote(r.table), "name", "namespace", "metadata", "image_metadata", "sha"),
 		im.Values(
@@ -117,7 +114,6 @@ func (r *ScanArtifactRepository) Create(ctx context.Context, tx pgx.Tx, obj runt
 }
 
 func (r *ScanArtifactRepository) Delete(ctx context.Context, tx pgx.Tx, name, namespace string) (runtime.Object, error) {
-	// First get the object with joined data
 	obj, err := r.Get(ctx, tx, name, namespace)
 	if err != nil {
 		return nil, err
@@ -129,7 +125,6 @@ func (r *ScanArtifactRepository) Delete(ctx context.Context, tx pgx.Tx, name, na
 	}
 	sha := imageAccessor.GetImageMetadata().Digest
 
-	// Delete the scan artifact
 	query, args, err := psql.Delete(
 		dm.From(psql.Quote(r.table)),
 		dm.Where(psql.Quote("name").EQ(psql.Arg(name))),
@@ -144,7 +139,6 @@ func (r *ScanArtifactRepository) Delete(ctx context.Context, tx pgx.Tx, name, na
 		return nil, fmt.Errorf("failed to execute delete: %w", err)
 	}
 
-	// Check if any other scan artifacts reference this sha
 	countQuery, countArgs, err := psql.Select(
 		sm.Columns("COUNT(*)"),
 		sm.From(psql.Quote(r.table)),
@@ -159,7 +153,6 @@ func (r *ScanArtifactRepository) Delete(ctx context.Context, tx pgx.Tx, name, na
 		return nil, fmt.Errorf("failed to count remaining references: %w", err)
 	}
 
-	// If no more references, delete the artifact
 	if count == 0 {
 		deleteArtifactQuery, deleteArtifactArgs, err := psql.Delete(
 			dm.From(psql.Quote(r.artifactsTable)),
@@ -269,7 +262,6 @@ func (r *ScanArtifactRepository) Update(ctx context.Context, tx pgx.Tx, name, na
 		return ErrNotFound
 	}
 
-	// Prepare the artifact object by stripping instance-specific fields
 	artifactObj := obj.DeepCopyObject()
 	if err := stripArtifactFields(artifactObj); err != nil {
 		return fmt.Errorf("failed to strip artifact fields: %w", err)
@@ -324,6 +316,19 @@ func (r *ScanArtifactRepository) Count(ctx context.Context, db Querier, namespac
 	return count, nil
 }
 
+// objectColumn returns the SQL expression that reconstructs the full Kubernetes
+// object by merging data from the artifacts table with metadata from the object table.
+func (r *ScanArtifactRepository) objectColumn() string {
+	return fmt.Sprintf(`%s.object || jsonb_build_object(
+		'metadata', %s.metadata || jsonb_build_object('resourceVersion', %s.object->'metadata'->>'resourceVersion'),
+		'imageMetadata', %s.image_metadata
+	) AS object`,
+		r.artifactsTable,
+		r.table, r.artifactsTable,
+		r.table,
+	)
+}
+
 // stripArtifactFields removes instance-specific fields from the object.
 // Only resourceVersion is preserved in the artifact since it tracks when the
 // shared payload was last updated.
@@ -352,17 +357,4 @@ func stripArtifactFields(obj runtime.Object) error {
 	accessor.SetUID("")
 
 	return nil
-}
-
-// objectColumn returns the SQL expression that reconstructs the full Kubernetes
-// object by merging data from the artifacts table with metadata from the object table.
-func (r *ScanArtifactRepository) objectColumn() string {
-	return fmt.Sprintf(`%s.object || jsonb_build_object(
-		'metadata', %s.metadata || jsonb_build_object('resourceVersion', %s.object->'metadata'->>'resourceVersion'),
-		'imageMetadata', %s.image_metadata
-	) AS object`,
-		r.artifactsTable,
-		r.table, r.artifactsTable,
-		r.table,
-	)
 }
