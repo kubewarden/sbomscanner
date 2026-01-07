@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/aquasecurity/trivy v0.68.2
-	github.com/aquasecurity/trivy-db v0.0.0-20251222121951-9b270908c6b7
+	github.com/aquasecurity/trivy-db v0.0.0-20260105063853-2ead6eed5c84
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/avast/retry-go/v5 v5.0.0
 	github.com/aws/smithy-go v1.24.0
@@ -457,7 +457,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.3 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
+	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.33.0 // indirect
