@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -224,10 +223,6 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-		NewCache: func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
-			time.Sleep(20 * time.Second)
-			return cache.New(config, opts)
-		},
 		Cache: cache.Options{
 			DefaultTransform: cache.TransformStripManagedFields(),
 			ByObject: map[client.Object]cache.ByObject{
