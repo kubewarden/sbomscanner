@@ -32,6 +32,10 @@ var (
 	Codecs = serializer.NewCodecFactory(Scheme)
 )
 
+const (
+	maxRequestBodyBytes = 1024 * 1024 * 1024
+)
+
 func init() {
 	install.Install(Scheme)
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
@@ -107,6 +111,8 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, certFile, keyFile stri
 
 	databaseChecker := newDatabaseChecker(db, logger)
 	serverConfig.AddReadyzChecks(databaseChecker)
+
+	serverConfig.MaxRequestBodyBytes = maxRequestBodyBytes
 
 	// Create generic server
 	genericServer, err := serverConfig.Complete().New("sbom-storage-apiserver", genericapiserver.NewEmptyDelegate())
