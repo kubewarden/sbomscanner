@@ -8,6 +8,7 @@ require (
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/aws/smithy-go v1.24.0
 	github.com/docker/cli v29.1.4+incompatible
+	github.com/docker/go-units v0.5.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/cel-go v0.26.1
 	github.com/google/go-cmp v0.7.0
@@ -170,7 +171,6 @@ require (
 	github.com/docker/docker v28.5.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.4 // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
-	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
