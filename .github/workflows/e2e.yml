@@ -5,16 +5,20 @@ permissions:
 on:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run E2E tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
+          cache: false
           go-version-file: "go.mod"
-      - uses: ./.github/actions/free-up-disk-space
       - name: Run e2e tests
         run: make test-e2e
       - name: Upload cluster logs
