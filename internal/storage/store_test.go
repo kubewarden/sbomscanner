@@ -43,9 +43,7 @@ type storeTestSuite struct {
 }
 
 func (suite *storeTestSuite) SetupSuite() {
-	ctx := context.Background()
-
-	pgContainer, err := postgres.Run(ctx,
+	pgContainer, err := postgres.Run(suite.T().Context(),
 		"postgres:16-alpine",
 		postgres.WithDatabase("testdb"),
 		postgres.WithUsername("testuser"),
@@ -55,14 +53,14 @@ func (suite *storeTestSuite) SetupSuite() {
 	suite.Require().NoError(err, "failed to start postgres container")
 	suite.pgContainer = pgContainer
 
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
+	connStr, err := pgContainer.ConnectionString(suite.T().Context(), "sslmode=disable")
 	suite.Require().NoError(err, "failed to get connection string")
 
-	db, err := pgxpool.New(ctx, connStr)
+	db, err := pgxpool.New(suite.T().Context(), connStr)
 	suite.Require().NoError(err, "failed to create connection pool")
 	suite.db = db
 
-	err = RunMigrations(ctx, suite.db)
+	err = RunMigrations(suite.T().Context(), suite.db)
 	suite.Require().NoError(err, "failed to run migrations")
 
 	// Setup NATS
@@ -83,7 +81,7 @@ func (suite *storeTestSuite) TearDownSuite() {
 	}
 
 	if suite.pgContainer != nil {
-		err := suite.pgContainer.Terminate(context.Background())
+		err := suite.pgContainer.Terminate(suite.T().Context())
 		suite.Require().NoError(err, "failed to terminate postgres container")
 	}
 
@@ -135,7 +133,7 @@ func (suite *storeTestSuite) TestCreate() {
 
 	key := keyPrefix + "/default/test"
 	out := &storagev1alpha1.SBOM{}
-	err := suite.store.Create(context.Background(), key, sbom, out, 0)
+	err := suite.store.Create(suite.T().Context(), key, sbom, out, 0)
 	suite.Require().NoError(err)
 
 	suite.Equal("test", out.Name)
@@ -144,12 +142,12 @@ func (suite *storeTestSuite) TestCreate() {
 	suite.Equal([]byte(`{"test": true}`), out.SPDX.Raw)
 
 	got := &storagev1alpha1.SBOM{}
-	err = suite.store.Get(context.Background(), key, k8sstorage.GetOptions{}, got)
+	err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, got)
 	suite.Require().NoError(err)
 	suite.Equal(out, got)
 
 	// Duplicate create should fail
-	err = suite.store.Create(context.Background(), key, sbom, out, 0)
+	err = suite.store.Create(suite.T().Context(), key, sbom, out, 0)
 	suite.Require().Equal(k8sstorage.NewKeyExistsError(key, 0).Error(), err.Error())
 }
 
@@ -157,11 +155,11 @@ func (suite *storeTestSuite) TestGet() {
 	key := keyPrefix + "/default/test"
 
 	out := &storagev1alpha1.SBOM{}
-	err := suite.store.Get(context.Background(), key, k8sstorage.GetOptions{}, out)
+	err := suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, out)
 	suite.True(k8sstorage.IsNotFound(err))
 
 	out = &storagev1alpha1.SBOM{}
-	err = suite.store.Get(context.Background(), key, k8sstorage.GetOptions{IgnoreNotFound: true}, out)
+	err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{IgnoreNotFound: true}, out)
 	suite.Require().NoError(err)
 	suite.Equal(&storagev1alpha1.SBOM{}, out)
 
@@ -175,11 +173,11 @@ func (suite *storeTestSuite) TestGet() {
 		},
 		SPDX: runtime.RawExtension{Raw: []byte(`{"test": true}`)},
 	}
-	err = suite.store.Create(context.Background(), key, sbom, nil, 0)
+	err = suite.store.Create(suite.T().Context(), key, sbom, nil, 0)
 	suite.Require().NoError(err)
 
 	out = &storagev1alpha1.SBOM{}
-	err = suite.store.Get(context.Background(), key, k8sstorage.GetOptions{}, out)
+	err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, out)
 	suite.Require().NoError(err)
 	suite.Equal("test", out.Name)
 	suite.Equal("default", out.Namespace)
@@ -227,12 +225,12 @@ func (suite *storeTestSuite) TestDelete() {
 
 	for _, test := range tests {
 		suite.Run(test.name, func() {
-			err := suite.store.Create(context.Background(), key, sbom, &storagev1alpha1.SBOM{}, 0)
+			err := suite.store.Create(suite.T().Context(), key, sbom, &storagev1alpha1.SBOM{}, 0)
 			suite.Require().NoError(err)
 
 			out := &storagev1alpha1.SBOM{}
 			err = suite.store.Delete(
-				context.Background(),
+				suite.T().Context(),
 				key,
 				out,
 				test.preconditions,
@@ -248,7 +246,7 @@ func (suite *storeTestSuite) TestDelete() {
 				suite.Require().NoError(err)
 				suite.Equal(sbom, out)
 
-				err = suite.store.Get(context.Background(), key, k8sstorage.GetOptions{}, &storagev1alpha1.SBOM{})
+				err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, &storagev1alpha1.SBOM{})
 				suite.True(k8sstorage.IsNotFound(err))
 			}
 		})
@@ -259,7 +257,7 @@ func (suite *storeTestSuite) TestDeleteNotFound() {
 	key := keyPrefix + "/default/notfound"
 	out := &storagev1alpha1.SBOM{}
 	err := suite.store.Delete(
-		context.Background(),
+		suite.T().Context(),
 		key,
 		out,
 		&k8sstorage.Preconditions{},
@@ -274,7 +272,7 @@ func (suite *storeTestSuite) TestWatchEmptyResourceVersion() {
 	key := keyPrefix + "/default/test"
 	opts := k8sstorage.ListOptions{ResourceVersion: ""}
 
-	w, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), key, opts)
 	suite.Require().NoError(err)
 
 	suite.broadcaster.Shutdown()
@@ -290,12 +288,12 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 			Namespace: "default",
 		},
 	}
-	err := suite.store.Create(context.Background(), key, sbom, &storagev1alpha1.SBOM{}, 0)
+	err := suite.store.Create(suite.T().Context(), key, sbom, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
 	opts := k8sstorage.ListOptions{ResourceVersion: "0"}
 
-	w, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), key, opts)
 	suite.Require().NoError(err)
 
 	go suite.watcher.Start(suite.T().Context())
@@ -304,7 +302,7 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 		return nil
 	}
 	err = suite.store.Delete(
-		context.Background(),
+		suite.T().Context(),
 		key,
 		&storagev1alpha1.SBOM{},
 		&k8sstorage.Preconditions{},
@@ -329,14 +327,14 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 			Namespace: "default",
 		},
 	}
-	suite.Require().NoError(suite.store.Create(context.Background(), key+"/test", sbom, &storagev1alpha1.SBOM{}, 0))
+	suite.Require().NoError(suite.store.Create(suite.T().Context(), key+"/test", sbom, &storagev1alpha1.SBOM{}, 0))
 
 	opts := k8sstorage.ListOptions{
 		ResourceVersion: "1",
 		Predicate:       matcher(labels.Everything(), fields.Everything()),
 	}
 
-	w, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), key, opts)
 	suite.Require().NoError(err)
 
 	go suite.watcher.Start(suite.T().Context())
@@ -346,7 +344,7 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 	}
 	updatedSBOM := &storagev1alpha1.SBOM{}
 	err = suite.store.GuaranteedUpdate(
-		context.Background(),
+		suite.T().Context(),
 		key+"/test",
 		updatedSBOM,
 		false,
@@ -375,7 +373,7 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 			},
 		},
 	}
-	err := suite.store.Create(context.Background(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
+	err := suite.store.Create(suite.T().Context(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
 	sbom2 := &storagev1alpha1.SBOM{
@@ -385,7 +383,7 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 			Labels:    map[string]string{},
 		},
 	}
-	err = suite.store.Create(context.Background(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
 	opts := k8sstorage.ListOptions{
@@ -394,7 +392,7 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 			"sbomscanner.kubewarden.io/test": "true",
 		}), fields.Everything()),
 	}
-	w, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), key, opts)
 	suite.Require().NoError(err)
 
 	go suite.watcher.Start(suite.T().Context())
@@ -414,7 +412,7 @@ func (suite *storeTestSuite) TestWatchList() {
 			Namespace: "default",
 		},
 	}
-	err := suite.store.Create(context.Background(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
+	err := suite.store.Create(suite.T().Context(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
 	sbom2 := &storagev1alpha1.SBOM{
@@ -423,7 +421,7 @@ func (suite *storeTestSuite) TestWatchList() {
 			Namespace: "default",
 		},
 	}
-	err = suite.store.Create(context.Background(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
 	opts := k8sstorage.ListOptions{
@@ -432,7 +430,7 @@ func (suite *storeTestSuite) TestWatchList() {
 		Recursive:         true,
 	}
 
-	w, err := suite.store.Watch(context.Background(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), key, opts)
 	suite.Require().NoError(err)
 
 	// Should receive ADDED events for existing items + BOOKMARK
@@ -474,7 +472,7 @@ func (suite *storeTestSuite) TestGetList() {
 			},
 		},
 	}
-	err := suite.store.Create(context.Background(), key+"/test1", &sbom1, nil, 0)
+	err := suite.store.Create(suite.T().Context(), key+"/test1", &sbom1, nil, 0)
 	suite.Require().NoError(err)
 
 	sbom2 := storagev1alpha1.SBOM{
@@ -486,7 +484,7 @@ func (suite *storeTestSuite) TestGetList() {
 			},
 		},
 	}
-	err = suite.store.Create(context.Background(), key+"/test2", &sbom2, nil, 0)
+	err = suite.store.Create(suite.T().Context(), key+"/test2", &sbom2, nil, 0)
 	suite.Require().NoError(err)
 
 	sbom3 := storagev1alpha1.SBOM{
@@ -499,7 +497,7 @@ func (suite *storeTestSuite) TestGetList() {
 			},
 		},
 	}
-	err = suite.store.Create(context.Background(), key+"/test3", &sbom3, nil, 0)
+	err = suite.store.Create(suite.T().Context(), key+"/test3", &sbom3, nil, 0)
 	suite.Require().NoError(err)
 
 	tests := []struct {
@@ -575,7 +573,7 @@ func (suite *storeTestSuite) TestGetList() {
 	for _, test := range tests {
 		suite.Run(test.name, func() {
 			sbomList := &storagev1alpha1.SBOMList{}
-			err = suite.store.GetList(context.Background(), key, test.listOptions, sbomList)
+			err = suite.store.GetList(suite.T().Context(), key, test.listOptions, sbomList)
 			suite.Require().NoError(err)
 			suite.ElementsMatch(test.expectedItems, sbomList.Items)
 		})
@@ -894,13 +892,13 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 	for _, test := range tests {
 		suite.Run(test.name, func() {
 			if test.sbom != nil {
-				err := suite.store.Create(context.Background(), test.key, test.sbom, &storagev1alpha1.SBOM{}, 0)
+				err := suite.store.Create(suite.T().Context(), test.key, test.sbom, &storagev1alpha1.SBOM{}, 0)
 				suite.Require().NoError(err)
 			}
 
 			destinationSBOM := &storagev1alpha1.SBOM{}
 			err := suite.store.GuaranteedUpdate(
-				context.Background(),
+				suite.T().Context(),
 				test.key,
 				destinationSBOM,
 				test.ignoreNotFound,
@@ -916,7 +914,7 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 
 				if test.sbom != nil {
 					// If there is an error, the original object should not be updated.
-					err = suite.store.Get(context.Background(), test.key, k8sstorage.GetOptions{}, currentSBOM)
+					err = suite.store.Get(suite.T().Context(), test.key, k8sstorage.GetOptions{}, currentSBOM)
 					suite.Require().NoError(err)
 					suite.Equal(test.sbom, currentSBOM)
 				}
@@ -926,7 +924,7 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 
 				if !test.ignoreNotFound {
 					// Verify the object was updated in the store.
-					err = suite.store.Get(context.Background(), test.key, k8sstorage.GetOptions{}, currentSBOM)
+					err = suite.store.Get(suite.T().Context(), test.key, k8sstorage.GetOptions{}, currentSBOM)
 					suite.Require().NoError(err)
 					suite.Equal(test.expectedUpdatedSBOM, currentSBOM)
 				}
@@ -936,7 +934,7 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 }
 
 func (suite *storeTestSuite) TestCount() {
-	err := suite.store.Create(context.Background(), keyPrefix+"/default/test1", &storagev1alpha1.SBOM{
+	err := suite.store.Create(suite.T().Context(), keyPrefix+"/default/test1", &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test1",
 			Namespace: "default",
@@ -944,7 +942,7 @@ func (suite *storeTestSuite) TestCount() {
 	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
-	err = suite.store.Create(context.Background(), keyPrefix+"/default/test2", &storagev1alpha1.SBOM{
+	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test2", &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test2",
 			Namespace: "default",
@@ -952,7 +950,7 @@ func (suite *storeTestSuite) TestCount() {
 	}, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
-	err = suite.store.Create(context.Background(), keyPrefix+"/other/test4", &storagev1alpha1.SBOM{
+	err = suite.store.Create(suite.T().Context(), keyPrefix+"/other/test4", &storagev1alpha1.SBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test4",
 			Namespace: "other",
@@ -985,6 +983,58 @@ func (suite *storeTestSuite) TestCount() {
 			suite.Require().Equal(test.expectedCount, count)
 		})
 	}
+}
+
+func (suite *storeTestSuite) TestGetCurrentResourceVersion() {
+	rv, err := suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(1), rv, "first call should initialize sequence to 1")
+
+	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(1), rv, "second call should return same value")
+
+	sbom := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/rv-test",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:rv-test",
+		},
+	}
+	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test", sbom, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(2), rv, "resource version should be 2 after creating one object")
+
+	sbom2 := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test2",
+			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/rv-test-2",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:rv-test-2",
+		},
+	}
+	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(3), rv, "resource version should be 3 after creating two objects")
 }
 
 // mustReadEvents reads n events from the watch.Interface or fails the test if not enough events are received in time.
