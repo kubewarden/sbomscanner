@@ -810,12 +810,26 @@ func schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReport(ref common.Refe
 							Ref:         ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Report"),
 						},
 					},
+					"scannerDBVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannerDBVersion holds the vulnerability database version(s) used by one or more scanners (e.g. Trivy, Grype)",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.Time{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"imageMetadata", "report"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageMetadata", "github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Report", v1.ObjectMeta{}.OpenAPIModelName()},
+			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageMetadata", "github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Report", v1.ObjectMeta{}.OpenAPIModelName(), v1.Time{}.OpenAPIModelName()},
 	}
 }
 

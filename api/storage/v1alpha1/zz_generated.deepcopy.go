@@ -6,6 +6,7 @@
 package v1alpha1
 
 import (
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -312,6 +313,13 @@ func (in *VulnerabilityReport) DeepCopyInto(out *VulnerabilityReport) {
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	out.ImageMetadata = in.ImageMetadata
 	in.Report.DeepCopyInto(&out.Report)
+	if in.ScannerDBVersion != nil {
+		in, out := &in.ScannerDBVersion, &out.ScannerDBVersion
+		*out = make(map[string]v1.Time, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
 	return
 }
 
