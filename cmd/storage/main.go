@@ -13,6 +13,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 
+	"github.com/docker/go-units"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
@@ -32,16 +33,17 @@ func main() {
 
 func run() error {
 	var (
-		certFile     string
-		keyFile      string
-		pgURIFile    string
-		pgTLSCAFile  string
-		natsURL      string
-		natsCertFile string
-		natsKeyFile  string
-		natsCAFile   string
-		logLevel     string
-		init         bool
+		certFile           string
+		keyFile            string
+		pgURIFile          string
+		pgTLSCAFile        string
+		natsURL            string
+		natsCertFile       string
+		natsKeyFile        string
+		natsCAFile         string
+		maxRequestBodySize string
+		logLevel           string
+		init               bool
 	)
 
 	flag.StringVar(&certFile, "cert-file", "/tls/tls.crt", "Path to the TLS certificate file for serving HTTPS requests.")
@@ -52,6 +54,7 @@ func run() error {
 	flag.StringVar(&natsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
 	flag.StringVar(&natsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
 	flag.StringVar(&natsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
+	flag.StringVar(&maxRequestBodySize, "max-request-body-size", "100MB", "The maximum size of request bodies accepted by the server. 0 means no limit.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.Parse()
@@ -72,6 +75,17 @@ func run() error {
 	klog.SetSlogLogger(logger)
 
 	ctx := genericapiserver.SetupSignalContext()
+
+	maxRequestBodyBytes, err := units.FromHumanSize(maxRequestBodySize)
+	if err != nil {
+		return fmt.Errorf("invalid max request body size: %w", err)
+	}
+
+	serverConfig := apiserver.StorageAPIServerConfig{
+		CertFile:            certFile,
+		KeyFile:             keyFile,
+		MaxRequestBodyBytes: maxRequestBodyBytes,
+	}
 
 	db, err := newDB(ctx, pgURIFile, pgTLSCAFile)
 	if err != nil {
@@ -114,7 +128,7 @@ func run() error {
 		return fmt.Errorf("connecting to NATS server: %w", err)
 	}
 
-	if err := runServer(ctx, db, nc, certFile, keyFile, logger); err != nil {
+	if err := runServer(ctx, db, nc, logger, serverConfig); err != nil {
 		return fmt.Errorf("running server: %w", err)
 	}
 
@@ -167,8 +181,8 @@ func newDB(ctx context.Context, pgURIFile, pgTLSCAFile string) (*pgxpool.Pool, e
 	return db, nil
 }
 
-func runServer(ctx context.Context, db *pgxpool.Pool, nc *nats.Conn, certFile, keyFile string, logger *slog.Logger) error {
-	srv, err := apiserver.NewStorageAPIServer(db, nc, certFile, keyFile, logger)
+func runServer(ctx context.Context, db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, cfg apiserver.StorageAPIServerConfig) error {
+	srv, err := apiserver.NewStorageAPIServer(db, nc, logger, cfg)
 	if err != nil {
 		return fmt.Errorf("creating storage API server: %w", err)
 	}

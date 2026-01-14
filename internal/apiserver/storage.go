@@ -47,6 +47,17 @@ func init() {
 	)
 }
 
+// StorageAPIServerConfig holds configuration options for the storage API server.
+type StorageAPIServerConfig struct {
+	// CertFile is the path to the TLS certificate file for serving HTTPS.
+	CertFile string
+	// KeyFile is the path to the TLS private key file for serving HTTPS.
+	KeyFile string
+	// MaxRequestBodyBytes is the limit on the request size that would be accepted and decoded in a write request.
+	// 0 means no limit.
+	MaxRequestBodyBytes int64
+}
+
 type StorageAPIServer struct {
 	db                        *pgxpool.Pool
 	watchers                  []*storage.RegistryStoreWithWatcher
@@ -55,12 +66,12 @@ type StorageAPIServer struct {
 	dynamicCertKeyPairContent *dynamiccertificates.DynamicCertKeyPairContent
 }
 
-func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, certFile, keyFile string, logger *slog.Logger) (*StorageAPIServer, error) {
+func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, cfg StorageAPIServerConfig) (*StorageAPIServer, error) {
 	// Setup dynamic certs
 	dynamicCertKeyPairContent, err := dynamiccertificates.NewDynamicServingContentFromFiles(
 		"storage-serving-certs",
-		certFile,
-		keyFile,
+		cfg.CertFile,
+		cfg.KeyFile,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating dynamic certificate content provider: %w", err)
@@ -105,6 +116,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, certFile, keyFile stri
 		return nil, fmt.Errorf("error applying options to server config: %w", err)
 	}
 
+	serverConfig.MaxRequestBodyBytes = cfg.MaxRequestBodyBytes
 	databaseChecker := newDatabaseChecker(db, logger)
 	serverConfig.AddReadyzChecks(databaseChecker)
 
