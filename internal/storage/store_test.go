@@ -987,6 +987,58 @@ func (suite *storeTestSuite) TestCount() {
 	}
 }
 
+func (suite *storeTestSuite) TestGetCurrentResourceVersion() {
+	rv, err := suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(1), rv, "first call should initialize sequence to 1")
+
+	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(1), rv, "second call should return same value")
+
+	sbom := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/rv-test",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:rv-test",
+		},
+	}
+	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test", sbom, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(2), rv, "resource version should be 2 after creating one object")
+
+	sbom2 := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test2",
+			Namespace: "default",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-registry",
+			RegistryURI: "registry-1.docker.io:5000",
+			Repository:  "kubewarden/rv-test-2",
+			Tag:         "v1.0.0",
+			Platform:    "linux/amd64",
+			Digest:      "sha256:rv-test-2",
+		},
+	}
+	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	suite.Require().NoError(err)
+
+	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
+	suite.Require().NoError(err)
+	suite.Equal(uint64(3), rv, "resource version should be 3 after creating two objects")
+}
+
 // mustReadEvents reads n events from the watch.Interface or fails the test if not enough events are received in time.
 func mustReadEvents(t *testing.T, w watch.Interface, n int) []watch.Event {
 	events := make([]watch.Event, 0, n)
