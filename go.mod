@@ -7,7 +7,7 @@ require (
 	github.com/aquasecurity/trivy-db v0.0.0-20260105063853-2ead6eed5c84
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/aws/smithy-go v1.24.0
-	github.com/docker/cli v29.1.4+incompatible
+	github.com/docker/cli v29.1.5+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/cel-go v0.26.1
@@ -36,7 +36,7 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
-	modernc.org/sqlite v1.44.0
+	modernc.org/sqlite v1.44.2
 	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.1
@@ -477,7 +477,7 @@ require (
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	k8s.io/kms v0.35.0 // indirect
 	k8s.io/kubectl v0.34.1 // indirect
-	modernc.org/libc v1.67.4 // indirect
+	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	mvdan.cc/sh/v3 v3.12.0 // indirect
