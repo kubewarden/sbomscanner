@@ -14,6 +14,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic/registry"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 )
 
 const (
@@ -21,19 +22,24 @@ const (
 	sbomResourcePluralName   = "sboms"
 )
 
-// TODO: ID is a sequential column used for stable pagination cursors.
-// We keep (name, namespace) as primary key to avoid a breaking schema change.
-// Consider switching to ID as primary key when we break the schema for the deduplication feature.
 const createSBOMTableSQL = `
-CREATE TABLE IF NOT EXISTS sboms (
-    name VARCHAR(253) NOT NULL,
-    namespace VARCHAR(253) NOT NULL,
-    object JSONB NOT NULL,
-    PRIMARY KEY (name, namespace)
+CREATE TABLE IF NOT EXISTS sbom_artifacts (
+    digest TEXT NOT NULL PRIMARY KEY,
+    object JSONB NOT NULL
 );
 
-ALTER TABLE sboms ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+CREATE TABLE IF NOT EXISTS sboms (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(253) NOT NULL,
+    namespace VARCHAR(253) NOT NULL,
+    metadata JSONB NOT NULL,
+    image_metadata JSONB NOT NULL,
+    digest TEXT NOT NULL REFERENCES sbom_artifacts(digest),
+    UNIQUE (name, namespace)
+);
+
 CREATE INDEX IF NOT EXISTS idx_sboms_id ON sboms(id);
+CREATE INDEX IF NOT EXISTS idx_sboms_sha ON sboms(digest);
 `
 
 // NewSBOMStore returns a store registry that will work against API services.
@@ -48,13 +54,14 @@ func NewSBOMStore(
 	newFunc := func() runtime.Object { return &storagev1alpha1.SBOM{} }
 	newListFunc := func() runtime.Object { return &storagev1alpha1.SBOMList{} }
 
+	repo := repository.NewScanArtifactRepository("sboms", "sbom_artifacts", newFunc)
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, sbomResourcePluralName, watchBroadcaster, TransformStripSBOM, logger)
 
 	store := &store{
 		db:          db,
+		repository:  repo,
 		broadcaster: natsBroadcaster,
-		table:       sbomResourcePluralName,
 		newFunc:     newFunc,
 		newListFunc: newListFunc,
 		logger:      logger.With("store", sbomResourceSingularName),

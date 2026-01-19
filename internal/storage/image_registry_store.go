@@ -14,6 +14,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic/registry"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 )
 
 const (
@@ -21,19 +22,24 @@ const (
 	imageResourcePluralName   = "images"
 )
 
-// TODO: ID is a sequential column used for stable pagination cursors.
-// We keep (name, namespace) as primary key to avoid a breaking schema change.
-// Consider switching to ID as primary key when we break the schema for the deduplication feature.
 const createImageTableSQL = `
-CREATE TABLE IF NOT EXISTS images (
-    name VARCHAR(253) NOT NULL,
-    namespace VARCHAR(253) NOT NULL,
-    object JSONB NOT NULL,
-    PRIMARY KEY (name, namespace)
+CREATE TABLE IF NOT EXISTS image_artifacts (
+    digest TEXT NOT NULL PRIMARY KEY,
+    object JSONB NOT NULL
 );
 
-ALTER TABLE images ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+CREATE TABLE IF NOT EXISTS images (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(253) NOT NULL,
+    namespace VARCHAR(253) NOT NULL,
+    metadata JSONB NOT NULL,
+    image_metadata JSONB NOT NULL,
+    digest TEXT NOT NULL REFERENCES image_artifacts(digest),
+    UNIQUE (name, namespace)
+);
+
 CREATE INDEX IF NOT EXISTS idx_images_id ON images(id);
+CREATE INDEX IF NOT EXISTS idx_images_sha ON images(digest);
 `
 
 // NewImageStore returns a store registry that will work against API services.
@@ -48,13 +54,14 @@ func NewImageStore(
 	newFunc := func() runtime.Object { return &storagev1alpha1.Image{} }
 	newListFunc := func() runtime.Object { return &storagev1alpha1.ImageList{} }
 
+	repo := repository.NewScanArtifactRepository("images", "image_artifacts", newFunc)
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, imageResourcePluralName, watchBroadcaster, TransformStripImage, logger)
 
 	store := &store{
 		db:          db,
+		repository:  repo,
 		broadcaster: natsBroadcaster,
-		table:       imageResourcePluralName,
 		newFunc:     newFunc,
 		newListFunc: newListFunc,
 		logger:      logger.With("store", imageResourceSingularName),
