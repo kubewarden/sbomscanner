@@ -37,26 +37,27 @@ jobs:
 
   helm-unittest:
     name: Helm unittest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Install helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+      # Disable plugin verification: https://github.com/helm-unittest/helm-unittest/issues/777
       - name: Install or update Helm-unittest
-        run: |
-          if helm plugin list | grep -q '^unittest'; then
-            # Error: plugin repo was modified: https://github.com/helm/helm/issues/31664
-            git -C ~/.local/share/helm/plugins/helm-unittest checkout -- plugin.yaml
-            helm plugin update unittest
-          else
-            # Disable plugin verification: https://github.com/helm-unittest/helm-unittest/issues/777
-            helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
-          fi
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
+          # if helm plugin list | grep -q '^unittest'; then
+          #   # Error: plugin repo was modified: https://github.com/helm/helm/issues/31664
+          #   git -C ~/.local/share/helm/plugins/helm-unittest checkout -- plugin.yaml
+          #   helm plugin update unittest
+          # else
+          #   # Disable plugin verification: https://github.com/helm-unittest/helm-unittest/issues/777
+          #   helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
+          # fi
       - run: make helm-unittest
 
   golangci:
     name: Golangci-lint
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       # Needed by trivy > 0.67.x
       GOEXPERIMENT: "jsonv2"
@@ -72,7 +73,7 @@ jobs:
           version: v2.5.0
 
   commitlint:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -106,7 +107,7 @@ jobs:
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
   verify-generated-code-changes:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
