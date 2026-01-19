@@ -47,3 +47,7 @@ type ImageLayer struct {
 func (i *Image) GetImageMetadata() ImageMetadata {
 	return i.ImageMetadata
 }
+
+func (i *Image) SetImageMetadata(imageMetadata ImageMetadata) {
+	i.ImageMetadata = imageMetadata
+}

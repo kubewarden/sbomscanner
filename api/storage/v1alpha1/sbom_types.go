@@ -35,3 +35,7 @@ type SBOM struct {
 func (s *SBOM) GetImageMetadata() ImageMetadata {
 	return s.ImageMetadata
 }
+
+func (s *SBOM) SetImageMetadata(imageMetadata ImageMetadata) {
+	s.ImageMetadata = imageMetadata
+}
