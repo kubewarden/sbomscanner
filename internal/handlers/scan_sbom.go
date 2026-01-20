@@ -138,9 +138,9 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	if err = h.updateTrivyVulnerabilityDB(ctx, h.trivyDBRepository); err != nil {
 		return fmt.Errorf("could not update trivy-db: %w", err)
 	}
-	//if err = h.updateTrivyJavaDB(ctx, h.trivyJavaDBRepository); err != nil {
-	//	return fmt.Errorf("could not update trivy-java-db: %w", err)
-	//}
+	if err = h.updateTrivyJavaDB(ctx, h.trivyJavaDBRepository); err != nil {
+		return fmt.Errorf("could not update trivy-java-db: %w", err)
+	}
 
 	trivyDBVersions, err := h.getTrivyDBVersions(ctx)
 	if err != nil {
@@ -160,8 +160,8 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 		workerJavaDBVersion := metav1.Time{Time: trivyDBVersions.JavaDB.UpdatedAt}
 
 		_, err := controllerutil.CreateOrUpdate(ctx, h.k8sClient, vulnerabilityReport, func() error {
-			// check if this is an update and we should skip based on DB versions
-			if h.shouldSkipTrivyScan(vulnerabilityReport, workerVulnDBVersion, workerJavaDBVersion) {
+			// check if this is an update and we should scan based on DB versions
+			if !h.shouldTrivyScan(vulnerabilityReport, workerVulnDBVersion, workerJavaDBVersion) {
 				foundVulnDBVersion := vulnerabilityReport.ScannerDBVersion[storagev1alpha1.ScannerTrivyDB]
 				foundJavaDBVersion := vulnerabilityReport.ScannerDBVersion[storagev1alpha1.ScannerTrivyJavaDB]
 				h.logger.Info("skipping scan: found report uses newer or same DB version(s)",
@@ -410,26 +410,24 @@ func (h *ScanSBOMHandler) getTrivyDBVersions(ctx context.Context) (*version.Vers
 	return versionInfo, nil
 }
 
-// shouldSkipScan determines if we should skip the scan based on DB versions.
-// It currently returns true (skip) if the existing report's DB is older
-// or equal to the worker's DB.
-func (h *ScanSBOMHandler) shouldSkipTrivyScan(
+// shouldTrivyScan determines if we should perform a scan based on DB versions.
+// Returns true if the worker's DB is newer than the report's, or if no report exists.
+func (h *ScanSBOMHandler) shouldTrivyScan(
 	report *storagev1alpha1.VulnerabilityReport,
 	workerVulnDB metav1.Time,
 	workerJavaDB metav1.Time,
 ) bool {
-	// first scan ever (report doesn't exist or has no timestamp)
+	// First scan ever (report doesn't exist or has no timestamp)
 	if report == nil || report.CreationTimestamp.IsZero() {
-		return false
+		return true
 	}
 
 	foundVulnDBVersion := report.ScannerDBVersion[storagev1alpha1.ScannerTrivyDB]
 	foundJavaDBVersion := report.ScannerDBVersion[storagev1alpha1.ScannerTrivyJavaDB]
 
-	// skips if the Report DB is
-	// older or equal to the current DB.
-	vulnSkip := foundVulnDBVersion.Before(&workerVulnDB) || foundVulnDBVersion.Equal(&workerVulnDB)
-	javaSkip := foundJavaDBVersion.Before(&workerJavaDB) || foundJavaDBVersion.Equal(&workerJavaDB)
+	// Perform scan if the worker's DB is newer than the report's
+	vulnNewer := workerVulnDB.After(foundVulnDBVersion.Time)
+	javaNewer := workerJavaDB.After(foundJavaDBVersion.Time)
 
-	return vulnSkip && javaSkip
+	return vulnNewer || javaNewer
 }

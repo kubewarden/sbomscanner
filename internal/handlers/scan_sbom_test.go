@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
@@ -19,10 +20,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	_ "modernc.org/sqlite"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestScanSBOMHandler_Handle(t *testing.T) {
@@ -316,4 +319,241 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			assert.True(t, apierrors.IsNotFound(err), "VulnerabilityReport should not exist")
 		})
 	}
+}
+
+func TestShouldSkipScan(t *testing.T) {
+	now := metav1.Now()
+	oneHourAgo := metav1.NewTime(now.Add(-1 * time.Hour))
+	twoHoursAgo := metav1.NewTime(now.Add(-2 * time.Hour))
+
+	tests := []struct {
+		name           string
+		existingReport *storagev1alpha1.VulnerabilityReport
+		workerVulnDB   metav1.Time
+		workerJavaDB   metav1.Time
+		shouldScan     bool
+	}{
+		{
+			name: "database version is newer than the last one",
+			existingReport: &storagev1alpha1.VulnerabilityReport{
+				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: oneHourAgo},
+				ScannerDBVersion: map[string]metav1.Time{
+					storagev1alpha1.ScannerTrivyDB:     twoHoursAgo,
+					storagev1alpha1.ScannerTrivyJavaDB: twoHoursAgo,
+				},
+			},
+			workerVulnDB: now,
+			workerJavaDB: now,
+			shouldScan:   true,
+		},
+		{
+			name: "database version is older than the last one",
+			existingReport: &storagev1alpha1.VulnerabilityReport{
+				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: oneHourAgo},
+				ScannerDBVersion: map[string]metav1.Time{
+					storagev1alpha1.ScannerTrivyDB:     now,
+					storagev1alpha1.ScannerTrivyJavaDB: now,
+				},
+			},
+			workerVulnDB: twoHoursAgo,
+			workerJavaDB: twoHoursAgo,
+			shouldScan:   false,
+		},
+		{
+			name: "last database doesn't exist yet (first scan ever)",
+			existingReport: &storagev1alpha1.VulnerabilityReport{
+				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.Time{}}, // Zero time
+			},
+			workerVulnDB: now,
+			workerJavaDB: now,
+			shouldScan:   true,
+		},
+		{
+			name: "database versions are the same",
+			existingReport: &storagev1alpha1.VulnerabilityReport{
+				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: oneHourAgo},
+				ScannerDBVersion: map[string]metav1.Time{
+					storagev1alpha1.ScannerTrivyDB:     now,
+					storagev1alpha1.ScannerTrivyJavaDB: now,
+				},
+			},
+			workerVulnDB: now,
+			workerJavaDB: now,
+			shouldScan:   false,
+		},
+	}
+
+	handler := &ScanSBOMHandler{} // Instance to call the method
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := handler.shouldTrivyScan(tt.existingReport, tt.workerVulnDB, tt.workerJavaDB)
+
+			if got != tt.shouldScan {
+				t.Errorf("shoulTrivydScan() = %v, want %v", got, tt.shouldScan)
+				t.Logf("Report DB: %v, Worker DB: %v",
+					tt.existingReport.ScannerDBVersion[storagev1alpha1.ScannerTrivyDB],
+					tt.workerVulnDB)
+			}
+		})
+	}
+}
+
+// write an old version of the database -> update vulnerability report
+func TestScanSBOMHandler_Handle_ConflictShouldNotUpdate(t *testing.T) {
+	scheme := scheme.Scheme
+	require.NoError(t, storagev1alpha1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+
+	now := metav1.Now()
+	newer := metav1.NewTime(now.Add(1 * time.Hour))
+
+	scanJob := &v1alpha1.ScanJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-scanjob",
+			Namespace: "default",
+			UID:       "test-scanjob-uid",
+		},
+		Spec: v1alpha1.ScanJobSpec{Registry: "test-registry"},
+	}
+	sbom := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-sbom",
+			Namespace: "default",
+		},
+		SPDX: runtime.RawExtension{Raw: []byte(`{"spdxVersion":"SPDX-2.2"}`)},
+	}
+
+	// Existing report with newer DB versions
+	existingReport := &storagev1alpha1.VulnerabilityReport{
+		ObjectMeta: metav1.ObjectMeta{CreationTimestamp: now, Name: sbom.Name, Namespace: sbom.Namespace},
+		ScannerDBVersion: map[string]metav1.Time{
+			storagev1alpha1.ScannerTrivyDB:     newer,
+			storagev1alpha1.ScannerTrivyJavaDB: newer,
+		},
+	}
+
+	updateAttempts := 0
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithRuntimeObjects(scanJob, sbom, existingReport).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateAttempts++
+				if updateAttempts == 1 {
+					return apierrors.NewConflict(
+						schema.GroupResource{Group: "mygroup", Resource: "myresources"},
+						obj.GetName(), nil)
+				}
+				return c.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	handler := NewScanSBOMHandler(fakeClient, scheme, t.TempDir(), testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
+
+	message, err := json.Marshal(&ScanSBOMMessage{
+		BaseMessage: BaseMessage{
+			ScanJob: ObjectRef{
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
+				UID:       string(scanJob.UID),
+			},
+		},
+		SBOM: ObjectRef{
+			Name:      sbom.Name,
+			Namespace: sbom.Namespace,
+		},
+	})
+	require.NoError(t, err)
+
+	err = handler.Handle(context.Background(), &testMessage{data: message})
+	require.NoError(t, err)
+
+	// Should not update the report, DB versions should remain as in existingReport
+	updated := &storagev1alpha1.VulnerabilityReport{}
+	errGet := fakeClient.Get(context.Background(), client.ObjectKey{Name: sbom.Name, Namespace: sbom.Namespace}, updated)
+	require.NoError(t, errGet)
+	assert.Equal(t, newer, updated.ScannerDBVersion[storagev1alpha1.ScannerTrivyDB])
+	assert.Equal(t, newer, updated.ScannerDBVersion[storagev1alpha1.ScannerTrivyJavaDB])
+}
+
+// write a new version of the database -> update vulnerability report
+func TestScanSBOMHandler_Handle_ConflitShouldUpdate(t *testing.T) {
+	scheme := scheme.Scheme
+	require.NoError(t, storagev1alpha1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+
+	now := metav1.Now()
+	older := metav1.NewTime(now.Add(-1 * time.Hour))
+
+	scanJob := &v1alpha1.ScanJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-scanjob",
+			Namespace: "default",
+			UID:       "test-scanjob-uid",
+		},
+		Spec: v1alpha1.ScanJobSpec{Registry: "test-registry"},
+	}
+	sbom := &storagev1alpha1.SBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-sbom",
+			Namespace: "default",
+		},
+		SPDX: runtime.RawExtension{Raw: []byte(`{"spdxVersion":"SPDX-2.2"}`)},
+	}
+
+	// Existing report with older DB versions
+	existingReport := &storagev1alpha1.VulnerabilityReport{
+		ObjectMeta: metav1.ObjectMeta{CreationTimestamp: now, Name: sbom.Name, Namespace: sbom.Namespace},
+		ScannerDBVersion: map[string]metav1.Time{
+			storagev1alpha1.ScannerTrivyDB:     older,
+			storagev1alpha1.ScannerTrivyJavaDB: older,
+		},
+	}
+
+	updateAttempts := 0
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithRuntimeObjects(scanJob, sbom, existingReport).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateAttempts++
+				if updateAttempts == 1 {
+					return apierrors.NewConflict(
+						schema.GroupResource{Group: "mygroup", Resource: "myresources"},
+						obj.GetName(), nil)
+				}
+				return c.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	handler := NewScanSBOMHandler(fakeClient, scheme, t.TempDir(), testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
+
+	message, err := json.Marshal(&ScanSBOMMessage{
+		BaseMessage: BaseMessage{
+			ScanJob: ObjectRef{
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
+				UID:       string(scanJob.UID),
+			},
+		},
+		SBOM: ObjectRef{
+			Name:      sbom.Name,
+			Namespace: sbom.Namespace,
+		},
+	})
+	require.NoError(t, err)
+
+	err = handler.Handle(context.Background(), &testMessage{data: message})
+	require.NoError(t, err)
+
+	// Should update the report, DB versions should be updated to now
+	updated := &storagev1alpha1.VulnerabilityReport{}
+	errGet := fakeClient.Get(context.Background(), client.ObjectKey{Name: sbom.Name, Namespace: sbom.Namespace}, updated)
+	require.NoError(t, errGet)
+	assert.Equal(t, now, updated.ScannerDBVersion[storagev1alpha1.ScannerTrivyDB])
+	assert.Equal(t, now, updated.ScannerDBVersion[storagev1alpha1.ScannerTrivyJavaDB])
 }
