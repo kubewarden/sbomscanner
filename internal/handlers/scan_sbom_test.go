@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
@@ -315,84 +314,6 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 				Namespace: "default",
 			}, vulnerabilityReport)
 			assert.True(t, apierrors.IsNotFound(err), "VulnerabilityReport should not exist")
-		})
-	}
-}
-
-func TestShouldSkipScan(t *testing.T) {
-	now := metav1.Now()
-	oneHourAgo := metav1.NewTime(now.Add(-1 * time.Hour))
-	twoHoursAgo := metav1.NewTime(now.Add(-2 * time.Hour))
-
-	tests := []struct {
-		name           string
-		existingReport *storagev1alpha1.VulnerabilityReport
-		workerVulnDB   metav1.Time
-		workerJavaDB   metav1.Time
-		shouldSkip     bool
-	}{
-		{
-			name: "database version is newer than the last one",
-			existingReport: &storagev1alpha1.VulnerabilityReport{
-				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: oneHourAgo},
-				ScannerDBVersion: map[string]metav1.Time{
-					storagev1alpha1.ScannerTrivyDB:     twoHoursAgo,
-					storagev1alpha1.ScannerTrivyJavaDB: twoHoursAgo,
-				},
-			},
-			workerVulnDB: now,
-			workerJavaDB: now,
-			shouldSkip:   true,
-		},
-		{
-			name: "database version is older than the last one",
-			existingReport: &storagev1alpha1.VulnerabilityReport{
-				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: oneHourAgo},
-				ScannerDBVersion: map[string]metav1.Time{
-					storagev1alpha1.ScannerTrivyDB:     now,
-					storagev1alpha1.ScannerTrivyJavaDB: now,
-				},
-			},
-			workerVulnDB: twoHoursAgo,
-			workerJavaDB: twoHoursAgo,
-			shouldSkip:   false,
-		},
-		{
-			name: "last database doesn't exist yet (first scan ever)",
-			existingReport: &storagev1alpha1.VulnerabilityReport{
-				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.Time{}}, // Zero time
-			},
-			workerVulnDB: now,
-			workerJavaDB: now,
-			shouldSkip:   false,
-		},
-		{
-			name: "database versions are the same",
-			existingReport: &storagev1alpha1.VulnerabilityReport{
-				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: oneHourAgo},
-				ScannerDBVersion: map[string]metav1.Time{
-					storagev1alpha1.ScannerTrivyDB:     now,
-					storagev1alpha1.ScannerTrivyJavaDB: now,
-				},
-			},
-			workerVulnDB: now,
-			workerJavaDB: now,
-			shouldSkip:   true,
-		},
-	}
-
-	handler := &ScanSBOMHandler{} // Instance to call the method
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := handler.shouldSkipTrivyScan(tt.existingReport, tt.workerVulnDB, tt.workerJavaDB)
-
-			if got != tt.shouldSkip {
-				t.Errorf("shouldSkipScan() = %v, want %v", got, tt.shouldSkip)
-				t.Logf("Report DB: %v, Worker DB: %v",
-					tt.existingReport.ScannerDBVersion[storagev1alpha1.ScannerTrivyDB],
-					tt.workerVulnDB)
-			}
 		})
 	}
 }

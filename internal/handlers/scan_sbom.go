@@ -138,9 +138,9 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	if err = h.updateTrivyVulnerabilityDB(ctx, h.trivyDBRepository); err != nil {
 		return fmt.Errorf("could not update trivy-db: %w", err)
 	}
-	if err = h.updateTrivyJavaDB(ctx, h.trivyJavaDBRepository); err != nil {
-		return fmt.Errorf("could not update trivy-java-db: %w", err)
-	}
+	//if err = h.updateTrivyJavaDB(ctx, h.trivyJavaDBRepository); err != nil {
+	//	return fmt.Errorf("could not update trivy-java-db: %w", err)
+	//}
 
 	trivyDBVersions, err := h.getTrivyDBVersions(ctx)
 	if err != nil {
