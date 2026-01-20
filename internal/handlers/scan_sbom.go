@@ -216,7 +216,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 			return controllerutil.SetControllerReference(sbom, vulnerabilityReport, h.scheme)
 		})
 
-		return err
+		return fmt.Errorf("failed to create or update VulnerabilityReport: %w", err)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create or update the VulnerabilityReport: %w", err)
@@ -226,6 +226,8 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 }
 
 // scanSBOM scans the provided SBOM using trivy and returns the vulnerability report.
+//
+//gocognit:ignore
 func (h *ScanSBOMHandler) scanSBOM(ctx context.Context, sbom *storagev1alpha1.SBOM, trivyHome string) (trivyTypes.Report, error) {
 	vexHubList := &v1alpha1.VEXHubList{}
 	err := h.k8sClient.List(ctx, vexHubList, &client.ListOptions{})
@@ -367,7 +369,7 @@ func (h *ScanSBOMHandler) updateTrivyVulnerabilityDB(ctx context.Context, trivyD
 		"--cache-dir", h.workDir,
 	})
 	if err := app.ExecuteContext(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to update Trivy VulnerabilityDB: %w", err)
 	}
 	return nil
 }
@@ -383,7 +385,7 @@ func (h *ScanSBOMHandler) updateTrivyJavaDB(ctx context.Context, trivyJavaDBRepo
 		"--cache-dir", h.workDir,
 	})
 	if err := app.ExecuteContext(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to update Trivy JavaDB: %w", err)
 	}
 	return nil
 }
@@ -399,11 +401,11 @@ func (h *ScanSBOMHandler) getTrivyDBVersions(ctx context.Context) (*version.Vers
 		"--cache-dir", h.workDir,
 	})
 	if err := app.ExecuteContext(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get Trivy DB versions: %w", err)
 	}
 	var versionInfo *version.VersionInfo
 	if err := json.NewDecoder(buf).Decode(&versionInfo); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode Trivy DB versions: %w", err)
 	}
 	return versionInfo, nil
 }
