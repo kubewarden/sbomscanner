@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	cranev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 type ImageDetails struct {
@@ -106,6 +107,22 @@ func (c *Client) ListRepositoryContents(ctx context.Context, repo name.Repositor
 		"images", images)
 
 	return images, nil
+}
+
+// IsImageIndex checks if the given reference points to a multi-architecture image index
+// by fetching the descriptor and inspecting its media type.
+func (c *Client) IsImageIndex(ref name.Reference) (bool, error) {
+	c.logger.Debug("IsImageIndex called", "image", ref.Name())
+
+	desc, err := remote.Get(ref,
+		remote.WithAuthFromKeychain(authn.DefaultKeychain),
+		remote.WithTransport(c.transport),
+	)
+	if err != nil {
+		return false, fmt.Errorf("cannot fetch descriptor for %q: %w", ref, err)
+	}
+
+	return desc.MediaType == types.OCIImageIndex || desc.MediaType == types.DockerManifestList, nil
 }
 
 func (c *Client) GetImageIndex(ref name.Reference) (cranev1.ImageIndex, error) {
