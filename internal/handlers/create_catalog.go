@@ -65,7 +65,7 @@ func NewCreateCatalogHandler(
 }
 
 // Handle processes the create catalog message and creates Image resources.
-func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Message) error { //nolint:gocognit,funlen,gocyclo,cyclop // We are a bit more tolerant for the handler.
+func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Message) error {
 	createCatalogMessage := &CreateCatalogMessage{}
 	err := json.Unmarshal(message.Data(), createCatalogMessage)
 	if err != nil {
@@ -183,20 +183,15 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 
 	var discoveredImages []storagev1alpha1.Image
 	for newImageName := range discoveredImageReferences {
-		var ref name.Reference
-		ref, err = name.ParseReference(newImageName)
+		ref, err := name.ParseReference(newImageName)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "Cannot parse image reference", "reference", newImageName, "error", err)
-			// Avoid blocking other images to be cataloged
-			continue
+			return fmt.Errorf("cannot parse image reference %q: %w", newImageName, err)
 		}
 
 		matchConditions := registry.GetMatchConditionsByRepository(ref.Context().RepositoryStr())
 		tagIsAllowed, err := filters.FilterByTag(tagEvaluator, matchConditions, ref.Identifier())
 		if err != nil {
-			h.logger.ErrorContext(ctx, "Cannot evaluate image tag", "reference", newImageName, "error", err)
-			// Avoid blocking other images to be cataloged
-			continue
+			return fmt.Errorf("cannot evaluate image tag for %q: %w", newImageName, err)
 		}
 		// if tag is not allowed by the CEL filter,
 		// then skip the image fetching.
@@ -204,12 +199,9 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			continue
 		}
 
-		var images []storagev1alpha1.Image
-		images, err = h.refToImages(ctx, registryClient, ref, registry, message)
+		images, err := h.refToImages(ctx, registryClient, ref, registry, message)
 		if err != nil {
-			h.logger.ErrorContext(ctx, "Cannot get images", "reference", ref.String(), "error", err)
-			// Avoid blocking other images to be cataloged
-			continue
+			return fmt.Errorf("cannot get images for %q: %w", ref.String(), err)
 		}
 
 		for _, image := range images {
@@ -392,12 +384,9 @@ func (h *CreateCatalogHandler) refToImages(
 	images := []storagev1alpha1.Image{}
 
 	for _, platform := range platforms {
-		var imageDetails registryclient.ImageDetails
-		imageDetails, err = registryClient.GetImageDetails(ref, platform)
+		imageDetails, err := registryClient.GetImageDetails(ref, platform)
 		if err != nil {
-			h.logger.WarnContext(ctx, "cannot get image details", "reference", ref.Name(), "platform", imageDetails.Platform, "error", err)
-			// Avoid blocking other images to be cataloged
-			continue
+			return []storagev1alpha1.Image{}, fmt.Errorf("cannot get image details for %q platform %v: %w", ref.Name(), platform, err)
 		}
 		// If the image is single-arch we did not know the platform till this point.
 		// This is why we neeed to run the filter again.
@@ -409,17 +398,13 @@ func (h *CreateCatalogHandler) refToImages(
 			continue
 		}
 
-		var image storagev1alpha1.Image
-		image, err = imageDetailsToImage(ref, imageDetails, registry)
+		image, err := imageDetailsToImage(ref, imageDetails, registry)
 		if err != nil {
-			h.logger.InfoContext(ctx, "cannot convert image details to image", "reference", ref.Name(), "error", err)
-			// Avoid blocking other images to be cataloged
-			continue
+			return []storagev1alpha1.Image{}, fmt.Errorf("cannot convert image details to image for %q: %w", ref.Name(), err)
 		}
 
 		if err = controllerutil.SetControllerReference(registry, &image, h.scheme); err != nil {
-			h.logger.InfoContext(ctx, "cannot set owner reference", "reference", ref.Name(), "error", err)
-			return []storagev1alpha1.Image{}, fmt.Errorf("cannot set owner reference: %w", err)
+			return []storagev1alpha1.Image{}, fmt.Errorf("cannot set owner reference for %q: %w", ref.Name(), err)
 		}
 
 		images = append(images, image)
@@ -432,25 +417,31 @@ func (h *CreateCatalogHandler) refToImages(
 }
 
 // refToPlatforms returns the list of platforms for the given image reference.
-// If the image is not multi-architecture, it returns an empty list.
+// If the image is not multi-architecture, it returns a slice with a single nil platform.
 func (h *CreateCatalogHandler) refToPlatforms(
 	registryClient *registryclient.Client,
 	ref name.Reference,
 	allowedPlatforms []v1alpha1.Platform,
 ) ([]*cranev1.Platform, error) {
+	isIndex, err := registryClient.IsImageIndex(ref)
+	if err != nil {
+		return nil, fmt.Errorf("cannot determine if %q is an image index: %w", ref, err)
+	}
+
+	if !isIndex {
+		// The image is not multi-architecture, return a single nil platform.
+		// The actual platform will be determined when fetching image details.
+		return []*cranev1.Platform{nil}, nil
+	}
+
 	imgIndex, err := registryClient.GetImageIndex(ref)
 	if err != nil {
-		h.logger.Debug(
-			"image doesn't seem to be multi-architecture",
-			"image", ref.Name(),
-			"error", err)
-		// The image is not multi-architecture, return a single nil platform.
-		return []*cranev1.Platform{nil}, nil
+		return nil, fmt.Errorf("cannot fetch image index for %q: %w", ref, err)
 	}
 
 	manifest, err := imgIndex.IndexManifest()
 	if err != nil {
-		return []*cranev1.Platform{}, fmt.Errorf("cannot read index manifest of %s: %w", ref, err)
+		return nil, fmt.Errorf("cannot read index manifest of %s: %w", ref, err)
 	}
 
 	platforms := []*cranev1.Platform{}
