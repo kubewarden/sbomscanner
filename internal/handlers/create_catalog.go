@@ -65,7 +65,7 @@ func NewCreateCatalogHandler(
 }
 
 // Handle processes the create catalog message and creates Image resources.
-func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Message) error {
+func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Message) error { //nolint:gocognit,gocyclo,cyclop,funlen // TODO: refactor this function to reduce cognitive complexity
 	createCatalogMessage := &CreateCatalogMessage{}
 	err := json.Unmarshal(message.Data(), createCatalogMessage)
 	if err != nil {
@@ -376,7 +376,7 @@ func (h *CreateCatalogHandler) refToImages(
 	registry *v1alpha1.Registry,
 	message messaging.Message,
 ) ([]storagev1alpha1.Image, error) {
-	platforms, err := h.refToPlatforms(registryClient, ref, registry.Spec.Platforms)
+	platforms, err := h.refToPlatforms(ctx, registryClient, ref, registry.Spec.Platforms)
 	if err != nil {
 		return []storagev1alpha1.Image{}, fmt.Errorf("cannot get platforms for %s: %w", ref, err)
 	}
@@ -384,12 +384,12 @@ func (h *CreateCatalogHandler) refToImages(
 	images := []storagev1alpha1.Image{}
 
 	for _, platform := range platforms {
-		imageDetails, err := registryClient.GetImageDetails(ref, platform)
+		imageDetails, err := registryClient.GetImageDetails(ctx, ref, platform)
 		if err != nil {
 			return []storagev1alpha1.Image{}, fmt.Errorf("cannot get image details for %q platform %v: %w", ref.Name(), platform, err)
 		}
 		// If the image is single-arch we did not know the platform till this point.
-		// This is why we neeed to run the filter again.
+		// This is why we need to run the filter again.
 		if !filters.IsPlatformAllowed(
 			imageDetails.Platform.OS,
 			imageDetails.Platform.Architecture,
@@ -419,11 +419,13 @@ func (h *CreateCatalogHandler) refToImages(
 // refToPlatforms returns the list of platforms for the given image reference.
 // If the image is not multi-architecture, it returns a slice with a single nil platform.
 func (h *CreateCatalogHandler) refToPlatforms(
+	ctx context.Context,
+	message messaging.Message,
 	registryClient *registryclient.Client,
 	ref name.Reference,
 	allowedPlatforms []v1alpha1.Platform,
 ) ([]*cranev1.Platform, error) {
-	isIndex, err := registryClient.IsImageIndex(ref)
+	isIndex, err := registryClient.IsImageIndex(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("cannot determine if %q is an image index: %w", ref, err)
 	}
@@ -434,7 +436,7 @@ func (h *CreateCatalogHandler) refToPlatforms(
 		return []*cranev1.Platform{nil}, nil
 	}
 
-	imgIndex, err := registryClient.GetImageIndex(ref)
+	imgIndex, err := registryClient.GetImageIndex(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch image index for %q: %w", ref, err)
 	}

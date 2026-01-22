@@ -111,10 +111,11 @@ func (c *Client) ListRepositoryContents(ctx context.Context, repo name.Repositor
 
 // IsImageIndex checks if the given reference points to a multi-architecture image index
 // by fetching the descriptor and inspecting its media type.
-func (c *Client) IsImageIndex(ref name.Reference) (bool, error) {
-	c.logger.Debug("IsImageIndex called", "image", ref.Name())
+func (c *Client) IsImageIndex(ctx context.Context, ref name.Reference) (bool, error) {
+	c.logger.DebugContext(ctx, "IsImageIndex called", "image", ref.Name())
 
 	desc, err := remote.Get(ref,
+		remote.WithContext(ctx),
 		remote.WithAuthFromKeychain(authn.DefaultKeychain),
 		remote.WithTransport(c.transport),
 	)
@@ -125,10 +126,11 @@ func (c *Client) IsImageIndex(ref name.Reference) (bool, error) {
 	return desc.MediaType == types.OCIImageIndex || desc.MediaType == types.DockerManifestList, nil
 }
 
-func (c *Client) GetImageIndex(ref name.Reference) (cranev1.ImageIndex, error) {
-	c.logger.Debug("GetImageIndex called", "image", ref.Name())
+func (c *Client) GetImageIndex(ctx context.Context, ref name.Reference) (cranev1.ImageIndex, error) {
+	c.logger.DebugContext(ctx, "GetImageIndex called", "image", ref.Name())
 
 	index, err := remote.Index(ref,
+		remote.WithContext(ctx),
 		remote.WithAuthFromKeychain(authn.DefaultKeychain),
 		remote.WithTransport(c.transport),
 	)
@@ -138,10 +140,11 @@ func (c *Client) GetImageIndex(ref name.Reference) (cranev1.ImageIndex, error) {
 	return index, nil
 }
 
-func (c *Client) GetImageDetails(ref name.Reference, platform *cranev1.Platform) (ImageDetails, error) {
-	c.logger.Debug("GetImageDetails called", "image", ref.Name(), "platform", platform)
+func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, platform *cranev1.Platform) (ImageDetails, error) {
+	c.logger.DebugContext(ctx, "GetImageDetails called", "image", ref.Name(), "platform", platform)
 
 	options := []remote.Option{
+		remote.WithContext(ctx),
 		remote.WithAuthFromKeychain(authn.DefaultKeychain),
 		remote.WithTransport(c.transport),
 	}
