@@ -7,19 +7,16 @@ import (
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
 func SetupScanJobWebhookWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.ScanJob{}).
+	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.ScanJob{}).
 		WithValidator(&ScanJobCustomValidator{
 			client: mgr.GetClient(),
 			logger: mgr.GetLogger().WithName("scanjob_validator"),
@@ -40,15 +37,10 @@ type ScanJobCustomDefaulter struct {
 	logger logr.Logger
 }
 
-var _ webhook.CustomDefaulter = &ScanJobCustomDefaulter{}
+var _ admission.Defaulter[*v1alpha1.ScanJob] = &ScanJobCustomDefaulter{}
 
 // Default mutates the object to set default values.
-func (d *ScanJobCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
-	scanJob, ok := obj.(*v1alpha1.ScanJob)
-	if !ok {
-		return fmt.Errorf("expected a ScanJob object but got %T", obj)
-	}
-
+func (d *ScanJobCustomDefaulter) Default(_ context.Context, scanJob *v1alpha1.ScanJob) error {
 	d.logger.Info("Defaulting ScanJob", "name", scanJob.GetName())
 
 	if scanJob.Annotations == nil {
@@ -68,14 +60,10 @@ type ScanJobCustomValidator struct {
 	logger logr.Logger
 }
 
-var _ webhook.CustomValidator = &ScanJobCustomValidator{}
+var _ admission.Validator[*v1alpha1.ScanJob] = &ScanJobCustomValidator{}
 
 // ValidateCreate validates the object on creation.
-func (v *ScanJobCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	scanJob, ok := obj.(*v1alpha1.ScanJob)
-	if !ok {
-		return nil, fmt.Errorf("expected a ScanJob object but got %T", obj)
-	}
+func (v *ScanJobCustomValidator) ValidateCreate(ctx context.Context, scanJob *v1alpha1.ScanJob) (admission.Warnings, error) {
 	v.logger.Info("Validation for ScanJob upon creation", "name", scanJob.GetName())
 
 	var allErrs field.ErrorList
@@ -108,15 +96,7 @@ func (v *ScanJobCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 }
 
 // ValidateUpdate validates the object on update.
-func (v *ScanJobCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldJob, ok := oldObj.(*v1alpha1.ScanJob)
-	if !ok {
-		return nil, fmt.Errorf("expected oldObj to be a ScanJob but got %T", oldObj)
-	}
-	newJob, ok := newObj.(*v1alpha1.ScanJob)
-	if !ok {
-		return nil, fmt.Errorf("expected newObj to be a ScanJob but got %T", newObj)
-	}
+func (v *ScanJobCustomValidator) ValidateUpdate(_ context.Context, oldJob, newJob *v1alpha1.ScanJob) (admission.Warnings, error) {
 	v.logger.Info("Validation for ScanJob upon update", "name", newJob.GetName())
 
 	var allErrs field.ErrorList
@@ -136,11 +116,7 @@ func (v *ScanJobCustomValidator) ValidateUpdate(_ context.Context, oldObj, newOb
 }
 
 // ValidateDelete validates the object on deletion.
-func (v *ScanJobCustomValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	scanJob, ok := obj.(*v1alpha1.ScanJob)
-	if !ok {
-		return nil, fmt.Errorf("expected a ScanJob object but got %T", obj)
-	}
+func (v *ScanJobCustomValidator) ValidateDelete(_ context.Context, scanJob *v1alpha1.ScanJob) (admission.Warnings, error) {
 	v.logger.Info("Validation for ScanJob upon deletion", "name", scanJob.GetName())
 	return nil, nil
 }

@@ -10,10 +10,8 @@ import (
 	"github.com/go-logr/logr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
@@ -28,7 +26,7 @@ var availableCatalogTypes = []string{v1alpha1.CatalogTypeNoCatalog, v1alpha1.Cat
 
 // SetupRegistryWebhookWithManager registers the webhook for Registry in the manager.
 func SetupRegistryWebhookWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewWebhookManagedBy(mgr).For(&v1alpha1.Registry{}).
+	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.Registry{}).
 		WithValidator(&RegistryCustomValidator{
 			logger: mgr.GetLogger().WithName("registry_validator"),
 		}).
@@ -48,15 +46,10 @@ type RegistryCustomDefaulter struct {
 	logger logr.Logger
 }
 
-var _ webhook.CustomDefaulter = &RegistryCustomDefaulter{}
+var _ admission.Defaulter[*v1alpha1.Registry] = &RegistryCustomDefaulter{}
 
-// Default implements admission.CustomDefaulter.
-func (d *RegistryCustomDefaulter) Default(_ context.Context, obj runtime.Object) error {
-	registry, ok := obj.(*v1alpha1.Registry)
-	if !ok {
-		return fmt.Errorf("expected a Registry object but got %T", obj)
-	}
-
+// Default implements admission.Defaulter.
+func (d *RegistryCustomDefaulter) Default(_ context.Context, registry *v1alpha1.Registry) error {
 	d.logger.Info("Defaulting Registry", "name", registry.GetName())
 
 	if registry.Spec.CatalogType == "" {
@@ -72,14 +65,10 @@ type RegistryCustomValidator struct {
 	logger logr.Logger
 }
 
-var _ webhook.CustomValidator = &RegistryCustomValidator{}
+var _ admission.Validator[*v1alpha1.Registry] = &RegistryCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Registry.
-func (v *RegistryCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	registry, ok := obj.(*v1alpha1.Registry)
-	if !ok {
-		return nil, fmt.Errorf("expected a Registry object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type Registry.
+func (v *RegistryCustomValidator) ValidateCreate(_ context.Context, registry *v1alpha1.Registry) (admission.Warnings, error) {
 	v.logger.Info("Validation for Registry upon creation", "name", registry.GetName())
 
 	allErrs := validateRegistry(registry)
@@ -95,12 +84,8 @@ func (v *RegistryCustomValidator) ValidateCreate(_ context.Context, obj runtime.
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Registry.
-func (v *RegistryCustomValidator) ValidateUpdate(_ context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
-	registry, ok := newObj.(*v1alpha1.Registry)
-	if !ok {
-		return nil, fmt.Errorf("expected a Registry object for the newObj but got %T", newObj)
-	}
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type Registry.
+func (v *RegistryCustomValidator) ValidateUpdate(_ context.Context, _, registry *v1alpha1.Registry) (admission.Warnings, error) {
 	v.logger.Info("Validation for Registry upon update", "name", registry.GetName())
 
 	allErrs := validateRegistry(registry)
@@ -116,12 +101,8 @@ func (v *RegistryCustomValidator) ValidateUpdate(_ context.Context, _, newObj ru
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Registry.
-func (v *RegistryCustomValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	registry, ok := obj.(*v1alpha1.Registry)
-	if !ok {
-		return nil, fmt.Errorf("expected a Registry object but got %T", obj)
-	}
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type Registry.
+func (v *RegistryCustomValidator) ValidateDelete(_ context.Context, registry *v1alpha1.Registry) (admission.Warnings, error) {
 	v.logger.Info("Validation for Registry upon deletion", "name", registry.GetName())
 
 	return nil, nil
