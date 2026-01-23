@@ -262,9 +262,6 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 			return nil, fmt.Errorf("failed to create temporary CA bundle file: %w", err)
 		}
 		defer func() {
-			if err = caBundleFile.Close(); err != nil {
-				h.logger.Error("failed to close temporary CA bundle file", "error", err)
-			}
 			if err = os.Remove(caBundleFile.Name()); err != nil {
 				h.logger.Error("failed to remove temporary CA bundle file", "error", err)
 			}
