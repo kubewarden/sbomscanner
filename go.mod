@@ -4,7 +4,7 @@ go 1.25.6
 
 require (
 	github.com/aquasecurity/trivy v0.68.2
-	github.com/aquasecurity/trivy-db v0.0.0-20260112121638-753ee4147311
+	github.com/aquasecurity/trivy-db v0.0.0-20260121110422-b8dd3abe2347
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/aws/smithy-go v1.24.0
 	github.com/docker/cli v29.1.5+incompatible
