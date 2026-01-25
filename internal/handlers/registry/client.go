@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -11,7 +12,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	cranev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 type ImageDetails struct {
@@ -109,10 +109,9 @@ func (c *Client) ListRepositoryContents(ctx context.Context, repo name.Repositor
 	return images, nil
 }
 
-// IsImageIndex checks if the given reference points to a multi-architecture image index
-// by fetching the descriptor and inspecting its media type.
-func (c *Client) IsImageIndex(ctx context.Context, ref name.Reference) (bool, error) {
-	c.logger.DebugContext(ctx, "IsImageIndex called", "image", ref.Name())
+// GetDescriptor fetches the descriptor for a given reference.
+func (c *Client) GetDescriptor(ctx context.Context, ref name.Reference) (*remote.Descriptor, error) {
+	c.logger.DebugContext(ctx, "GetDescriptor called", "ref", ref.Name())
 
 	desc, err := remote.Get(ref,
 		remote.WithContext(ctx),
@@ -120,10 +119,39 @@ func (c *Client) IsImageIndex(ctx context.Context, ref name.Reference) (bool, er
 		remote.WithTransport(c.transport),
 	)
 	if err != nil {
-		return false, fmt.Errorf("cannot fetch descriptor for %q: %w", ref, err)
+		return nil, fmt.Errorf("cannot fetch descriptor for %q: %w", ref, err)
 	}
 
-	return desc.MediaType == types.OCIImageIndex || desc.MediaType == types.DockerManifestList, nil
+	return desc, nil
+}
+
+// IsContainerImage checks if the descriptor represents an actual container image
+// (as opposed to other OCI artifacts like Helm charts, signatures, attestations, etc.)
+//
+// Image indexes are considered container images. For single manifests, this method
+// parses the manifest and checks if the config media type is a container image config.
+func (c *Client) IsContainerImage(ctx context.Context, desc *remote.Descriptor) (bool, error) {
+	// Image indexes are considered container images.
+	// Individual manifests within the index will be validated when processing platforms.
+	if desc.MediaType.IsIndex() {
+		return true, nil
+	}
+
+	// Not a recognized manifest type
+	if !desc.MediaType.IsImage() {
+		c.logger.DebugContext(ctx, "Unknown manifest type", "mediaType", desc.MediaType)
+		return false, nil
+	}
+
+	// For single manifests, we need to check the config media type.
+	// OCI artifacts (Helm charts, signatures, etc.) use the same manifest schema
+	// but have different config media types.
+	manifest, err := cranev1.ParseManifest(bytes.NewReader(desc.Manifest))
+	if err != nil {
+		return false, fmt.Errorf("cannot parse manifest: %w", err)
+	}
+
+	return manifest.Config.MediaType.IsConfig(), nil
 }
 
 func (c *Client) GetImageIndex(ctx context.Context, ref name.Reference) (cranev1.ImageIndex, error) {

@@ -16,7 +16,6 @@ import (
 	"path"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	cranev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -199,7 +198,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			continue
 		}
 
-		images, err := h.refToImages(ctx, registryClient, ref, registry, message)
+		images, err := h.refToImages(ctx, message, registryClient, ref, registry)
 		if err != nil {
 			return fmt.Errorf("cannot get images for %q: %w", ref.String(), err)
 		}
@@ -369,73 +368,75 @@ func (h *CreateCatalogHandler) discoverImages(
 }
 
 // refToImages converts a reference to a list of Image resources.
+// Returns an empty slice if the reference points to a non-image artifact (e.g., Helm chart, signature).
 func (h *CreateCatalogHandler) refToImages(
+	ctx context.Context,
+	message messaging.Message,
+	registryClient *registryclient.Client,
+	ref name.Reference,
+	registry *v1alpha1.Registry,
+) ([]storagev1alpha1.Image, error) {
+	desc, err := registryClient.GetDescriptor(ctx, ref)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get descriptor for %q: %w", ref, err)
+	}
+
+	isContainerImage, err := registryClient.IsContainerImage(ctx, desc)
+	if err != nil {
+		return nil, fmt.Errorf("cannot check if %s is a container image: %w", ref.Name(), err)
+	}
+
+	if !isContainerImage {
+		h.logger.DebugContext(ctx, "Skipping non-image artifact",
+			"ref", ref.Name(),
+			"mediaType", desc.MediaType,
+		)
+		return []storagev1alpha1.Image{}, nil
+	}
+
+	if desc.MediaType.IsIndex() {
+		return h.multiArchRefToImages(ctx, message, registryClient, ref, registry)
+	}
+
+	return h.singleArchRefToImages(ctx, message, registryClient, ref, registry)
+}
+
+// singleArchRefToImages handles single-arch images.
+func (h *CreateCatalogHandler) singleArchRefToImages(
 	ctx context.Context,
 	registryClient *registryclient.Client,
 	ref name.Reference,
 	registry *v1alpha1.Registry,
-	message messaging.Message,
 ) ([]storagev1alpha1.Image, error) {
-	platforms, err := h.refToPlatforms(ctx, registryClient, ref, registry.Spec.Platforms)
+	imageDetails, err := registryClient.GetImageDetails(ctx, ref, nil)
 	if err != nil {
-		return []storagev1alpha1.Image{}, fmt.Errorf("cannot get platforms for %s: %w", ref, err)
+		return []storagev1alpha1.Image{}, fmt.Errorf("cannot get image details for %q: %w", ref.Name(), err)
 	}
 
-	images := []storagev1alpha1.Image{}
-
-	for _, platform := range platforms {
-		imageDetails, err := registryClient.GetImageDetails(ctx, ref, platform)
-		if err != nil {
-			return []storagev1alpha1.Image{}, fmt.Errorf("cannot get image details for %q platform %v: %w", ref.Name(), platform, err)
-		}
-		// If the image is single-arch we did not know the platform till this point.
-		// This is why we need to run the filter again.
-		if !filters.IsPlatformAllowed(
-			imageDetails.Platform.OS,
-			imageDetails.Platform.Architecture,
-			imageDetails.Platform.Variant,
-			registry.Spec.Platforms) {
-			continue
-		}
-
-		image, err := imageDetailsToImage(ref, imageDetails, registry)
-		if err != nil {
-			return []storagev1alpha1.Image{}, fmt.Errorf("cannot convert image details to image for %q: %w", ref.Name(), err)
-		}
-
-		if err = controllerutil.SetControllerReference(registry, &image, h.scheme); err != nil {
-			return []storagev1alpha1.Image{}, fmt.Errorf("cannot set owner reference for %q: %w", ref.Name(), err)
-		}
-
-		images = append(images, image)
-		if err = message.InProgress(); err != nil {
-			return []storagev1alpha1.Image{}, fmt.Errorf("failed to ack message as in progress: %w", err)
-		}
+	if !filters.IsPlatformAllowed(
+		imageDetails.Platform.OS,
+		imageDetails.Platform.Architecture,
+		imageDetails.Platform.Variant,
+		registry.Spec.Platforms) {
+		return []storagev1alpha1.Image{}, nil
 	}
 
-	return images, nil
+	image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme)
+	if err != nil {
+		return []storagev1alpha1.Image{}, fmt.Errorf("cannot convert image details to image for %q: %w", ref.Name(), err)
+	}
+
+	return []storagev1alpha1.Image{image}, nil
 }
 
-// refToPlatforms returns the list of platforms for the given image reference.
-// If the image is not multi-architecture, it returns a slice with a single nil platform.
-func (h *CreateCatalogHandler) refToPlatforms(
+// multiArchRefToImages handles multi-arch images by iterating over platforms.
+func (h *CreateCatalogHandler) multiArchRefToImages(
 	ctx context.Context,
 	message messaging.Message,
 	registryClient *registryclient.Client,
 	ref name.Reference,
-	allowedPlatforms []v1alpha1.Platform,
-) ([]*cranev1.Platform, error) {
-	isIndex, err := registryClient.IsImageIndex(ctx, ref)
-	if err != nil {
-		return nil, fmt.Errorf("cannot determine if %q is an image index: %w", ref, err)
-	}
-
-	if !isIndex {
-		// The image is not multi-architecture, return a single nil platform.
-		// The actual platform will be determined when fetching image details.
-		return []*cranev1.Platform{nil}, nil
-	}
-
+	registry *v1alpha1.Registry,
+) ([]storagev1alpha1.Image, error) {
 	imgIndex, err := registryClient.GetImageIndex(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch image index for %q: %w", ref, err)
@@ -446,19 +447,35 @@ func (h *CreateCatalogHandler) refToPlatforms(
 		return nil, fmt.Errorf("cannot read index manifest of %s: %w", ref, err)
 	}
 
-	platforms := []*cranev1.Platform{}
-	for _, manifest := range manifest.Manifests {
+	images := []storagev1alpha1.Image{}
+
+	for _, m := range manifest.Manifests {
 		if !filters.IsPlatformAllowed(
-			manifest.Platform.OS,
-			manifest.Platform.Architecture,
-			manifest.Platform.Variant,
-			allowedPlatforms) {
+			m.Platform.OS,
+			m.Platform.Architecture,
+			m.Platform.Variant,
+			registry.Spec.Platforms) {
 			continue
 		}
-		platforms = append(platforms, manifest.Platform)
+
+		imageDetails, err := registryClient.GetImageDetails(ctx, ref, m.Platform)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get image details for %q platform %v: %w", ref.Name(), m.Platform, err)
+		}
+
+		image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert image details to image for %q: %w", ref.Name(), err)
+		}
+
+		images = append(images, image)
+
+		if err = message.InProgress(); err != nil {
+			return nil, fmt.Errorf("failed to ack message as in progress: %w", err)
+		}
 	}
 
-	return platforms, nil
+	return images, nil
 }
 
 // transportFromRegistry creates a new http.RoundTripper from the options specified in the Registry spec.
@@ -534,6 +551,7 @@ func imageDetailsToImage(
 	ref name.Reference,
 	details registryclient.ImageDetails,
 	registry *v1alpha1.Registry,
+	scheme *runtime.Scheme,
 ) (storagev1alpha1.Image, error) {
 	imageLayers := []storagev1alpha1.ImageLayer{}
 
@@ -596,6 +614,10 @@ func imageDetailsToImage(
 			IndexDigest: indexDigest,
 		},
 		Layers: imageLayers,
+	}
+
+	if err := controllerutil.SetControllerReference(registry, &image, scheme); err != nil {
+		return storagev1alpha1.Image{}, fmt.Errorf("cannot set owner reference: %w", err)
 	}
 
 	return image, nil
