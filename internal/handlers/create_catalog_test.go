@@ -240,6 +240,16 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 						{
 							Name: multiArchRef.Context().RepositoryStr(),
 						},
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							// This match condition will filter out the existing single-arch image
+							MatchConditions: []v1alpha1.MatchCondition{
+								{
+									Name:       "tag version is > than 1.28.0",
+									Expression: "semver(tag, true).isGreaterThan(semver('1.28.0'))",
+								},
+							},
+						},
 					},
 					Platforms: []v1alpha1.Platform{
 						{OS: "linux", Architecture: "amd64"},
@@ -247,7 +257,9 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			existingImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), "obsolete-tag", "linux/amd64", "sha256:obsolete", ""),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm64", imageDigestLinuxArm64V8MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
 			},
 			expectedImages: []*storagev1alpha1.Image{
 				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch, imageIndexDigestMultiArch),
