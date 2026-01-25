@@ -40,11 +40,15 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 	singleArchRef := name.MustParseReference(imageRefSingleArch)
 	multiArchRef := name.MustParseReference(imageRefMultiArch)
 	multiArchWithUnknownPlatformRef := name.MustParseReference(imageRefMultiArchWithUnknownPlatform)
+	helmChartRef := name.MustParseReference(artifactRefHelmChart)
+	kubewardenPolicyRef := name.MustParseReference(artifactRefKubewardenPolicy)
 
 	testRegistry, err := runTestRegistry(t.Context(), []name.Reference{
 		singleArchRef,
 		multiArchRef,
 		multiArchWithUnknownPlatformRef,
+		helmChartRef,
+		kubewardenPolicyRef,
 	}, false)
 	require.NoError(t, err)
 	defer testRegistry.Terminate(t.Context())
@@ -264,6 +268,27 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			expectedImages: []*storagev1alpha1.Image{
 				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch, imageIndexDigestMultiArch),
 			},
+		},
+		{
+			name: "repository with non-image artifacts",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: helmChartRef.Context().RepositoryStr(),
+						},
+						{
+							Name: kubewardenPolicyRef.Context().RepositoryStr(),
+						},
+					},
+				},
+			},
+			expectedImages: []*storagev1alpha1.Image{},
 		},
 		{
 			name: "private registry",
@@ -664,7 +689,11 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 		},
 	}
 
-	image, err := imageDetailsToImage(ref, details, registry)
+	scheme := scheme.Scheme
+	err = v1alpha1.AddToScheme(scheme)
+	require.NoError(t, err)
+
+	image, err := imageDetailsToImage(ref, details, registry, scheme)
 	require.NoError(t, err)
 
 	assert.Equal(t, image.Name, computeImageUID(ref.Context().Name(), ref.Identifier(), digest.String()))

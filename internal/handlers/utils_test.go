@@ -42,6 +42,9 @@ const (
 	imageIndexDigestMultiArchWithUnknownPlatform      = "sha256:906b299349d8a28432228e0aff6b0c3796cec9300a51e5e5161bf8e5e56e07cb"
 	imageDigestLinuxAmd64MultiArchWithUnknownPlatform = "sha256:d2fabf8aca7ade7f2bcb63d0ef7966b697bed9482197d9906cf2578202d7f789"
 	imageDigestLinuxArm64MultiArchWithUnknownPlatform = "sha256:6c8913ca09035b8730212b9a5b2f2ce451fe37a36b4e591e3d5af77b2eb60971"
+
+	artifactRefHelmChart        = "ghcr.io/kubewarden/sbomscanner/test-assets/charts/kubewarden-controller:5.9.0"
+	artifactRefKubewardenPolicy = "ghcr.io/kubewarden/sbomscanner/test-assets/policies/echo:v0.1.15"
 )
 
 // testMessage is a simple implementation of a message used for testing purposes.
