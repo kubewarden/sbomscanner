@@ -6,7 +6,6 @@ require (
 	github.com/aquasecurity/trivy v0.68.2
 	github.com/aquasecurity/trivy-db v0.0.0-20260121110422-b8dd3abe2347
 	github.com/avast/retry-go/v4 v4.7.0
-	github.com/avast/retry-go/v5 v5.0.0
 	github.com/aws/smithy-go v1.24.0
 	github.com/docker/cli v29.1.5+incompatible
 	github.com/docker/go-units v0.5.0
@@ -399,7 +398,7 @@ require (
 	github.com/tchap/go-patricia/v2 v2.3.3 // indirect
 	github.com/tetratelabs/wazero v1.10.1 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
-	github.com/theupdateframework/go-tuf/v2 v2.3.1 // indirect
+	github.com/theupdateframework/go-tuf/v2 v2.4.1 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
 	github.com/tklauser/numcpus v0.7.0 // indirect
