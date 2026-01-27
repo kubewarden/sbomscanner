@@ -404,6 +404,7 @@ func (h *CreateCatalogHandler) refToImages(
 // singleArchRefToImages handles single-arch images.
 func (h *CreateCatalogHandler) singleArchRefToImages(
 	ctx context.Context,
+	message messaging.Message,
 	registryClient *registryclient.Client,
 	ref name.Reference,
 	registry *v1alpha1.Registry,
@@ -424,6 +425,10 @@ func (h *CreateCatalogHandler) singleArchRefToImages(
 	image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme, "")
 	if err != nil {
 		return []storagev1alpha1.Image{}, fmt.Errorf("cannot convert image details to image for %q: %w", ref.Name(), err)
+	}
+
+	if err = message.InProgress(); err != nil {
+		return []storagev1alpha1.Image{}, fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
 	return []storagev1alpha1.Image{image}, nil
