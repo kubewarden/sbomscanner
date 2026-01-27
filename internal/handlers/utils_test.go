@@ -29,6 +29,7 @@ const (
 	imageDigestSingleArch = "sha256:f41b7d70c5779beba4a570ca861f788d480156321de2876ce479e072fb0246f1"
 
 	imageRefMultiArch                = "ghcr.io/kubewarden/sbomscanner/test-assets/golang:1.12-alpine"
+	imageIndexDigestMultiArch        = "sha256:3f8e3ad3e7c128d29ac3004ac8314967c5ddbfa5bfa7caa59b0de493fc01686a"
 	imageDigestLinuxAmd64MultiArch   = "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028"
 	imageDigestLinuxArmV6MultiArch   = "sha256:ea95bb81dab31807beac6c62824c048b1ee96b408f6097ea9dd0204e380f00b2"
 	imageDigestLinuxArmV7MultiArch   = "sha256:ab389e320938f3bd42f45437d381fab28742dadcb892816236801e24a0bef804"
@@ -38,6 +39,7 @@ const (
 	imageDigestLinuxS390xMultiArch   = "sha256:f2475c61ab276da0882a9637b83b2a5710b289d6d80f3daedb71d4a8eaeb1686"
 
 	imageRefMultiArchWithUnknownPlatform              = "ghcr.io/kubewarden/sbombscanner/test-assets/udash-front:v0.11.0"
+	imageIndexDigestMultiArchWithUnknownPlatform      = "sha256:906b299349d8a28432228e0aff6b0c3796cec9300a51e5e5161bf8e5e56e07cb"
 	imageDigestLinuxAmd64MultiArchWithUnknownPlatform = "sha256:d2fabf8aca7ade7f2bcb63d0ef7966b697bed9482197d9906cf2578202d7f789"
 	imageDigestLinuxArm64MultiArchWithUnknownPlatform = "sha256:6c8913ca09035b8730212b9a5b2f2ce451fe37a36b4e591e3d5af77b2eb60971"
 )
@@ -119,7 +121,7 @@ func runTestRegistry(ctx context.Context, testImages []name.Reference, private b
 }
 
 // imageFactory creates a storagev1alpha1.Image object for testing purposes.
-func imageFactory(registryURI, repository, tag, platform, digest string) *storagev1alpha1.Image {
+func imageFactory(registryURI, repository, tag, platform, digest, indexDigest string) *storagev1alpha1.Image {
 	return &storagev1alpha1.Image{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      computeImageUID(fmt.Sprintf("%s/%s", registryURI, repository), tag, digest),
@@ -132,6 +134,7 @@ func imageFactory(registryURI, repository, tag, platform, digest string) *storag
 			Tag:         tag,
 			Platform:    platform,
 			Digest:      digest,
+			IndexDigest: indexDigest,
 		},
 	}
 }
