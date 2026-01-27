@@ -246,6 +246,15 @@ func (b *ImageApplyConfiguration) WithDigest(value string) *ImageApplyConfigurat
 	return b
 }
 
+// WithIndexDigest sets the IndexDigest field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IndexDigest field is set to the value of the last call.
+func (b *ImageApplyConfiguration) WithIndexDigest(value string) *ImageApplyConfiguration {
+	b.ensureImageMetadataApplyConfigurationExists()
+	b.ImageMetadataApplyConfiguration.IndexDigest = &value
+	return b
+}
+
 func (b *ImageApplyConfiguration) ensureImageMetadataApplyConfigurationExists() {
 	if b.ImageMetadataApplyConfiguration == nil {
 		b.ImageMetadataApplyConfiguration = &ImageMetadataApplyConfiguration{}

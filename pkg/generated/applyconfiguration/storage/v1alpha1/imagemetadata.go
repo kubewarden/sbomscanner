@@ -17,8 +17,10 @@ type ImageMetadataApplyConfiguration struct {
 	Tag *string `json:"tag,omitempty"`
 	// Platform specifies the platform of the image. Example "linux/amd64".
 	Platform *string `json:"platform,omitempty"`
-	// Digest specifies the sha256 digest of the image.
+	// Digest specifies the image manifest digest.
 	Digest *string `json:"digest,omitempty"`
+	// IndexDigest specifies the image index digest that referenced this manifest. Set only for multi-arch images.
+	IndexDigest *string `json:"indexDigest,omitempty"`
 }
 
 // ImageMetadataApplyConfiguration constructs a declarative configuration of the ImageMetadata type for use with
@@ -72,5 +74,13 @@ func (b *ImageMetadataApplyConfiguration) WithPlatform(value string) *ImageMetad
 // If called multiple times, the Digest field is set to the value of the last call.
 func (b *ImageMetadataApplyConfiguration) WithDigest(value string) *ImageMetadataApplyConfiguration {
 	b.Digest = &value
+	return b
+}
+
+// WithIndexDigest sets the IndexDigest field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IndexDigest field is set to the value of the last call.
+func (b *ImageMetadataApplyConfiguration) WithIndexDigest(value string) *ImageMetadataApplyConfiguration {
+	b.IndexDigest = &value
 	return b
 }

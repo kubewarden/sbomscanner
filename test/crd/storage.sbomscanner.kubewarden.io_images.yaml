@@ -30,7 +30,11 @@ spec:
             description: Metadata of the image
             properties:
               digest:
-                description: Digest specifies the sha256 digest of the image.
+                description: Digest specifies the image manifest digest.
+                type: string
+              indexDigest:
+                description: IndexDigest specifies the image index digest that referenced
+                  this manifest. Set only for multi-arch images.
                 type: string
               platform:
                 description: Platform specifies the platform of the image. Example
@@ -101,5 +105,6 @@ spec:
     - jsonPath: .imageMetadata.tag
     - jsonPath: .imageMetadata.platform
     - jsonPath: .imageMetadata.digest
+    - jsonPath: .imageMetadata.indexDigest
     served: true
     storage: true

@@ -22,6 +22,7 @@ type SBOMList struct {
 // +kubebuilder:selectablefield:JSONPath=`.imageMetadata.tag`
 // +kubebuilder:selectablefield:JSONPath=`.imageMetadata.platform`
 // +kubebuilder:selectablefield:JSONPath=`.imageMetadata.digest`
+// +kubebuilder:selectablefield:JSONPath=`.imageMetadata.indexDigest`
 
 // SBOM represents a Software Bill of Materials of an OCI artifact
 type SBOM struct {

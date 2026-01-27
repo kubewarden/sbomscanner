@@ -75,16 +75,16 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v6", imageDigestLinuxArmV6MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v7", imageDigestLinuxArmV7MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm64/v8", imageDigestLinuxArm64V8MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/386", imageDigestLinux386MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/ppc64le", imageDigestLinuxPpc64leMultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/s390x", imageDigestLinuxS390xMultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArchWithUnknownPlatform),
-				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/arm64", imageDigestLinuxArm64MultiArchWithUnknownPlatform),
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v6", imageDigestLinuxArmV6MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v7", imageDigestLinuxArmV7MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm64/v8", imageDigestLinuxArm64V8MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/386", imageDigestLinux386MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/ppc64le", imageDigestLinuxPpc64leMultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/s390x", imageDigestLinuxS390xMultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/arm64", imageDigestLinuxArm64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
 			},
 		},
 		{
@@ -104,7 +104,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch),
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
 			},
 		},
 		{
@@ -124,13 +124,13 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v6", imageDigestLinuxArmV6MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v7", imageDigestLinuxArmV7MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm64/v8", imageDigestLinuxArm64V8MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/386", imageDigestLinux386MultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/ppc64le", imageDigestLinuxPpc64leMultiArch),
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/s390x", imageDigestLinuxS390xMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v6", imageDigestLinuxArmV6MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v7", imageDigestLinuxArmV7MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm64/v8", imageDigestLinuxArm64V8MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/386", imageDigestLinux386MultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/ppc64le", imageDigestLinuxPpc64leMultiArch, imageIndexDigestMultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/s390x", imageDigestLinuxS390xMultiArch, imageIndexDigestMultiArch),
 			},
 		},
 		{
@@ -153,7 +153,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v7", imageDigestLinuxArmV7MultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/arm/v7", imageDigestLinuxArmV7MultiArch, imageIndexDigestMultiArch),
 			},
 		},
 		{
@@ -203,7 +203,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch),
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
 			},
 		},
 		{
@@ -223,8 +223,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArchWithUnknownPlatform),
-				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/arm64", imageDigestLinuxArm64MultiArchWithUnknownPlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/arm64", imageDigestLinuxArm64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
 			},
 		},
 		{
@@ -247,10 +247,10 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			existingImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), "obsolete-tag", "linux/amd64", "sha256:obsolete"),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), "obsolete-tag", "linux/amd64", "sha256:obsolete", ""),
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch, imageIndexDigestMultiArch),
 			},
 		},
 		{
@@ -284,7 +284,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				Type: corev1.SecretTypeDockerConfigJson,
 			},
 			expectedImages: []*storagev1alpha1.Image{
-				imageFactory(testPrivateRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch),
+				imageFactory(testPrivateRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
 			},
 		},
 	}

@@ -310,8 +310,15 @@ func schema_sbomscanner_api_storage_v1alpha1_ImageMetadata(ref common.ReferenceC
 					},
 					"digest": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Digest specifies the sha256 digest of the image.",
+							Description: "Digest specifies the image manifest digest.",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"indexDigest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IndexDigest specifies the image index digest that referenced this manifest. Set only for multi-arch images.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
