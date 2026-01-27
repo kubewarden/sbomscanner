@@ -14,6 +14,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic/registry"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 )
 
 const (
@@ -51,10 +52,12 @@ func NewSBOMStore(
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, sbomResourcePluralName, watchBroadcaster, TransformStripSBOM, logger)
 
+	repo := repository.NewGenericObjectRepository(sbomResourcePluralName, newFunc)
+
 	store := &store{
 		db:          db,
+		repository:  repo,
 		broadcaster: natsBroadcaster,
-		table:       sbomResourcePluralName,
 		newFunc:     newFunc,
 		newListFunc: newListFunc,
 		logger:      logger.With("store", sbomResourceSingularName),

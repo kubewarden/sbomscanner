@@ -24,6 +24,10 @@ func (c *FakeStorageV1alpha1) VulnerabilityReports(namespace string) v1alpha1.Vu
 	return newFakeVulnerabilityReports(c, namespace)
 }
 
+func (c *FakeStorageV1alpha1) WorkloadScanReports(namespace string) v1alpha1.WorkloadScanReportInterface {
+	return newFakeWorkloadScanReports(c, namespace)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeStorageV1alpha1) RESTClient() rest.Interface {

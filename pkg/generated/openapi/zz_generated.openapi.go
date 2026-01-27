@@ -16,74 +16,79 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.CVSS":                    schema_sbomscanner_api_storage_v1alpha1_CVSS(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Image":                   schema_sbomscanner_api_storage_v1alpha1_Image(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageLayer":              schema_sbomscanner_api_storage_v1alpha1_ImageLayer(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageList":               schema_sbomscanner_api_storage_v1alpha1_ImageList(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageMetadata":           schema_sbomscanner_api_storage_v1alpha1_ImageMetadata(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Report":                  schema_sbomscanner_api_storage_v1alpha1_Report(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Result":                  schema_sbomscanner_api_storage_v1alpha1_Result(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.SBOM":                    schema_sbomscanner_api_storage_v1alpha1_SBOM(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.SBOMList":                schema_sbomscanner_api_storage_v1alpha1_SBOMList(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Summary":                 schema_sbomscanner_api_storage_v1alpha1_Summary(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VEXStatus":               schema_sbomscanner_api_storage_v1alpha1_VEXStatus(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Vulnerability":           schema_sbomscanner_api_storage_v1alpha1_Vulnerability(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReport":     schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReport(ref),
-		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReportList": schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReportList(ref),
-		resource.Quantity{}.OpenAPIModelName():                                           schema_apimachinery_pkg_api_resource_Quantity(ref),
-		v1.APIGroup{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_APIGroup(ref),
-		v1.APIGroupList{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_APIGroupList(ref),
-		v1.APIResource{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_APIResource(ref),
-		v1.APIResourceList{}.OpenAPIModelName():                                          schema_pkg_apis_meta_v1_APIResourceList(ref),
-		v1.APIVersions{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_APIVersions(ref),
-		v1.ApplyOptions{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		v1.Condition{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_Condition(ref),
-		v1.CreateOptions{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_CreateOptions(ref),
-		v1.DeleteOptions{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		v1.Duration{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_Duration(ref),
-		v1.FieldSelectorRequirement{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
-		v1.FieldsV1{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_FieldsV1(ref),
-		v1.GetOptions{}.OpenAPIModelName():                                               schema_pkg_apis_meta_v1_GetOptions(ref),
-		v1.GroupKind{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_GroupKind(ref),
-		v1.GroupResource{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_GroupResource(ref),
-		v1.GroupVersion{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_GroupVersion(ref),
-		v1.GroupVersionForDiscovery{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		v1.GroupVersionKind{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		v1.GroupVersionResource{}.OpenAPIModelName():                                     schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		v1.InternalEvent{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_InternalEvent(ref),
-		v1.LabelSelector{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_LabelSelector(ref),
-		v1.LabelSelectorRequirement{}.OpenAPIModelName():                                 schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		v1.List{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_List(ref),
-		v1.ListMeta{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_ListMeta(ref),
-		v1.ListOptions{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_ListOptions(ref),
-		v1.ManagedFieldsEntry{}.OpenAPIModelName():                                       schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		v1.MicroTime{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_MicroTime(ref),
-		v1.ObjectMeta{}.OpenAPIModelName():                                               schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		v1.OwnerReference{}.OpenAPIModelName():                                           schema_pkg_apis_meta_v1_OwnerReference(ref),
-		v1.PartialObjectMetadata{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		v1.PartialObjectMetadataList{}.OpenAPIModelName():                                schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		v1.Patch{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_Patch(ref),
-		v1.PatchOptions{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_PatchOptions(ref),
-		v1.Preconditions{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_Preconditions(ref),
-		v1.RootPaths{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_RootPaths(ref),
-		v1.ServerAddressByClientCIDR{}.OpenAPIModelName():                                schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		v1.Status{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_Status(ref),
-		v1.StatusCause{}.OpenAPIModelName():                                              schema_pkg_apis_meta_v1_StatusCause(ref),
-		v1.StatusDetails{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_StatusDetails(ref),
-		v1.Table{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_Table(ref),
-		v1.TableColumnDefinition{}.OpenAPIModelName():                                    schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		v1.TableOptions{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_TableOptions(ref),
-		v1.TableRow{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_TableRow(ref),
-		v1.TableRowCondition{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		v1.Time{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_Time(ref),
-		v1.Timestamp{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_Timestamp(ref),
-		v1.TypeMeta{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_TypeMeta(ref),
-		v1.UpdateOptions{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		v1.WatchEvent{}.OpenAPIModelName():                                               schema_pkg_apis_meta_v1_WatchEvent(ref),
-		runtime.RawExtension{}.OpenAPIModelName():                                        schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		runtime.TypeMeta{}.OpenAPIModelName():                                            schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		runtime.Unknown{}.OpenAPIModelName():                                             schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		version.Info{}.OpenAPIModelName():                                                schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.CVSS":                            schema_sbomscanner_api_storage_v1alpha1_CVSS(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Container":                       schema_sbomscanner_api_storage_v1alpha1_Container(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Image":                           schema_sbomscanner_api_storage_v1alpha1_Image(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageLayer":                      schema_sbomscanner_api_storage_v1alpha1_ImageLayer(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageList":                       schema_sbomscanner_api_storage_v1alpha1_ImageList(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageMetadata":                   schema_sbomscanner_api_storage_v1alpha1_ImageMetadata(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Report":                          schema_sbomscanner_api_storage_v1alpha1_Report(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Result":                          schema_sbomscanner_api_storage_v1alpha1_Result(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.SBOM":                            schema_sbomscanner_api_storage_v1alpha1_SBOM(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.SBOMList":                        schema_sbomscanner_api_storage_v1alpha1_SBOMList(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Summary":                         schema_sbomscanner_api_storage_v1alpha1_Summary(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VEXStatus":                       schema_sbomscanner_api_storage_v1alpha1_VEXStatus(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Vulnerability":                   schema_sbomscanner_api_storage_v1alpha1_Vulnerability(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReport":             schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReport(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReportList":         schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReportList(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReportRef":          schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReportRef(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.WorkloadScanReport":              schema_sbomscanner_api_storage_v1alpha1_WorkloadScanReport(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.WorkloadScanReportList":          schema_sbomscanner_api_storage_v1alpha1_WorkloadScanReportList(ref),
+		"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.WorkloadScanVulnerabilityReport": schema_sbomscanner_api_storage_v1alpha1_WorkloadScanVulnerabilityReport(ref),
+		resource.Quantity{}.OpenAPIModelName():                                                   schema_apimachinery_pkg_api_resource_Quantity(ref),
+		v1.APIGroup{}.OpenAPIModelName():                                                         schema_pkg_apis_meta_v1_APIGroup(ref),
+		v1.APIGroupList{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_APIGroupList(ref),
+		v1.APIResource{}.OpenAPIModelName():                                                      schema_pkg_apis_meta_v1_APIResource(ref),
+		v1.APIResourceList{}.OpenAPIModelName():                                                  schema_pkg_apis_meta_v1_APIResourceList(ref),
+		v1.APIVersions{}.OpenAPIModelName():                                                      schema_pkg_apis_meta_v1_APIVersions(ref),
+		v1.ApplyOptions{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		v1.Condition{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_Condition(ref),
+		v1.CreateOptions{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_CreateOptions(ref),
+		v1.DeleteOptions{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		v1.Duration{}.OpenAPIModelName():                                                         schema_pkg_apis_meta_v1_Duration(ref),
+		v1.FieldSelectorRequirement{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_FieldSelectorRequirement(ref),
+		v1.FieldsV1{}.OpenAPIModelName():                                                         schema_pkg_apis_meta_v1_FieldsV1(ref),
+		v1.GetOptions{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_GetOptions(ref),
+		v1.GroupKind{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_GroupKind(ref),
+		v1.GroupResource{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_GroupResource(ref),
+		v1.GroupVersion{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_GroupVersion(ref),
+		v1.GroupVersionForDiscovery{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		v1.GroupVersionKind{}.OpenAPIModelName():                                                 schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		v1.GroupVersionResource{}.OpenAPIModelName():                                             schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		v1.InternalEvent{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_InternalEvent(ref),
+		v1.LabelSelector{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_LabelSelector(ref),
+		v1.LabelSelectorRequirement{}.OpenAPIModelName():                                         schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		v1.List{}.OpenAPIModelName():                                                             schema_pkg_apis_meta_v1_List(ref),
+		v1.ListMeta{}.OpenAPIModelName():                                                         schema_pkg_apis_meta_v1_ListMeta(ref),
+		v1.ListOptions{}.OpenAPIModelName():                                                      schema_pkg_apis_meta_v1_ListOptions(ref),
+		v1.ManagedFieldsEntry{}.OpenAPIModelName():                                               schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		v1.MicroTime{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_MicroTime(ref),
+		v1.ObjectMeta{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		v1.OwnerReference{}.OpenAPIModelName():                                                   schema_pkg_apis_meta_v1_OwnerReference(ref),
+		v1.PartialObjectMetadata{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		v1.PartialObjectMetadataList{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		v1.Patch{}.OpenAPIModelName():                                                            schema_pkg_apis_meta_v1_Patch(ref),
+		v1.PatchOptions{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_PatchOptions(ref),
+		v1.Preconditions{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_Preconditions(ref),
+		v1.RootPaths{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_RootPaths(ref),
+		v1.ServerAddressByClientCIDR{}.OpenAPIModelName():                                        schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		v1.Status{}.OpenAPIModelName():                                                           schema_pkg_apis_meta_v1_Status(ref),
+		v1.StatusCause{}.OpenAPIModelName():                                                      schema_pkg_apis_meta_v1_StatusCause(ref),
+		v1.StatusDetails{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_StatusDetails(ref),
+		v1.Table{}.OpenAPIModelName():                                                            schema_pkg_apis_meta_v1_Table(ref),
+		v1.TableColumnDefinition{}.OpenAPIModelName():                                            schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		v1.TableOptions{}.OpenAPIModelName():                                                     schema_pkg_apis_meta_v1_TableOptions(ref),
+		v1.TableRow{}.OpenAPIModelName():                                                         schema_pkg_apis_meta_v1_TableRow(ref),
+		v1.TableRowCondition{}.OpenAPIModelName():                                                schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		v1.Time{}.OpenAPIModelName():                                                             schema_pkg_apis_meta_v1_Time(ref),
+		v1.Timestamp{}.OpenAPIModelName():                                                        schema_pkg_apis_meta_v1_Timestamp(ref),
+		v1.TypeMeta{}.OpenAPIModelName():                                                         schema_pkg_apis_meta_v1_TypeMeta(ref),
+		v1.UpdateOptions{}.OpenAPIModelName():                                                    schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		v1.WatchEvent{}.OpenAPIModelName():                                                       schema_pkg_apis_meta_v1_WatchEvent(ref),
+		runtime.RawExtension{}.OpenAPIModelName():                                                schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		runtime.TypeMeta{}.OpenAPIModelName():                                                    schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		runtime.Unknown{}.OpenAPIModelName():                                                     schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		version.Info{}.OpenAPIModelName():                                                        schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -114,6 +119,51 @@ func schema_sbomscanner_api_storage_v1alpha1_CVSS(ref common.ReferenceCallback) 
 				Required: []string{"v3vector", "v3score"},
 			},
 		},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_Container(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Container represents a container in a workload with its associated vulnerability reports.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the container.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vulnerabilityReportRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VulnerabilityReportRef identifies which VulnerabilityReports to associate with this container.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReportRef"),
+						},
+					},
+					"vulnerabilityReports": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VulnerabilityReports contains the vulnerability reports for this container's image. This field is populated at read time and is not stored. Multiple reports may exist for multi-arch images (one per platform).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.WorkloadScanVulnerabilityReport"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "vulnerabilityReportRef"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReportRef", "github.com/kubewarden/sbomscanner/api/storage/v1alpha1.WorkloadScanVulnerabilityReport"},
 	}
 }
 
@@ -872,6 +922,178 @@ func schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReportList(ref common.
 		},
 		Dependencies: []string{
 			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.VulnerabilityReport", v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_VulnerabilityReportRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VulnerabilityReportRef identifies a set of VulnerabilityReports by image reference. It matches VulnerabilityReports where: - imageMetadata.registry equals Registry - metadata.namespace equals Namespace - imageMetadata.repository equals Repository - imageMetadata.tag equals Tag",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"registry": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Registry is the name of the Registry custom resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace is the namespace where the VulnerabilityReports are stored.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"repository": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Repository is the repository path of the image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tag is the tag of the image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"registry", "namespace", "repository", "tag"},
+			},
+		},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_WorkloadScanReport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkloadScanReport represents the vulnerability scan results for a workload's containers. The VulnerabilityReports field in each container is populated at read time by joining with the VulnerabilityReport table based on the VulnerabilityReportRef.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"containers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Containers contains the list of containers in the workload and their vulnerability reports.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Container"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"containers"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Container", v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_WorkloadScanReportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkloadScanReportList contains a list of WorkloadScanReport",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.WorkloadScanReport"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.WorkloadScanReport", v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_WorkloadScanVulnerabilityReport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"imageMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageMetadata"),
+						},
+					},
+					"report": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Report"),
+						},
+					},
+				},
+				Required: []string{"imageMetadata", "report"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.ImageMetadata", "github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Report"},
 	}
 }
 

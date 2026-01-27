@@ -61,6 +61,7 @@ type StorageAPIServerConfig struct {
 type StorageAPIServer struct {
 	db                        *pgxpool.Pool
 	watchers                  []*storage.RegistryStoreWithWatcher
+	workloadScanWatcher       *storage.WorkloadScanReportWatcher
 	logger                    *slog.Logger
 	server                    *genericapiserver.GenericAPIServer
 	dynamicCertKeyPairContent *dynamiccertificates.DynamicCertKeyPairContent
@@ -139,7 +140,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 		return nil, fmt.Errorf("error creating SBOM store: %w", err)
 	}
 
-	vulnerabilityReportStore, err := storage.NewVulnerabilityReport(
+	vulnerabilityReportStore, err := storage.NewVulnerabilityReportStore(
 		Scheme,
 		serverConfig.RESTOptionsGetter,
 		db,
@@ -150,10 +151,22 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 		return nil, fmt.Errorf("error creating VulnerabilityReport store: %w", err)
 	}
 
+	workloadScanReportStore, workloadScanWatcher, err := storage.NewWorkloadScanReportStore(
+		Scheme,
+		serverConfig.RESTOptionsGetter,
+		db,
+		nc,
+		logger,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating WorkloadScanReport store: %w", err)
+	}
+
 	v1alpha1storage := map[string]rest.Storage{
 		"images":               imageStore.GetStore(),
 		"sboms":                sbomStore.GetStore(),
 		"vulnerabilityreports": vulnerabilityReportStore.GetStore(),
+		"workloadscanreports":  workloadScanReportStore.GetStore(),
 	}
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1storage
 
@@ -163,7 +176,8 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 
 	return &StorageAPIServer{
 		db:                        db,
-		watchers:                  []*storage.RegistryStoreWithWatcher{imageStore, sbomStore, vulnerabilityReportStore},
+		watchers:                  []*storage.RegistryStoreWithWatcher{imageStore, sbomStore, vulnerabilityReportStore, workloadScanReportStore},
+		workloadScanWatcher:       workloadScanWatcher,
 		logger:                    logger,
 		server:                    genericServer,
 		dynamicCertKeyPairContent: dynamicCertKeyPairContent,
@@ -182,6 +196,9 @@ func (s *StorageAPIServer) Start(ctx context.Context) error {
 			return watcher.StartWatcher(ctx)
 		})
 	}
+	g.Go(func() error {
+		return s.workloadScanWatcher.Start(ctx)
+	})
 	g.Go(func() error {
 		if err := s.server.PrepareRun().RunWithContext(ctx); err != nil {
 			return fmt.Errorf("error running server: %w", err)

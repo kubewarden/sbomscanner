@@ -16,6 +16,8 @@ import (
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
 	// Group=storage.sbomscanner.kubewarden.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithKind("Container"):
+		return &storagev1alpha1.ContainerApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("CVSS"):
 		return &storagev1alpha1.CVSSApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Image"):
@@ -38,6 +40,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &storagev1alpha1.VulnerabilityApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("VulnerabilityReport"):
 		return &storagev1alpha1.VulnerabilityReportApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("VulnerabilityReportRef"):
+		return &storagev1alpha1.VulnerabilityReportRefApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WorkloadScanReport"):
+		return &storagev1alpha1.WorkloadScanReportApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WorkloadScanVulnerabilityReport"):
+		return &storagev1alpha1.WorkloadScanVulnerabilityReportApplyConfiguration{}
 
 	}
 	return nil
