@@ -442,14 +442,18 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 	ref name.Reference,
 	registry *v1alpha1.Registry,
 ) ([]storagev1alpha1.Image, error) {
-	imgIndex, err := registryClient.GetImageIndex(ctx, ref)
+	imageIndex, err := registryClient.GetImageIndex(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch image index for %q: %w", ref.Name(), err)
 	}
 
-	manifest, err := imgIndex.IndexManifest()
+	manifest, err := imageIndex.IndexManifest()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read index manifest of %q: %w", ref.Name(), err)
+	}
+	indexDigest, err := imageIndex.Digest()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get index digest for %q: %w", ref.Name(), err)
 	}
 
 	images := []storagev1alpha1.Image{}
@@ -466,10 +470,6 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 		imageDetails, err := registryClient.GetImageDetails(ctx, ref, m.Platform)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get image details for %q platform %v: %w", ref.Name(), m.Platform, err)
-		}
-		indexDigest, err := imgIndex.Digest()
-		if err != nil {
-			return nil, fmt.Errorf("cannot get index digest for %q: %w", ref.Name(), err)
 		}
 
 		image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme, indexDigest.String())
