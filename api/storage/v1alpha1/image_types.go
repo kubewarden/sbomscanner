@@ -21,6 +21,7 @@ type ImageList struct {
 // +kubebuilder:selectablefield:JSONPath=`.imageMetadata.tag`
 // +kubebuilder:selectablefield:JSONPath=`.imageMetadata.platform`
 // +kubebuilder:selectablefield:JSONPath=`.imageMetadata.digest`
+// +kubebuilder:selectablefield:JSONPath=`.imageMetadata.indexDigest`
 
 // Image is the Schema for the images API
 type Image struct {

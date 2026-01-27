@@ -91,6 +91,8 @@ func imageMetadataFieldSelectorConversion(label, value string) (string, string, 
 		return label, value, nil
 	case "imageMetadata.digest":
 		return label, value, nil
+	case "imageMetadata.indexDigest":
+		return label, value, nil
 	default:
 		return "", "", fmt.Errorf(
 			"%q is not a known field selector: only %q, %q, %q",

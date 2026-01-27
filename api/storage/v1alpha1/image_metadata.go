@@ -18,8 +18,10 @@ type ImageMetadata struct {
 	Tag string `json:"tag" protobuf:"bytes,4,req,name=tag"`
 	// Platform specifies the platform of the image. Example "linux/amd64".
 	Platform string `json:"platform" protobuf:"bytes,5,req,name=platform"`
-	// Digest specifies the sha256 digest of the image.
+	// Digest specifies the image manifest digest.
 	Digest string `json:"digest" protobuf:"bytes,6,req,name=digest"`
+	// IndexDigest specifies the image index digest that referenced this manifest. Set only for multi-arch images.
+	IndexDigest string `json:"indexDigest,omitempty" protobuf:"bytes,7,opt,name=indexDigest"`
 }
 
 type ImageMetadataAccessor interface {
