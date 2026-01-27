@@ -1,4 +1,4 @@
-package vulnerabilityreport
+package trivyreport
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewFromTrivyResults(t *testing.T) {
+func TestNewResultsFromTrivyReport(t *testing.T) {
 	tests := []struct {
 		name             string
 		trivyReport      string
@@ -228,7 +228,7 @@ func TestNewFromTrivyResults(t *testing.T) {
 			err = json.Unmarshal(reportData, trivyReportData)
 			require.NoError(t, err)
 
-			got, err := NewFromTrivyResults(*trivyReportData)
+			got, err := NewResultsFromTrivyReport(*trivyReportData)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
