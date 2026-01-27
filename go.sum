@@ -150,8 +150,6 @@ github.com/aquasecurity/trivy v0.68.2 h1:zHkcBgAxVf7uNbqkAy6Av9DTkK++/S9GM8QrCLY
 github.com/aquasecurity/trivy v0.68.2/go.mod h1:ATve6tcrDCW4xCs5Is/O7qG9pC4KknxY7MVLLHdh/aE=
 github.com/aquasecurity/trivy-checks v1.12.1 h1:5Uo2XUODGfXP315K78k7OV0bRy67sBBBHGNWl/bKZIg=
 github.com/aquasecurity/trivy-checks v1.12.1/go.mod h1:KwhWzFj++s22cMKRhXR4UHDUHUx3wBsje7AkhEsUjeE=
-github.com/aquasecurity/trivy-db v0.0.0-20260112121638-753ee4147311 h1:oNEOddTSrZvBYSDer3aUUqF+w+jnBuVSw2C0j4YbLB4=
-github.com/aquasecurity/trivy-db v0.0.0-20260112121638-753ee4147311/go.mod h1:EA98VprDBxnVAXJlbPGpiApdiHz6UQAO7flz1XrdU5U=
 github.com/aquasecurity/trivy-db v0.0.0-20260121110422-b8dd3abe2347 h1:JtimXBA2UIwuV7PXpkHkz4muph2FQxcDr8kRsgBTPdA=
 github.com/aquasecurity/trivy-db v0.0.0-20260121110422-b8dd3abe2347/go.mod h1:EA98VprDBxnVAXJlbPGpiApdiHz6UQAO7flz1XrdU5U=
 github.com/aquasecurity/trivy-java-db v0.0.0-20250912094916-94bd09842933 h1:al3DxeQrHx7acBjgTomnVngeiN5LxA5m7EsOC52A3oU=
@@ -166,7 +164,6 @@ github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3d
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/avast/retry-go/v4 v4.7.0 h1:yjDs35SlGvKwRNSykujfjdMxMhMQQM0TnIjJaHB+Zio=
 github.com/avast/retry-go/v4 v4.7.0/go.mod h1:ZMPDa3sY2bKgpLtap9JRUgk2yTAba7cgiFhqxY2Sg6Q=
-github.com/avast/retry-go/v5 v5.0.0/go.mod h1://d+usmKWio1agtZfS1H/ltTqwtIfBnRq9zEwjc3eH8=
 github.com/aws/aws-sdk-go v1.55.8 h1:JRmEUbU52aJQZ2AjX4q4Wu7t4uZjOu71uyNmaWlUkJQ=
 github.com/aws/aws-sdk-go v1.55.8/go.mod h1:ZkViS9AqA6otK+JBBNH2++sx1sgxrPKcSzPPvQkUtXk=
 github.com/aws/aws-sdk-go-v2 v1.41.0 h1:tNvqh1s+v0vFYdA1xq0aOJH+Y5cRyZ5upu6roPgPKd4=
@@ -1088,8 +1085,8 @@ github.com/tetratelabs/wazero v1.10.1 h1:2DugeJf6VVk58KTPszlNfeeN8AhhpwcZqkJj2ww
 github.com/tetratelabs/wazero v1.10.1/go.mod h1:DRm5twOQ5Gr1AoEdSi0CLjDQF1J9ZAuyqFIjl1KKfQU=
 github.com/theupdateframework/go-tuf v0.7.0 h1:CqbQFrWo1ae3/I0UCblSbczevCCbS31Qvs5LdxRWqRI=
 github.com/theupdateframework/go-tuf v0.7.0/go.mod h1:uEB7WSY+7ZIugK6R1hiBMBjQftaFzn7ZCDJcp1tCUug=
-github.com/theupdateframework/go-tuf/v2 v2.3.1 h1:fReZUTLvPdqIL8Rd9xEKPmaxig8GIXe0kS4RSEaRfaM=
-github.com/theupdateframework/go-tuf/v2 v2.3.1/go.mod h1:9S0Srkf3c13FelsOyt5OyG3ZZDq9OJDA4IILavrt72Y=
+github.com/theupdateframework/go-tuf/v2 v2.4.1 h1:K6ewW064rKZCPkRo1W/CTbTtm/+IB4+coG1iNURAGCw=
+github.com/theupdateframework/go-tuf/v2 v2.4.1/go.mod h1:Nex2enPVYDFCklrnbTzl3OVwD7fgIAj0J5++z/rvCj8=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
 github.com/tidwall/gjson v1.18.0/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
