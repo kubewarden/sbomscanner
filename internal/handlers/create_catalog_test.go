@@ -693,7 +693,7 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 	err = v1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 
-	image, err := imageDetailsToImage(ref, details, registry, scheme)
+	image, err := imageDetailsToImage(ref, details, registry, scheme, "test-index-digest")
 	require.NoError(t, err)
 
 	assert.Equal(t, image.Name, computeImageUID(ref.Context().Name(), ref.Identifier(), digest.String()))
@@ -704,6 +704,7 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 	assert.Equal(t, tag, image.GetImageMetadata().Tag)
 	assert.Equal(t, platform.String(), image.GetImageMetadata().Platform)
 	assert.Equal(t, digest.String(), image.GetImageMetadata().Digest)
+	assert.Equal(t, "test-index-digest", image.GetImageMetadata().IndexDigest)
 
 	assert.Len(t, image.Layers, numberOfLayers)
 	for i := range numberOfLayers {

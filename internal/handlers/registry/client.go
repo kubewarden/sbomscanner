@@ -15,11 +15,10 @@ import (
 )
 
 type ImageDetails struct {
-	Digest      cranev1.Hash
-	IndexDigest cranev1.Hash
-	Layers      []cranev1.Layer
-	History     []cranev1.History
-	Platform    cranev1.Platform
+	Digest   cranev1.Hash
+	Layers   []cranev1.Layer
+	History  []cranev1.History
+	Platform cranev1.Platform
 }
 
 type ClientFactory func(http.RoundTripper) *Client
@@ -168,16 +167,16 @@ func (c *Client) GetImageIndex(ctx context.Context, ref name.Reference) (cranev1
 	return index, nil
 }
 
-func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, platform *cranev1.Platform) (ImageDetails, error) {
-	c.logger.DebugContext(ctx, "GetImageDetails called", "image", ref.Name(), "platform", platform)
+func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, multiArchPlatform *cranev1.Platform) (ImageDetails, error) {
+	c.logger.DebugContext(ctx, "GetImageDetails called", "image", ref.Name(), "multiArchPlatform", multiArchPlatform)
 
 	options := []remote.Option{
 		remote.WithContext(ctx),
 		remote.WithAuthFromKeychain(authn.DefaultKeychain),
 		remote.WithTransport(c.transport),
 	}
-	if platform != nil {
-		options = append(options, remote.WithPlatform(*platform))
+	if multiArchPlatform != nil {
+		options = append(options, remote.WithPlatform(*multiArchPlatform))
 	}
 
 	img, err := remote.Image(ref, options...)
@@ -195,25 +194,14 @@ func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, platfo
 		return ImageDetails{}, fmt.Errorf("cannot compute image digest %q: %w", ref, err)
 	}
 
-	var indexDigest cranev1.Hash
 	// Single-arch images do not have a platform associated with them.
 	// In that case, we get the platform from the config file.
 	// Platform obtained from the config file does not have the Variant field set,
 	// as the config file does not contain that information.
-	if platform == nil {
-		platform = cfgFile.Platform()
-		if platform == nil {
+	if multiArchPlatform == nil {
+		multiArchPlatform = cfgFile.Platform()
+		if multiArchPlatform == nil {
 			return ImageDetails{}, fmt.Errorf("cannot get platform for %s", ref)
-		}
-	} else {
-		imageIndex, err := c.GetImageIndex(ref)
-		if err != nil {
-			return ImageDetails{}, fmt.Errorf("cannot get index for %s: %w", ref, err)
-		}
-
-		indexDigest, err = imageIndex.Digest()
-		if err != nil {
-			return ImageDetails{}, fmt.Errorf("cannot compute index digest %q: %w", ref, err)
 		}
 	}
 
@@ -223,10 +211,9 @@ func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, platfo
 	}
 
 	return ImageDetails{
-		History:     cfgFile.History,
-		Layers:      layers,
-		Platform:    *platform,
-		Digest:      imageDigest,
-		IndexDigest: indexDigest,
+		History:  cfgFile.History,
+		Layers:   layers,
+		Platform: *multiArchPlatform,
+		Digest:   imageDigest,
 	}, nil
 }

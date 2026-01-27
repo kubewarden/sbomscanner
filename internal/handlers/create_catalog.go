@@ -421,7 +421,7 @@ func (h *CreateCatalogHandler) singleArchRefToImages(
 		return []storagev1alpha1.Image{}, nil
 	}
 
-	image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme)
+	image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme, "")
 	if err != nil {
 		return []storagev1alpha1.Image{}, fmt.Errorf("cannot convert image details to image for %q: %w", ref.Name(), err)
 	}
@@ -462,8 +462,12 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 		if err != nil {
 			return nil, fmt.Errorf("cannot get image details for %q platform %v: %w", ref.Name(), m.Platform, err)
 		}
+		indexDigest, err := imgIndex.Digest()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get index digest for %q: %w", ref.Name(), err)
+		}
 
-		image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme)
+		image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme, indexDigest.String())
 		if err != nil {
 			return nil, fmt.Errorf("cannot convert image details to image for %q: %w", ref.Name(), err)
 		}
@@ -552,6 +556,7 @@ func imageDetailsToImage(
 	details registryclient.ImageDetails,
 	registry *v1alpha1.Registry,
 	scheme *runtime.Scheme,
+	indexDigest string,
 ) (storagev1alpha1.Image, error) {
 	imageLayers := []storagev1alpha1.ImageLayer{}
 
@@ -587,12 +592,6 @@ func imageDetailsToImage(
 		})
 
 		layerCounter++
-	}
-
-	var indexDigest string
-	// hash.String() returns ":" for an empty hash, so we need to check for that
-	if details.IndexDigest != (cranev1.Hash{}) {
-		indexDigest = details.IndexDigest.String()
 	}
 
 	image := storagev1alpha1.Image{
