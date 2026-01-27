@@ -378,7 +378,7 @@ func (h *CreateCatalogHandler) refToImages(
 ) ([]storagev1alpha1.Image, error) {
 	desc, err := registryClient.GetDescriptor(ctx, ref)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get descriptor for %q: %w", ref, err)
+		return nil, fmt.Errorf("cannot get descriptor for %q: %w", ref.Name(), err)
 	}
 
 	isContainerImage, err := registryClient.IsContainerImage(ctx, desc)
@@ -444,12 +444,12 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 ) ([]storagev1alpha1.Image, error) {
 	imgIndex, err := registryClient.GetImageIndex(ctx, ref)
 	if err != nil {
-		return nil, fmt.Errorf("cannot fetch image index for %q: %w", ref, err)
+		return nil, fmt.Errorf("cannot fetch image index for %q: %w", ref.Name(), err)
 	}
 
 	manifest, err := imgIndex.IndexManifest()
 	if err != nil {
-		return nil, fmt.Errorf("cannot read index manifest of %s: %w", ref, err)
+		return nil, fmt.Errorf("cannot read index manifest of %q: %w", ref.Name(), err)
 	}
 
 	images := []storagev1alpha1.Image{}
