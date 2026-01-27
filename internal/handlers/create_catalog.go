@@ -578,6 +578,12 @@ func imageDetailsToImage(
 		layerCounter++
 	}
 
+	var indexDigest string
+	// hash.String() returns ":" for an empty hash, so we need to check for that
+	if details.IndexDigest != (cranev1.Hash{}) {
+		indexDigest = details.IndexDigest.String()
+	}
+
 	image := storagev1alpha1.Image{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      computeImageUID(ref.Context().Name(), ref.Identifier(), details.Digest.String()),
@@ -594,6 +600,7 @@ func imageDetailsToImage(
 			Tag:         ref.Identifier(),
 			Platform:    details.Platform.String(),
 			Digest:      details.Digest.String(),
+			IndexDigest: indexDigest,
 		},
 		Layers: imageLayers,
 	}

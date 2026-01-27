@@ -14,10 +14,11 @@ import (
 )
 
 type ImageDetails struct {
-	Digest   cranev1.Hash
-	Layers   []cranev1.Layer
-	History  []cranev1.History
-	Platform cranev1.Platform
+	Digest      cranev1.Hash
+	IndexDigest cranev1.Hash
+	Layers      []cranev1.Layer
+	History     []cranev1.History
+	Platform    cranev1.Platform
 }
 
 type ClientFactory func(http.RoundTripper) *Client
@@ -136,16 +137,17 @@ func (c *Client) GetImageDetails(ref name.Reference, platform *cranev1.Platform)
 		return ImageDetails{}, fmt.Errorf("cannot fetch image %q: %w", ref, err)
 	}
 
-	imageDigest, err := img.Digest()
-	if err != nil {
-		return ImageDetails{}, fmt.Errorf("cannot compute image digest %q: %w", ref, err)
-	}
-
 	cfgFile, err := img.ConfigFile()
 	if err != nil {
 		return ImageDetails{}, fmt.Errorf("cannot read config for %s: %w", ref, err)
 	}
 
+	imageDigest, err := img.Digest()
+	if err != nil {
+		return ImageDetails{}, fmt.Errorf("cannot compute image digest %q: %w", ref, err)
+	}
+
+	var indexDigest cranev1.Hash
 	// Single-arch images do not have a platform associated with them.
 	// In that case, we get the platform from the config file.
 	// Platform obtained from the config file does not have the Variant field set,
@@ -155,6 +157,16 @@ func (c *Client) GetImageDetails(ref name.Reference, platform *cranev1.Platform)
 		if platform == nil {
 			return ImageDetails{}, fmt.Errorf("cannot get platform for %s", ref)
 		}
+	} else {
+		imageIndex, err := c.GetImageIndex(ref)
+		if err != nil {
+			return ImageDetails{}, fmt.Errorf("cannot get index for %s: %w", ref, err)
+		}
+
+		indexDigest, err = imageIndex.Digest()
+		if err != nil {
+			return ImageDetails{}, fmt.Errorf("cannot compute index digest %q: %w", ref, err)
+		}
 	}
 
 	layers, err := img.Layers()
@@ -163,9 +175,10 @@ func (c *Client) GetImageDetails(ref name.Reference, platform *cranev1.Platform)
 	}
 
 	return ImageDetails{
-		History:  cfgFile.History,
-		Layers:   layers,
-		Platform: *platform,
-		Digest:   imageDigest,
+		History:     cfgFile.History,
+		Layers:      layers,
+		Platform:    *platform,
+		Digest:      imageDigest,
+		IndexDigest: indexDigest,
 	}, nil
 }
