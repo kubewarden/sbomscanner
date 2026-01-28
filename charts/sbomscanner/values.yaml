@@ -108,6 +108,12 @@ nats:
         secretName: sbomscanner-nats-routes-tls
     jetstream:
       enabled: true
+      fileStorage:
+        enabled: true
+        size: 10Gi
+        storageClassName: ""
+        accessModes:
+          - ReadWriteOnce
   natsBox:
     enabled: false
   container:
@@ -117,10 +123,10 @@ nats:
         runAsNonRoot: true
         runAsUser: 65532
         seccompProfile:
-            type: RuntimeDefault
+          type: RuntimeDefault
         allowPrivilegeEscalation: false
         capabilities:
-            drop:
+          drop:
             - "ALL"
   reloader:
     merge:
@@ -129,8 +135,8 @@ nats:
         runAsNonRoot: true
         runAsUser: 65532
         seccompProfile:
-            type: RuntimeDefault
+          type: RuntimeDefault
         allowPrivilegeEscalation: false
         capabilities:
-            drop:
+          drop:
             - "ALL"
