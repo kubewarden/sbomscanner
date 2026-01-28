@@ -37,14 +37,22 @@ import (
 type WorkloadScanReportRepository struct {
 	table                     string
 	vulnerabilityReportsTable string
+	imagesTable               string
 }
+
+const (
+	// imageLabelPrefix is the label prefix used to track image UIDs associated with a WorkloadScanReport.
+	imageLabelPrefix = "images.sbomscanner.kubewarden.io"
+	imageLabelValue  = "in-use"
+)
 
 var _ Repository = &WorkloadScanReportRepository{}
 
-func NewWorkloadScanReportRepository(table, vulnerabilityReportsTable string) *WorkloadScanReportRepository {
+func NewWorkloadScanReportRepository(table, vulnerabilityReportsTable, imagesTable string) *WorkloadScanReportRepository {
 	return &WorkloadScanReportRepository{
 		table:                     table,
 		vulnerabilityReportsTable: vulnerabilityReportsTable,
+		imagesTable:               imagesTable,
 	}
 }
 
@@ -54,7 +62,17 @@ func (r *WorkloadScanReportRepository) Create(ctx context.Context, tx pgx.Tx, ob
 		return fmt.Errorf("failed to get object metadata: %w", err)
 	}
 
-	bytes, err := json.Marshal(obj)
+	report, ok := obj.(*storagev1alpha1.WorkloadScanReport)
+	if !ok {
+		return fmt.Errorf("expected WorkloadScanReport, got %T", obj)
+	}
+
+	// Populate image labels before storing
+	if err := r.populateImageLabels(ctx, tx, report); err != nil {
+		return fmt.Errorf("failed to populate image labels: %w", err)
+	}
+
+	bytes, err := json.Marshal(report)
 	if err != nil {
 		return fmt.Errorf("failed to marshal object: %w", err)
 	}
@@ -167,7 +185,17 @@ func (r *WorkloadScanReportRepository) List(ctx context.Context, db Querier, nam
 }
 
 func (r *WorkloadScanReportRepository) Update(ctx context.Context, tx pgx.Tx, name, namespace string, obj runtime.Object) error {
-	bytes, err := json.Marshal(obj)
+	report, ok := obj.(*storagev1alpha1.WorkloadScanReport)
+	if !ok {
+		return fmt.Errorf("expected WorkloadScanReport, got %T", obj)
+	}
+
+	// Populate image labels before storing
+	if err := r.populateImageLabels(ctx, tx, report); err != nil {
+		return fmt.Errorf("failed to populate image labels: %w", err)
+	}
+
+	bytes, err := json.Marshal(report)
 	if err != nil {
 		return fmt.Errorf("failed to marshal object: %w", err)
 	}
@@ -321,6 +349,104 @@ func (r *WorkloadScanReportRepository) populateVulnerabilityReports(ctx context.
 			})
 		}
 		report.Containers[i].VulnerabilityReports = workloadVulnReports
+	}
+
+	return nil
+}
+
+// populateImageLabels queries the images table and adds labels to the report
+// in the format images.sbomscanner.kubewarden.io/<uid>=in-use for each matching image.
+// This is called during Create/Update so labels are persisted and can be used with label selectors.
+func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, db Querier, report *storagev1alpha1.WorkloadScanReport) error {
+	if len(report.Containers) == 0 {
+		return nil
+	}
+
+	// Clear existing image labels to avoid stale references
+	if report.Labels != nil {
+		prefix := fmt.Sprintf("%s/", imageLabelPrefix)
+		for key := range report.Labels {
+			if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+				delete(report.Labels, key)
+			}
+		}
+	}
+
+	// Collect unique refs to batch query
+	type refKey struct {
+		Registry   string
+		Namespace  string
+		Repository string
+		Tag        string
+	}
+	refs := make(map[refKey]struct{})
+	for _, container := range report.Containers {
+		ref := container.VulnerabilityReportRef
+		refs[refKey{
+			Registry:   ref.Registry,
+			Namespace:  ref.Namespace,
+			Repository: ref.Repository,
+			Tag:        ref.Tag,
+		}] = struct{}{}
+	}
+
+	// Build a query that matches any of the refs using OR conditions
+	qb := psql.Select(
+		sm.Columns("object"),
+		sm.From(psql.Quote(r.imagesTable)),
+	)
+
+	var orConditions []bob.Expression
+	for ref := range refs {
+		condition := psql.And(
+			psql.Raw("object->'imageMetadata'->>'registry' = ?", ref.Registry),
+			psql.Raw("object->'metadata'->>'namespace' = ?", ref.Namespace),
+			psql.Raw("object->'imageMetadata'->>'repository' = ?", ref.Repository),
+			psql.Raw("object->'imageMetadata'->>'tag' = ?", ref.Tag),
+		)
+		orConditions = append(orConditions, condition)
+	}
+
+	if len(orConditions) == 0 {
+		return nil
+	}
+
+	qb.Apply(sm.Where(psql.Or(orConditions...)))
+
+	query, args, err := qb.Build(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to build images query: %w", err)
+	}
+
+	rows, err := db.Query(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to query images: %w", err)
+	}
+	defer rows.Close()
+
+	// Collect image UIDs and add as labels
+	for rows.Next() {
+		var bytes []byte
+		if err := rows.Scan(&bytes); err != nil {
+			return fmt.Errorf("failed to scan image: %w", err)
+		}
+
+		var image storagev1alpha1.Image
+		if err := json.Unmarshal(bytes, &image); err != nil {
+			return fmt.Errorf("failed to unmarshal image: %w", err)
+		}
+
+		if image.UID != "" {
+			if report.Labels == nil {
+				report.Labels = make(map[string]string)
+			}
+			labelKey := fmt.Sprintf("%s/%s", imageLabelPrefix, image.UID)
+			report.Labels[labelKey] = imageLabelValue
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to iterate images: %w", err)
 	}
 
 	return nil

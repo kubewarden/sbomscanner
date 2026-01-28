@@ -46,7 +46,7 @@ func NewWorkloadScanReportStore(
 	newFunc := func() runtime.Object { return &storagev1alpha1.WorkloadScanReport{} }
 	newListFunc := func() runtime.Object { return &storagev1alpha1.WorkloadScanReportList{} }
 
-	repo := repository.NewWorkloadScanReportRepository(workloadScanReportResourcePluralName, vulnerabilityReportResourcePluralName)
+	repo := repository.NewWorkloadScanReportRepository(workloadScanReportResourcePluralName, vulnerabilityReportResourcePluralName, imageResourcePluralName)
 
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, workloadScanReportResourcePluralName, watchBroadcaster, func(obj any) (any, error) {
