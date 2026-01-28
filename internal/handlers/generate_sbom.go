@@ -254,8 +254,29 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		}()
 	}
 
-	app := trivyCommands.NewApp()
-	app.SetArgs([]string{
+	// Prepare temporary file for CA bundle if needed
+	var caBundleFile *os.File
+	if len(registry.Spec.CABundle) > 0 {
+		caBundleFile, err = os.CreateTemp(h.workDir, "trivy.cabundle.*.pem")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temporary CA bundle file: %w", err)
+		}
+		defer func() {
+			if removeErr := os.Remove(caBundleFile.Name()); removeErr != nil {
+				h.logger.Error("failed to remove temporary CA bundle file", "error", removeErr)
+			}
+		}()
+
+		if _, err = caBundleFile.WriteString(registry.Spec.CABundle); err != nil {
+			return nil, fmt.Errorf("failed to write CA bundle to temporary file: %w", err)
+		}
+		if err = caBundleFile.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close CA bundle file: %w", err)
+		}
+	}
+
+	// Build trivy command arguments
+	trivyArgs := []string{
 		"image",
 		"--skip-version-check",
 		"--disable-telemetry",
@@ -266,13 +287,28 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		// See: https://github.com/aquasecurity/trivy/discussions/9666
 		"--java-db-repository", h.trivyJavaDBRepository,
 		"--output", sbomFile.Name(),
-		fmt.Sprintf(
-			"%s/%s@%s",
-			image.GetImageMetadata().RegistryURI,
-			image.GetImageMetadata().Repository,
-			image.GetImageMetadata().Digest,
-		),
-	})
+	}
+
+	// Add insecure flag if registry allows insecure connections
+	if registry.Spec.Insecure {
+		trivyArgs = append(trivyArgs, "--insecure")
+	}
+
+	// Add cacert flag if CA bundle is provided
+	if caBundleFile != nil {
+		trivyArgs = append(trivyArgs, "--cacert", caBundleFile.Name())
+	}
+
+	// Add the image reference
+	trivyArgs = append(trivyArgs, fmt.Sprintf(
+		"%s/%s@%s",
+		image.GetImageMetadata().RegistryURI,
+		image.GetImageMetadata().Repository,
+		image.GetImageMetadata().Digest,
+	))
+
+	app := trivyCommands.NewApp()
+	app.SetArgs(trivyArgs)
 
 	if err = app.ExecuteContext(ctx); err != nil {
 		return nil, fmt.Errorf("failed to execute trivy: %w", err)
