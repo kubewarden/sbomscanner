@@ -998,6 +998,13 @@ func schema_sbomscanner_api_storage_v1alpha1_WorkloadScanReport(ref common.Refer
 							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
 						},
 					},
+					"summary": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Summary provides aggregated vulnerability counts across all containers. Vulnerabilities are deduplicated per container (same CVE across platforms counts as 1), then summed across all containers. This field is populated at read time and is not stored.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Summary"),
+						},
+					},
 					"containers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Containers contains the list of containers in the workload and their vulnerability reports.",
@@ -1013,11 +1020,11 @@ func schema_sbomscanner_api_storage_v1alpha1_WorkloadScanReport(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"containers"},
+				Required: []string{"summary", "containers"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Container", v1.ObjectMeta{}.OpenAPIModelName()},
+			"github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Container", "github.com/kubewarden/sbomscanner/api/storage/v1alpha1.Summary", v1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 

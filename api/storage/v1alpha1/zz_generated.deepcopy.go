@@ -411,6 +411,7 @@ func (in *WorkloadScanReport) DeepCopyInto(out *WorkloadScanReport) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	out.Summary = in.Summary
 	if in.Containers != nil {
 		in, out := &in.Containers, &out.Containers
 		*out = make([]Container, len(*in))

@@ -23,8 +23,14 @@ type WorkloadScanReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
+	// Summary provides aggregated vulnerability counts across all containers.
+	// Vulnerabilities are deduplicated per container (same CVE across platforms counts as 1),
+	// then summed across all containers.
+	// This field is populated at read time and is not stored.
+	Summary Summary `json:"summary" protobuf:"bytes,2,req,name=summary"`
+
 	// Containers contains the list of containers in the workload and their vulnerability reports.
-	Containers []Container `json:"containers" protobuf:"bytes,2,rep,name=containers"`
+	Containers []Container `json:"containers" protobuf:"bytes,3,rep,name=containers"`
 }
 
 // Container represents a container in a workload with its associated vulnerability reports.

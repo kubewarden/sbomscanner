@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stephenafamo/bob"
@@ -15,6 +16,7 @@ import (
 	"github.com/stephenafamo/bob/dialect/psql/um"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/storage"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
@@ -156,6 +158,9 @@ func (r *WorkloadScanReportRepository) Get(ctx context.Context, db Querier, name
 		return nil, fmt.Errorf("failed to populate vulnerability reports: %w", err)
 	}
 
+	// Calculate summary from populated vulnerability reports
+	r.calculateSummary(&report)
+
 	return &report, nil
 }
 
@@ -179,6 +184,9 @@ func (r *WorkloadScanReportRepository) List(ctx context.Context, db Querier, nam
 		if err := r.populateVulnerabilityReports(ctx, db, report); err != nil {
 			return nil, "", fmt.Errorf("failed to populate vulnerability reports: %w", err)
 		}
+
+		// Calculate summary from populated vulnerability reports
+		r.calculateSummary(report)
 	}
 
 	return objects, continueToken, nil
@@ -446,4 +454,45 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 	}
 
 	return nil
+}
+
+// calculateSummary computes the aggregated vulnerability summary for the report.
+// For each container, vulnerabilities are deduplicated by CVE (same CVE across platforms counts as 1).
+// The counts are then summed across all containers.
+func (r *WorkloadScanReportRepository) calculateSummary(report *storagev1alpha1.WorkloadScanReport) {
+	report.Summary = storagev1alpha1.Summary{}
+
+	for _, container := range report.Containers {
+		// Track seen CVEs for this container to deduplicate across platforms
+		seen := sets.New[string]()
+
+		for _, vulnReport := range container.VulnerabilityReports {
+			for _, result := range vulnReport.Report.Results {
+				for _, vuln := range result.Vulnerabilities {
+					if seen.Has(vuln.CVE) {
+						continue
+					}
+					seen.Insert(vuln.CVE)
+
+					if vuln.Suppressed {
+						report.Summary.Suppressed++
+						continue
+					}
+
+					switch strings.ToUpper(vuln.Severity) {
+					case "CRITICAL":
+						report.Summary.Critical++
+					case "HIGH":
+						report.Summary.High++
+					case "MEDIUM":
+						report.Summary.Medium++
+					case "LOW":
+						report.Summary.Low++
+					default:
+						report.Summary.Unknown++
+					}
+				}
+			}
+		}
+	}
 }

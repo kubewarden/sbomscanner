@@ -17,6 +17,11 @@ import (
 type WorkloadScanReportApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
+	// Summary provides aggregated vulnerability counts across all containers.
+	// Vulnerabilities are deduplicated per container (same CVE across platforms counts as 1),
+	// then summed across all containers.
+	// This field is populated at read time and is not stored.
+	Summary *SummaryApplyConfiguration `json:"summary,omitempty"`
 	// Containers contains the list of containers in the workload and their vulnerability reports.
 	Containers []ContainerApplyConfiguration `json:"containers,omitempty"`
 }
@@ -190,6 +195,14 @@ func (b *WorkloadScanReportApplyConfiguration) ensureObjectMetaApplyConfiguratio
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &v1.ObjectMetaApplyConfiguration{}
 	}
+}
+
+// WithSummary sets the Summary field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Summary field is set to the value of the last call.
+func (b *WorkloadScanReportApplyConfiguration) WithSummary(value *SummaryApplyConfiguration) *WorkloadScanReportApplyConfiguration {
+	b.Summary = value
+	return b
 }
 
 // WithContainers adds the given value to the Containers field in the declarative configuration

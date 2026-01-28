@@ -74,8 +74,12 @@ spec:
                           an image.
                         properties:
                           digest:
-                            description: Digest specifies the sha256 digest of the
-                              image.
+                            description: Digest specifies the image manifest digest.
+                            type: string
+                          indexDigest:
+                            description: IndexDigest specifies the image index digest
+                              that referenced this manifest. Set only for multi-arch
+                              images.
                             type: string
                           platform:
                             description: Platform specifies the platform of the image.
@@ -299,8 +303,42 @@ spec:
             type: string
           metadata:
             type: object
+          summary:
+            description: |-
+              Summary provides aggregated vulnerability counts across all containers.
+              Vulnerabilities are deduplicated per container (same CVE across platforms counts as 1),
+              then summed across all containers.
+              This field is populated at read time and is not stored.
+            properties:
+              critical:
+                description: Critical vulnerabilities count
+                type: integer
+              high:
+                description: High vulnerabilities count
+                type: integer
+              low:
+                description: Low vulnerabilities count
+                type: integer
+              medium:
+                description: Medium vulnerabilities count
+                type: integer
+              suppressed:
+                description: Suppressed vulnerabilities count
+                type: integer
+              unknown:
+                description: Unknown vulnerabilities count
+                type: integer
+            required:
+            - critical
+            - high
+            - low
+            - medium
+            - suppressed
+            - unknown
+            type: object
         required:
         - containers
+        - summary
         type: object
     served: true
     storage: true
