@@ -391,16 +391,17 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 	}
 
 	// Build a query that matches any of the refs using OR conditions
+	// Only select the UID since that's all we need
 	qb := psql.Select(
-		sm.Columns("object"),
+		sm.Columns(psql.Raw("object->'metadata'->>'uid'")),
 		sm.From(psql.Quote(r.imagesTable)),
 	)
 
 	var orConditions []bob.Expression
 	for ref := range refs {
 		condition := psql.And(
+			psql.Quote("namespace").EQ(psql.Arg(ref.Namespace)),
 			psql.Raw("object->'imageMetadata'->>'registry' = ?", ref.Registry),
-			psql.Raw("object->'metadata'->>'namespace' = ?", ref.Namespace),
 			psql.Raw("object->'imageMetadata'->>'repository' = ?", ref.Repository),
 			psql.Raw("object->'imageMetadata'->>'tag' = ?", ref.Tag),
 		)
@@ -426,21 +427,16 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 
 	// Collect image UIDs and add as labels
 	for rows.Next() {
-		var bytes []byte
-		if err := rows.Scan(&bytes); err != nil {
-			return fmt.Errorf("failed to scan image: %w", err)
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			return fmt.Errorf("failed to scan image uid: %w", err)
 		}
 
-		var image storagev1alpha1.Image
-		if err := json.Unmarshal(bytes, &image); err != nil {
-			return fmt.Errorf("failed to unmarshal image: %w", err)
-		}
-
-		if image.UID != "" {
+		if uid != "" {
 			if report.Labels == nil {
 				report.Labels = make(map[string]string)
 			}
-			labelKey := fmt.Sprintf("%s/%s", imageLabelPrefix, image.UID)
+			labelKey := fmt.Sprintf("%s/%s", imageLabelPrefix, uid)
 			report.Labels[labelKey] = imageLabelValue
 		}
 	}
