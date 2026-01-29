@@ -14,6 +14,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic/registry"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 )
 
 const (
@@ -48,13 +49,15 @@ func NewImageStore(
 	newFunc := func() runtime.Object { return &storagev1alpha1.Image{} }
 	newListFunc := func() runtime.Object { return &storagev1alpha1.ImageList{} }
 
+	repo := repository.NewGenericObjectRepository(imageResourcePluralName, newFunc)
+
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, imageResourcePluralName, watchBroadcaster, TransformStripImage, logger)
 
 	store := &store{
 		db:          db,
+		repository:  repo,
 		broadcaster: natsBroadcaster,
-		table:       imageResourcePluralName,
 		newFunc:     newFunc,
 		newListFunc: newListFunc,
 		logger:      logger.With("store", imageResourceSingularName),

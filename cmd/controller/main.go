@@ -251,12 +251,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controller.SetupIndexer(signalHandler, mgr); err != nil {
+	if err := controller.SetupIndexer(signalHandler, mgr); err != nil {
 		setupLog.Error(err, "unable to set up indexer")
 		os.Exit(1)
 	}
 
-	if err = (&controller.RegistryReconciler{
+	if err := (&controller.RegistryReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -264,7 +264,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.ScanJobReconciler{
+	if err := (&controller.ScanJobReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		Publisher: publisher,
@@ -273,7 +273,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.VulnerabilityReportReconciler{
+	if err := (&controller.VulnerabilityReportReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -281,10 +281,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.RegistryScanRunner{
+	if err := (&controller.RegistryScanRunner{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create runner", "runner", "RegistryScanRunner")
+		os.Exit(1)
+	}
+
+	if err := (&controller.WorkloadScanReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WorkloadScan")
 		os.Exit(1)
 	}
 

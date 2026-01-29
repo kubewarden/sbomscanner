@@ -48,7 +48,9 @@ func (r *RegistryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	return r.reconcileRegistry(ctx, &registry)
+	// return r.reconcileRegistry(ctx, &registry)
+
+	return ctrl.Result{}, nil
 }
 
 func (r *RegistryReconciler) reconcileRegistry(ctx context.Context, registry *v1alpha1.Registry) (ctrl.Result, error) {
