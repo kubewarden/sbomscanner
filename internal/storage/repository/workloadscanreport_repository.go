@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stephenafamo/bob"
@@ -473,24 +472,7 @@ func (r *WorkloadScanReportRepository) calculateSummary(report *storagev1alpha1.
 						continue
 					}
 					seen.Insert(vuln.CVE)
-
-					if vuln.Suppressed {
-						report.Summary.Suppressed++
-						continue
-					}
-
-					switch strings.ToUpper(vuln.Severity) {
-					case "CRITICAL":
-						report.Summary.Critical++
-					case "HIGH":
-						report.Summary.High++
-					case "MEDIUM":
-						report.Summary.Medium++
-					case "LOW":
-						report.Summary.Low++
-					default:
-						report.Summary.Unknown++
-					}
+					report.Summary.Add(vuln)
 				}
 			}
 		}
