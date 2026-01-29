@@ -455,23 +455,31 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 	return nil
 }
 
+type vulnerabilityKey struct {
+	cve        string
+	suppressed bool
+}
+
 // calculateSummary computes the aggregated vulnerability summary for the report.
 // For each container, vulnerabilities are deduplicated by CVE (same CVE across platforms counts as 1).
 // The counts are then summed across all containers.
+// NOTE: PURL identfiers in VEX files can target specific platforms, so a CVE might be suppressed for one platform but not another.
+// See: https://github.com/package-url/purl-spec/blob/5b81fb0b3c7acb17f8c32560f5d9f401fe2a6637/types-doc/otp-definition.md?plain=1#L47
 func (r *WorkloadScanReportRepository) calculateSummary(report *storagev1alpha1.WorkloadScanReport) {
 	report.Summary = storagev1alpha1.Summary{}
 
 	for _, container := range report.Containers {
 		// Track seen CVEs for this container to deduplicate across platforms
-		seen := sets.New[string]()
+		seen := sets.New[vulnerabilityKey]()
 
 		for _, vulnReport := range container.VulnerabilityReports {
 			for _, result := range vulnReport.Report.Results {
 				for _, vuln := range result.Vulnerabilities {
-					if seen.Has(vuln.CVE) {
+					key := vulnerabilityKey{cve: vuln.CVE, suppressed: vuln.Suppressed}
+					if seen.Has(key) {
 						continue
 					}
-					seen.Insert(vuln.CVE)
+					seen.Insert(key)
 					report.Summary.Add(vuln)
 				}
 			}
