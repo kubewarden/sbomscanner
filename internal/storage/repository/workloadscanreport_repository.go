@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stephenafamo/bob"
@@ -20,6 +21,25 @@ import (
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 )
+
+const (
+	imageLabelPrefix = "images.sbomscanner.kubewarden.io"
+	imageLabelValue  = "in-use"
+)
+
+// refKey is used to uniquely identify a vulnerability report reference.
+type refKey struct {
+	registry   string
+	namespace  string
+	repository string
+	tag        string
+}
+
+// vulnerabilityKey is used to deduplicate vulnerabilities by CVE and suppression status.
+type vulnerabilityKey struct {
+	cve        string
+	suppressed bool
+}
 
 // WorkloadScanReportRepository handles storage for WorkloadScanReport objects.
 // Create/Update/Delete operations store the object as JSONB.
@@ -40,12 +60,6 @@ type WorkloadScanReportRepository struct {
 	vulnerabilityReportsTable string
 	imagesTable               string
 }
-
-const (
-	// imageLabelPrefix is the label prefix used to track image UIDs associated with a WorkloadScanReport.
-	imageLabelPrefix = "images.sbomscanner.kubewarden.io"
-	imageLabelValue  = "in-use"
-)
 
 var _ Repository = &WorkloadScanReportRepository{}
 
@@ -179,7 +193,10 @@ func (r *WorkloadScanReportRepository) List(ctx context.Context, db Querier, nam
 
 	// Populate VulnerabilityReports for each WorkloadScanReport
 	for _, obj := range objects {
-		report := obj.(*storagev1alpha1.WorkloadScanReport)
+		report, ok := obj.(*storagev1alpha1.WorkloadScanReport)
+		if !ok {
+			return nil, "", fmt.Errorf("expected WorkloadScanReport, got %T", obj)
+		}
 		if err := r.populateVulnerabilityReports(ctx, db, report); err != nil {
 			return nil, "", fmt.Errorf("failed to populate vulnerability reports: %w", err)
 		}
@@ -369,32 +386,28 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 		return nil
 	}
 
+	if report.Labels == nil {
+		report.Labels = make(map[string]string)
+	}
+
 	// Clear existing image labels to avoid stale references
-	if report.Labels != nil {
-		prefix := fmt.Sprintf("%s/", imageLabelPrefix)
-		for key := range report.Labels {
-			if len(key) > len(prefix) && key[:len(prefix)] == prefix {
-				delete(report.Labels, key)
-			}
+	prefix := fmt.Sprintf("%s/", imageLabelPrefix)
+	for key := range report.Labels {
+		if strings.HasPrefix(key, prefix) {
+			delete(report.Labels, key)
 		}
 	}
 
 	// Collect unique refs to batch query
-	type refKey struct {
-		Registry   string
-		Namespace  string
-		Repository string
-		Tag        string
-	}
-	refs := make(map[refKey]struct{})
+	refs := sets.New[refKey]()
 	for _, container := range report.Containers {
 		ref := container.VulnerabilityReportRef
-		refs[refKey{
-			Registry:   ref.Registry,
-			Namespace:  ref.Namespace,
-			Repository: ref.Repository,
-			Tag:        ref.Tag,
-		}] = struct{}{}
+		refs.Insert(refKey{
+			registry:   ref.Registry,
+			namespace:  ref.Namespace,
+			repository: ref.Repository,
+			tag:        ref.Tag,
+		})
 	}
 
 	// Build a query that matches any of the refs using OR conditions
@@ -407,10 +420,10 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 	var orConditions []bob.Expression
 	for ref := range refs {
 		condition := psql.And(
-			psql.Quote("namespace").EQ(psql.Arg(ref.Namespace)),
-			psql.Raw("object->'imageMetadata'->>'registry' = ?", ref.Registry),
-			psql.Raw("object->'imageMetadata'->>'repository' = ?", ref.Repository),
-			psql.Raw("object->'imageMetadata'->>'tag' = ?", ref.Tag),
+			psql.Quote("namespace").EQ(psql.Arg(ref.namespace)),
+			psql.Raw("object->'imageMetadata'->>'registry' = ?", ref.registry),
+			psql.Raw("object->'imageMetadata'->>'repository' = ?", ref.repository),
+			psql.Raw("object->'imageMetadata'->>'tag' = ?", ref.tag),
 		)
 		orConditions = append(orConditions, condition)
 	}
@@ -440,9 +453,6 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 		}
 
 		if uid != "" {
-			if report.Labels == nil {
-				report.Labels = make(map[string]string)
-			}
 			labelKey := fmt.Sprintf("%s/%s", imageLabelPrefix, uid)
 			report.Labels[labelKey] = imageLabelValue
 		}
@@ -455,11 +465,6 @@ func (r *WorkloadScanReportRepository) populateImageLabels(ctx context.Context, 
 	return nil
 }
 
-type vulnerabilityKey struct {
-	cve        string
-	suppressed bool
-}
-
 // calculateSummary computes the aggregated vulnerability summary for the report.
 // For each container, vulnerabilities are deduplicated by CVE (same CVE across platforms counts as 1).
 // The counts are then summed across all containers.
@@ -469,7 +474,6 @@ func (r *WorkloadScanReportRepository) calculateSummary(report *storagev1alpha1.
 	report.Summary = storagev1alpha1.Summary{}
 
 	for _, container := range report.Containers {
-		// Track seen CVEs for this container to deduplicate across platforms
 		seen := sets.New[vulnerabilityKey]()
 
 		for _, vulnReport := range container.VulnerabilityReports {
