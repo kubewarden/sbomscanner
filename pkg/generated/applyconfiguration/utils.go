@@ -16,6 +16,12 @@ import (
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
 	// Group=storage.sbomscanner.kubewarden.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithKind("ContainerRef"):
+		return &storagev1alpha1.ContainerRefApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ContainerResult"):
+		return &storagev1alpha1.ContainerResultApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ContainerStatus"):
+		return &storagev1alpha1.ContainerStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("CVSS"):
 		return &storagev1alpha1.CVSSApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Image"):
@@ -24,6 +30,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &storagev1alpha1.ImageLayerApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ImageMetadata"):
 		return &storagev1alpha1.ImageMetadataApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ImageRef"):
+		return &storagev1alpha1.ImageRefApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Report"):
 		return &storagev1alpha1.ReportApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Result"):
@@ -38,6 +46,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &storagev1alpha1.VulnerabilityApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("VulnerabilityReport"):
 		return &storagev1alpha1.VulnerabilityReportApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WorkloadScanReport"):
+		return &storagev1alpha1.WorkloadScanReportApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WorkloadScanReportSpec"):
+		return &storagev1alpha1.WorkloadScanReportSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WorkloadScanReportStatus"):
+		return &storagev1alpha1.WorkloadScanReportStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("WorkloadScanVulnerabilityReport"):
+		return &storagev1alpha1.WorkloadScanVulnerabilityReportApplyConfiguration{}
 
 	}
 	return nil

@@ -15,6 +15,7 @@ type StorageV1alpha1Interface interface {
 	ImagesGetter
 	SBOMsGetter
 	VulnerabilityReportsGetter
+	WorkloadScanReportsGetter
 }
 
 // StorageV1alpha1Client is used to interact with features provided by the storage.sbomscanner.kubewarden.io group.
@@ -32,6 +33,10 @@ func (c *StorageV1alpha1Client) SBOMs(namespace string) SBOMInterface {
 
 func (c *StorageV1alpha1Client) VulnerabilityReports(namespace string) VulnerabilityReportInterface {
 	return newVulnerabilityReports(c, namespace)
+}
+
+func (c *StorageV1alpha1Client) WorkloadScanReports(namespace string) WorkloadScanReportInterface {
+	return newWorkloadScanReports(c, namespace)
 }
 
 // NewForConfig creates a new StorageV1alpha1Client for the given config.

@@ -25,3 +25,11 @@ type VulnerabilityReportListerExpansion interface{}
 // VulnerabilityReportNamespaceListerExpansion allows custom methods to be added to
 // VulnerabilityReportNamespaceLister.
 type VulnerabilityReportNamespaceListerExpansion interface{}
+
+// WorkloadScanReportListerExpansion allows custom methods to be added to
+// WorkloadScanReportLister.
+type WorkloadScanReportListerExpansion interface{}
+
+// WorkloadScanReportNamespaceListerExpansion allows custom methods to be added to
+// WorkloadScanReportNamespaceLister.
+type WorkloadScanReportNamespaceListerExpansion interface{}
