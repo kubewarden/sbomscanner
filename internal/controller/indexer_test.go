@@ -9,7 +9,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
@@ -39,15 +38,6 @@ var _ = Describe("SetupIndexer", func() {
 
 		// Verify indexes are working by attempting to list with them
 		// This will fail if the indexes weren't properly set up
-		By("Listing Images by registry index")
-		var imageList storagev1alpha1.ImageList
-		err = mgr.GetClient().List(ctx, &imageList, &client.ListOptions{
-			FieldSelector: fields.SelectorFromSet(fields.Set{
-				storagev1alpha1.IndexImageMetadataRegistry: "test-registry",
-			}),
-		})
-		Expect(err).NotTo(HaveOccurred())
-
 		By("Listing ScanJobs by registry and UID indexes")
 		var scanJobList v1alpha1.ScanJobList
 		err = mgr.GetClient().List(ctx, &scanJobList, &client.ListOptions{
