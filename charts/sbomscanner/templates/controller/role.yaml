@@ -10,7 +10,6 @@ rules:
 - apiGroups:
   - sbomscanner.kubewarden.io
   resources:
-  - registries
   - scanjobs
   verbs:
   - create
@@ -23,28 +22,17 @@ rules:
 - apiGroups:
   - sbomscanner.kubewarden.io
   resources:
-  - registries/finalizers
   - scanjobs/finalizers
   verbs:
   - update
 - apiGroups:
   - sbomscanner.kubewarden.io
   resources:
-  - registries/status
   - scanjobs/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - storage.sbomscanner.kubewarden.io
-  resources:
-  - images
-  verbs:
-  - delete
-  - get
-  - list
-  - watch
 - apiGroups:
   - storage.sbomscanner.kubewarden.io
   resources:
