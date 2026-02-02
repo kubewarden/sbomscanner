@@ -49,7 +49,6 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
 	"github.com/kubewarden/sbomscanner/internal/controller"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
-	"github.com/kubewarden/sbomscanner/internal/storage"
 	webhookv1alpha1 "github.com/kubewarden/sbomscanner/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -226,9 +225,6 @@ func main() {
 		Cache: cache.Options{
 			DefaultTransform: cache.TransformStripManagedFields(),
 			ByObject: map[client.Object]cache.ByObject{
-				&storagev1alpha1.Image{}: {
-					Transform: storage.TransformStripImage,
-				},
 				&metav1.PartialObjectMetadata{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: storagev1alpha1.SchemeGroupVersion.String(),
@@ -253,14 +249,6 @@ func main() {
 
 	if err = controller.SetupIndexer(signalHandler, mgr); err != nil {
 		setupLog.Error(err, "unable to set up indexer")
-		os.Exit(1)
-	}
-
-	if err = (&controller.RegistryReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Registry")
 		os.Exit(1)
 	}
 
