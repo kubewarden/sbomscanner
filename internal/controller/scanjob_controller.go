@@ -33,7 +33,7 @@ type ScanJobReconciler struct {
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=scanjobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=scanjobs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=scanjobs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=registries,verbs=get;list;watch
 
 // Reconcile reconciles a ScanJob object.
 func (r *ScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
