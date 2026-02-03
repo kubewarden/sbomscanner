@@ -311,14 +311,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.ImageAnnotationReconciler{
-		Client: mgr.GetClient(),
-		// Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ImageAnnotation")
-		os.Exit(1)
-	}
-
 	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Registry")
 		os.Exit(1)
@@ -326,6 +318,11 @@ func main() {
 
 	if err = webhookv1alpha1.SetupScanJobWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ScanJob")
+		os.Exit(1)
+	}
+
+	if err = webhookv1alpha1.SetupWorkloadScanConfigurationWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "WorkloadScanConfiguration")
 		os.Exit(1)
 	}
 
