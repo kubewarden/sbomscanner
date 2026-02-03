@@ -36,16 +36,16 @@ func AddKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Image{},
 		&ImageList{},
-
 		&SBOM{},
 		&SBOMList{},
-
 		&VulnerabilityReport{},
 		&VulnerabilityReportList{},
-
+		&WorkloadScanReport{},
+		&WorkloadScanReportList{},
 		&metav1.GetOptions{},
 		&metav1.CreateOptions{},
 		&metav1.UpdateOptions{},
+		&metav1.PatchOptions{},
 		&metav1.DeleteOptions{},
 		&metav1.ListOptions{},
 	)
@@ -70,6 +70,7 @@ func AddKnownTypes(scheme *runtime.Scheme) error {
 	if err != nil {
 		return fmt.Errorf("unable to add field selector conversion function to VulnerabilityReport: %w", err)
 	}
+
 	return nil
 }
 
