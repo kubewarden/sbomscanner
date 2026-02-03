@@ -146,7 +146,8 @@ var _ = Describe("WorkloadScan Controller", func() {
 						URI: "ghcr.io",
 						Repositories: []v1alpha1.Repository{
 							{
-								Name: "test/app",
+								Name:     "test/app",
+								Operator: v1alpha1.MatchConditionOpOr,
 								MatchConditions: []v1alpha1.MatchCondition{
 									{
 										Name:       "tag-v1",
@@ -262,9 +263,10 @@ var _ = Describe("WorkloadScan Controller", func() {
 				Expect(registry.Spec.Insecure).To(Equal(configuration.Spec.Insecure))
 				Expect(registry.Spec.Platforms).To(Equal(configuration.Spec.Platforms))
 
-				By("Verifying the registry has the correct match condition")
+				By("Verifying the registry has the correct repository and match condition")
 				Expect(registry.Spec.Repositories).To(HaveLen(1))
 				Expect(registry.Spec.Repositories[0].Name).To(Equal("test/app"))
+				Expect(registry.Spec.Repositories[0].Operator).To(Equal(v1alpha1.MatchConditionOpOr))
 				Expect(registry.Spec.Repositories[0].MatchConditions).To(HaveLen(1))
 				Expect(registry.Spec.Repositories[0].MatchConditions[0].Name).To(Equal("tag-v1"))
 				Expect(registry.Spec.Repositories[0].MatchConditions[0].Expression).To(Equal(`tag == "v1"`))
@@ -536,6 +538,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				}, &registry)).To(Succeed())
 
 				Expect(registry.Spec.Repositories).To(HaveLen(1))
+				Expect(registry.Spec.Repositories[0].Operator).To(Equal(v1alpha1.MatchConditionOpOr))
 				// Only 2 conditions: tag-v1 (shared) and tag-v2 (only namespace B)
 				Expect(registry.Spec.Repositories[0].MatchConditions).To(HaveLen(2))
 

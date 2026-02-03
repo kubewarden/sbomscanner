@@ -403,6 +403,7 @@ func buildRegistrySpecFromConditions(host string, repoConditions map[string][]v1
 		repos = append(repos, v1alpha1.Repository{
 			Name:            repoName,
 			MatchConditions: conditions,
+			Operator:        v1alpha1.MatchConditionOpOr,
 		})
 	}
 

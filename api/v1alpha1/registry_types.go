@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	// AnnotationRescanRequested is set on a Registry to request a rescan.
+	// AnnotationRescanRequestedKey is set on a Registry to request a rescan.
 	// The value is the timestamp when the rescan was requested.
 	AnnotationRescanRequestedKey = "sbomscanner.kubewarden.io/rescan-requested"
 )
@@ -17,6 +17,17 @@ const (
 	// expose/implement the _catalog endpoint.
 	CatalogTypeNoCatalog       = "NoCatalog"
 	CatalogTypeOCIDistribution = "OCIDistribution"
+)
+
+// MatchConditionOperator defines how multiple match conditions are combined.
+// +kubebuilder:validation:Enum=And;Or
+type MatchConditionOperator string
+
+const (
+	// MatchConditionOpAnd requires all conditions to pass.
+	MatchConditionOpAnd MatchConditionOperator = "And"
+	// MatchConditionOpOr requires at least one condition to pass.
+	MatchConditionOpOr MatchConditionOperator = "Or"
 )
 
 // RegistrySpec defines the desired state of Registry
@@ -63,13 +74,19 @@ type Repository struct {
 	Name string `json:"name"`
 	// MatchConditions filters image tags using CEL expressions.
 	MatchConditions []MatchCondition `json:"matchConditions,omitempty"`
+	// Operator specifies how this condition is combined with other conditions.
+	// When set to "And" (default), all conditions must pass for the filter to match.
+	// When set to "Or", at least one condition must pass for the filter to match.
+	// +kubebuilder:default=And
+	// +optional
+	Operator MatchConditionOperator `json:"operator,omitempty"`
 }
 
 // MatchCondition defines a CEL expression to filter image tags.
 type MatchCondition struct {
 	// Name is an identifier for this match condition, used for strategic merging of MatchConditions,
-	// as well as providing an identifier for logging purposes. A good name should be descriptive of
-	// the associated expression.
+	// as well as providing an identifier for logging purposes.
+	// A good name should be descriptive of the associated expression.
 	Name string `json:"name"`
 	// Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
 	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
@@ -100,12 +117,12 @@ func (p *Platform) String() string {
 	return platform
 }
 
-// GetMatchConditionsByRepository returns MatchConditions for the given repository.
-// Returns an empty list if the repository doesn't exist or has no MatchConditions.
-func (r *Registry) GetMatchConditionsByRepository(repo string) []MatchCondition {
+// GetRepository returns the Repository configuration for the given repository name.
+// Returns nil if the repository doesn't exist.
+func (r *Registry) GetRepository(name string) *Repository {
 	for _, repository := range r.Spec.Repositories {
-		if repository.Name == repo {
-			return repository.MatchConditions
+		if repository.Name == name {
+			return &repository
 		}
 	}
 	return nil

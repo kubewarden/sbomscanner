@@ -15,10 +15,10 @@ spec:
     spec:
       initContainers:
         - name: dummy-init
-          image: ghcr.io/tarampampam/curl:8.7.1
+          image: ghcr.io/tarampampam/curl:8.7.0
           command: ["sh", "-c", "echo dummy init container && exit 0"]
       containers:
         - name: nginx
-          image: ghcr.io/nginxinc/nginx-unprivileged:1.25
+          image: ghcr.io/nginxinc/nginx-unprivileged:1.24
           ports:
             - containerPort: 80

@@ -112,8 +112,8 @@ spec:
                           name:
                             description: |-
                               Name is an identifier for this match condition, used for strategic merging of MatchConditions,
-                              as well as providing an identifier for logging purposes. A good name should be descriptive of
-                              the associated expression.
+                              as well as providing an identifier for logging purposes.
+                              A good name should be descriptive of the associated expression.
                             type: string
                         required:
                         - expression
@@ -122,6 +122,16 @@ spec:
                       type: array
                     name:
                       description: Name is the repository name.
+                      type: string
+                    operator:
+                      default: And
+                      description: |-
+                        Operator specifies how this condition is combined with other conditions.
+                        When set to "And" (default), all conditions must pass for the filter to match.
+                        When set to "Or", at least one condition must pass for the filter to match.
+                      enum:
+                      - And
+                      - Or
                       type: string
                   required:
                   - name
