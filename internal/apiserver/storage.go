@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
@@ -20,6 +21,7 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	basecompatibility "k8s.io/component-base/compatibility"
 	baseversion "k8s.io/component-base/version"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/kubewarden/sbomscanner/api/storage/install"
 	"github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
@@ -60,7 +62,7 @@ type StorageAPIServerConfig struct {
 
 type StorageAPIServer struct {
 	db                        *pgxpool.Pool
-	watchers                  []*storage.RegistryStoreWithWatcher
+	watchers                  []manager.Runnable
 	logger                    *slog.Logger
 	server                    *genericapiserver.GenericAPIServer
 	dynamicCertKeyPairContent *dynamiccertificates.DynamicCertKeyPairContent
@@ -139,7 +141,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 		return nil, fmt.Errorf("error creating SBOM store: %w", err)
 	}
 
-	vulnerabilityReportStore, err := storage.NewVulnerabilityReport(
+	vulnerabilityReportStore, err := storage.NewVulnerabilityReportStore(
 		Scheme,
 		serverConfig.RESTOptionsGetter,
 		db,
@@ -150,10 +152,22 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 		return nil, fmt.Errorf("error creating VulnerabilityReport store: %w", err)
 	}
 
+	workloadScanReportStore, err := storage.NewWorkloadScanReportStore(
+		Scheme,
+		serverConfig.RESTOptionsGetter,
+		db,
+		nc,
+		logger,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating WorkloadScanReport store: %w", err)
+	}
+
 	v1alpha1storage := map[string]rest.Storage{
-		"images":               imageStore.GetStore(),
-		"sboms":                sbomStore.GetStore(),
-		"vulnerabilityreports": vulnerabilityReportStore.GetStore(),
+		"images":               imageStore.Store,
+		"sboms":                sbomStore.Store,
+		"vulnerabilityreports": vulnerabilityReportStore.Store,
+		"workloadscanreports":  workloadScanReportStore.Store,
 	}
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1storage
 
@@ -163,7 +177,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 
 	return &StorageAPIServer{
 		db:                        db,
-		watchers:                  []*storage.RegistryStoreWithWatcher{imageStore, sbomStore, vulnerabilityReportStore},
+		watchers:                  slices.Concat(imageStore.Watchers, sbomStore.Watchers, vulnerabilityReportStore.Watchers, workloadScanReportStore.Watchers),
 		logger:                    logger,
 		server:                    genericServer,
 		dynamicCertKeyPairContent: dynamicCertKeyPairContent,
@@ -179,7 +193,7 @@ func (s *StorageAPIServer) Start(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, watcher := range s.watchers {
 		g.Go(func() error {
-			return watcher.StartWatcher(ctx)
+			return watcher.Start(ctx)
 		})
 	}
 	g.Go(func() error {

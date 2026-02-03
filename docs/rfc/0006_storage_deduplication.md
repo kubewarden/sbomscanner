@@ -11,13 +11,13 @@
 [summary]: #summary
 
 This RFC proposes a storage-level deduplication strategy for `Image`, `SBOM`, and `VulnerabilityReport` resources.
-These resources reference container images by their sha256 digest, which allows multiple discoveries of the same image to share a single stored artifact.
+These resources reference container images by their digest, which allows multiple discoveries of the same image to share a single stored artifact.
 
 # Motivation
 
 [motivation]: #motivation
 
-A container image with the same sha256 digest can appear in the system multiple times:
+    A container image with the same [digest](https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests) (usually SHA-256) can appear in the system multiple times:
 
 - Across different registries with different tags
 - Within the same registry under different tags
@@ -30,7 +30,7 @@ This results in redundant scanning operations and duplicate storage of identical
 
 [examples]: #examples
 
-- As a user I want the system to recognize when the same image (by sha256) has already been processed so that I don't waste compute cycles scanning identical images multiple times.
+- As a user I want the system to recognize when the same image (by digest) has already been processed so that I don't waste compute cycles scanning identical images multiple times.
 
 # Pre-requisite: Repository pattern refactor
 
@@ -57,22 +57,22 @@ This pattern allows for additional repository implementations in the future, sho
 
 Resources that benefit from deduplication use two tables:
 
-1. **Artifacts table**: Stores the deduplicated payload keyed by sha256
+1. **Artifacts table**: Stores the deduplicated payload keyed by digest
 2. **References table**: Stores per-discovery metadata with a foreign key to the artifacts table
 
 ```sql
 CREATE TABLE <artifacts_table> (
-    sha TEXT PRIMARY KEY,
+    digest TEXT PRIMARY KEY,
     object JSONB NOT NULL
 );
 
 CREATE TABLE <references_table> (
     id BIGSERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    namespace TEXT NOT NULL,
+    name VARCHAR(253) NOT NULL,
+    namespace VARCHAR(253) NOT NULL,
     metadata JSONB NOT NULL,
     image_metadata JSONB NOT NULL,
-    sha TEXT NOT NULL REFERENCES <artifacts_table>(sha),
+    digest TEXT NOT NULL REFERENCES <artifacts_table>(digest),
     UNIQUE (name, namespace)
 );
 ```
@@ -85,7 +85,7 @@ These fields vary between discoveries of the same image and are stored separatel
 
 The resource version is preserved in the artifact payload.
 This allows the Kubernetes API machinery to perform conflict resolution during updates.
-As a consequence, any modification to an artifact bumps the global resource version sequence, even if the change originates from a different object referencing the same sha256.
+As a consequence, any modification to an artifact bumps the global resource version sequence, even if the change originates from a different object referencing the same digest.
 This is an acceptable trade-off since only the scanning workers interact with these resources programmatically.
 
 ## Object reconstruction
@@ -93,7 +93,7 @@ This is an acceptable trade-off since only the scanning workers interact with th
 When reading an object, the repository joins both tables and merges the JSONB to reconstruct the full Kubernetes object.
 Object reconstruction is performed according to the following process:
 
-- Retrieves the artifact payload from the artifacts table using the sha256
+- Retrieves the artifact payload from the artifacts table using the digest
 - Retrieves the instance-specific metadata from the references table
 - Merges the metadata from the references table into the artifact, preserving the resource version from the artifact
 - Restores the image metadata from the references table
@@ -108,7 +108,7 @@ SELECT artifacts.object || jsonb_build_object(
     'imageMetadata', refs.image_metadata
 ) AS object
 FROM references refs
-INNER JOIN artifacts ON refs.sha = artifacts.sha
+INNER JOIN artifacts ON refs.digest = artifacts.digest
 WHERE refs.name = ? AND refs.namespace = ?;
 ```
 
@@ -120,7 +120,7 @@ This approach ensures that WHERE clauses evaluate against the fully reconstructe
 In the previous design, artifacts were namespaced to support multi-tenancy, and only one scan per registry could run at a time.
 This guaranteed that no two workers would attempt to write the same artifact concurrently.
 
-With deduplication, artifacts are keyed by sha256 and shared across namespaces.
+With deduplication, artifacts are keyed by their digest and shared across namespaces.
 Multiple workers scanning different registries or namespaces may discover the same image and attempt to write to the same artifact simultaneously.
 This introduces the possibility of write conflicts that did not exist before.
 
@@ -134,7 +134,7 @@ If the existing artifact was produced with the same or a newer database version,
 When a reference record is deleted, the associated artifact may no longer be referenced by any other record.
 Rather than relying on a separate background process to clean up orphaned artifacts, the repository performs reference counting within the same transaction as the delete operation.
 
-After removing the reference row, the repository counts how many other rows still reference the same sha256.
+After removing the reference row, the repository counts how many other rows still reference the same digest.
 If the count is zero, the artifact row is deleted immediately.
 This transactional approach guarantees that artifacts are removed as soon as they become unreferenced, without requiring external coordination or scheduled cleanup jobs.
 
@@ -150,7 +150,7 @@ This transactional approach guarantees that artifacts are removed as soon as the
 [alternatives]: #alternatives
 
 An alternative considered was performing deduplication at the application level.
-In this model, workers would query the API server before processing an image to determine whether an SBOM or VulnerabilityReport already exists for the given sha256.
+In this model, workers would query the API server before processing an image to determine whether an SBOM or VulnerabilityReport already exists for the given digest.
 
 This approach introduces additional load on the API server, as every scan operation would require a lookup to check for existing resources.
 It also increases complexity in the worker handler code, which would need to manage deduplication logic rather than delegating that responsibility to the storage layer.

@@ -7,6 +7,12 @@ import (
 )
 
 const (
+	// AnnotationRescanRequested is set on a Registry to request a rescan.
+	// The value is the timestamp when the rescan was requested.
+	AnnotationRescanRequestedKey = "sbomscanner.kubewarden.io/rescan-requested"
+)
+
+const (
 	// CatalogTypeNoCatalog is used for registries that don't
 	// expose/implement the _catalog endpoint.
 	CatalogTypeNoCatalog       = "NoCatalog"
@@ -23,6 +29,7 @@ type RegistrySpec struct {
 	// An empty list means all the repositories found in the registry are going to be scanned.
 	Repositories []Repository `json:"repositories,omitempty"`
 	// AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry.
+	// The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 	AuthSecret string `json:"authSecret,omitempty"`
 	// ScanInterval is the interval at which the registry is scanned.
 	// If not set, automatic scanning is disabled.
@@ -55,8 +62,6 @@ type Repository struct {
 	// Name is the repository name.
 	Name string `json:"name"`
 	// MatchConditions filters image tags using CEL expressions.
-	// At most 10 MatchConditions are allowed per repository.
-	// +kubebuilder:validation:MaxItems=10
 	MatchConditions []MatchCondition `json:"matchConditions,omitempty"`
 }
 
@@ -69,6 +74,8 @@ type MatchCondition struct {
 	// Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
 	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
 	Expression string `json:"expression"`
+	// Labels are key-value pairs that can be used to organize and categorize match conditions.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // Platform describes the platform which the image in the manifest runs on.

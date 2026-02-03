@@ -27,6 +27,7 @@ type event struct {
 type natsWatcher struct {
 	nc               *nats.Conn
 	subject          string
+	resource         string
 	watchBroadcaster *watch.Broadcaster
 	logger           *slog.Logger
 	store            *store
@@ -42,6 +43,7 @@ func newNatsWatcher(nc *nats.Conn,
 
 	return &natsWatcher{
 		nc:               nc,
+		resource:         resource,
 		subject:          subject,
 		watchBroadcaster: watchBroadcaster,
 		store:            store,
@@ -101,7 +103,7 @@ func (w *natsWatcher) handleMessage(ctx context.Context, msg *nats.Msg) error {
 		if err != nil {
 			return fmt.Errorf("failed to get meta accessor: %w", err)
 		}
-		key := fmt.Sprintf("%s/%s/%s/%s", storagev1alpha1.GroupName, w.store.table, metaAccessor.GetNamespace(), metaAccessor.GetName())
+		key := fmt.Sprintf("%s/%s/%s/%s", storagev1alpha1.GroupName, w.resource, metaAccessor.GetNamespace(), metaAccessor.GetName())
 
 		if err := w.store.Get(ctx, key, storage.GetOptions{}, obj); err != nil {
 			if storage.IsNotFound(err) {

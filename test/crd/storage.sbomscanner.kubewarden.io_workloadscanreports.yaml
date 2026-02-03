@@ -1,0 +1,388 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: workloadscanreports.storage.sbomscanner.kubewarden.io
+spec:
+  group: storage.sbomscanner.kubewarden.io
+  names:
+    kind: WorkloadScanReport
+    listKind: WorkloadScanReportList
+    plural: workloadscanreports
+    singular: workloadscanreport
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: WorkloadScanReport represents the vulnerability scan results
+          for a workload's containers.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          containers:
+            description: |-
+              Containers contains the vulnerability reports for each container.
+              Populated at read time by joining with VulnerabilityReport data.
+            items:
+              description: ContainerResult contains the vulnerability scan results
+                for a single container.
+              properties:
+                name:
+                  description: Name is the name of the container (matches ContainerRef.Name).
+                  type: string
+                vulnerabilityReports:
+                  description: |-
+                    VulnerabilityReports contains the vulnerability reports for this container's image.
+                    Multiple reports may exist for multi-arch images (one per platform).
+                  items:
+                    description: WorkloadScanVulnerabilityReport contains vulnerability
+                      report data for a specific platform.
+                    properties:
+                      imageMetadata:
+                        description: ImageMetadata contains the metadata details of
+                          an image.
+                        properties:
+                          digest:
+                            description: Digest specifies the image manifest digest.
+                            type: string
+                          indexDigest:
+                            description: IndexDigest specifies the image index digest
+                              that referenced this manifest. Set only for multi-arch
+                              images.
+                            type: string
+                          platform:
+                            description: Platform specifies the platform of the image.
+                              Example "linux/amd64".
+                            type: string
+                          registry:
+                            description: Registry specifies the name of the Registry
+                              object in the same namespace where the image is stored.
+                            type: string
+                          registryURI:
+                            description: 'RegistryURI specifies the URI of the registry
+                              where the image is stored. Example: "registry-1.docker.io:5000".`'
+                            type: string
+                          repository:
+                            description: 'Repository specifies the repository path
+                              of the image. Example: "kubewarden/sbomscanner".'
+                            type: string
+                          tag:
+                            description: 'Tag specifies the tag of the image. Example:
+                              "latest".'
+                            type: string
+                        required:
+                        - digest
+                        - platform
+                        - registry
+                        - registryURI
+                        - repository
+                        - tag
+                        type: object
+                      report:
+                        description: Report contains metadata about the scanned image
+                          and a list of vulnerability results.
+                        properties:
+                          results:
+                            description: Results per target (e.g., layer, package
+                              type)
+                            items:
+                              description: Result represents scan findings for a specific
+                                target and class of packages
+                              properties:
+                                class:
+                                  description: Class is the classification of the
+                                    target
+                                  type: string
+                                target:
+                                  description: Target is the specific target scanned
+                                  type: string
+                                type:
+                                  description: Type is the language type
+                                  type: string
+                                vulnerabilities:
+                                  description: Vulnerabilities found in this target
+                                  items:
+                                    description: |-
+                                      Vulnerability contains detailed information about a single vulnerability
+                                      found in a package
+                                    properties:
+                                      cve:
+                                        description: CVE identifier
+                                        type: string
+                                      cvss:
+                                        additionalProperties:
+                                          description: CVSS holds Common Vulnerability
+                                            Scoring System data for a vulnerability.
+                                          properties:
+                                            v3score:
+                                              description: V3Score numerical score
+                                              type: string
+                                            v3vector:
+                                              description: V3Vector string (e.g.,
+                                                "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")
+                                              type: string
+                                          required:
+                                          - v3score
+                                          - v3vector
+                                          type: object
+                                        description: CVSS scoring details
+                                        type: object
+                                      cwes:
+                                        description: CWEs with which the CVE is classified
+                                        items:
+                                          type: string
+                                        type: array
+                                      description:
+                                        description: Description of the vulnerability
+                                        type: string
+                                      diffID:
+                                        description: DiffID of the image layer where
+                                          the vulnerability was introduced
+                                        type: string
+                                      fixedVersions:
+                                        description: FixedVersions is the list of
+                                          versions where the vulnerability is fixed
+                                        items:
+                                          type: string
+                                        type: array
+                                      installedVersion:
+                                        description: InstalledVersion of the package
+                                          that was found
+                                        type: string
+                                      packageName:
+                                        description: |-
+                                          PackageName is the name of the vulnerable package
+                                          (empty when Class is "binary")
+                                        type: string
+                                      packagePath:
+                                        description: |-
+                                          PackagePath is the path where the package was found
+                                          (equal to Target when Class is "binary").
+                                          trivy removes the "/" at the beginning of the path
+                                          so we have to restore it.
+                                        type: string
+                                      purl:
+                                        description: PURL (Package URL) identify the
+                                          package uniquely
+                                        type: string
+                                      references:
+                                        description: References contains URLs for
+                                          more information
+                                        items:
+                                          type: string
+                                        type: array
+                                      severity:
+                                        description: Severity rating (e.g., "HIGH",
+                                          "MEDIUM")
+                                        type: string
+                                      suppressed:
+                                        description: |-
+                                          Suppressed identify when vulnerability has
+                                          been suppressed by VEX documents
+                                        type: boolean
+                                      title:
+                                        description: Title is the title of the vulnerability
+                                        type: string
+                                      vexStatus:
+                                        description: VEXStatus information
+                                        properties:
+                                          repository:
+                                            description: Repository providing the
+                                              VEX document
+                                            type: string
+                                          statement:
+                                            description: Statement optionally explain
+                                              statement from the VEX document
+                                            type: string
+                                          status:
+                                            description: VEX status (e.g., "not_affected",
+                                              "fixed", "under_investigation")
+                                            type: string
+                                        required:
+                                        - repository
+                                        - statement
+                                        - status
+                                        type: object
+                                    required:
+                                    - cve
+                                    - diffID
+                                    - installedVersion
+                                    - purl
+                                    - severity
+                                    - suppressed
+                                    type: object
+                                  type: array
+                              required:
+                              - class
+                              - target
+                              - type
+                              - vulnerabilities
+                              type: object
+                            type: array
+                          summary:
+                            description: Summary of vulnerabilities found
+                            properties:
+                              critical:
+                                description: Critical vulnerabilities count
+                                type: integer
+                              high:
+                                description: High vulnerabilities count
+                                type: integer
+                              low:
+                                description: Low vulnerabilities count
+                                type: integer
+                              medium:
+                                description: Medium vulnerabilities count
+                                type: integer
+                              suppressed:
+                                description: Suppressed vulnerabilities count
+                                type: integer
+                              unknown:
+                                description: Unknown vulnerabilities count
+                                type: integer
+                            required:
+                            - critical
+                            - high
+                            - low
+                            - medium
+                            - suppressed
+                            - unknown
+                            type: object
+                        required:
+                        - results
+                        - summary
+                        type: object
+                    required:
+                    - imageMetadata
+                    - report
+                    type: object
+                  type: array
+              required:
+              - name
+              type: object
+            type: array
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec contains the workload container references, written
+              by the reconciler.
+            properties:
+              containers:
+                description: Containers contains the list of containers in the workload
+                  with their image references.
+                items:
+                  description: ContainerRef identifies a container and its image reference
+                    for vulnerability lookup.
+                  properties:
+                    imageRef:
+                      description: ImageRef identifies which VulnerabilityReports
+                        to associate with this container.
+                      properties:
+                        namespace:
+                          description: Namespace is the namespace where the VulnerabilityReports
+                            are stored.
+                          type: string
+                        registry:
+                          description: Registry is the name of the Registry custom
+                            resource.
+                          type: string
+                        repository:
+                          description: Repository is the repository path of the image.
+                          type: string
+                        tag:
+                          description: Tag is the tag of the image.
+                          type: string
+                      required:
+                      - namespace
+                      - registry
+                      - repository
+                      - tag
+                      type: object
+                    name:
+                      description: Name is the name of the container.
+                      type: string
+                  required:
+                  - imageRef
+                  - name
+                  type: object
+                type: array
+            required:
+            - containers
+            type: object
+          status:
+            description: |-
+              Status contains the scan status for each container.
+              Populated at read time.
+            properties:
+              containerStatuses:
+                description: ContainerStatuses contains the scan status for each container.
+                items:
+                  description: ContainerStatus contains the scan status for a single
+                    container.
+                  properties:
+                    name:
+                      description: Name is the name of the container (matches ContainerRef.Name).
+                      type: string
+                    scanStatus:
+                      description: ScanStatus indicates the scan status for this container.
+                      type: string
+                  required:
+                  - name
+                  - scanStatus
+                  type: object
+                type: array
+            type: object
+          summary:
+            description: |-
+              Summary provides aggregated vulnerability counts across all containers.
+              Vulnerabilities are deduplicated per container (same CVE across platforms counts as 1),
+              then summed across all containers.
+              Populated at read time.
+            properties:
+              critical:
+                description: Critical vulnerabilities count
+                type: integer
+              high:
+                description: High vulnerabilities count
+                type: integer
+              low:
+                description: Low vulnerabilities count
+                type: integer
+              medium:
+                description: Medium vulnerabilities count
+                type: integer
+              suppressed:
+                description: Suppressed vulnerabilities count
+                type: integer
+              unknown:
+                description: Unknown vulnerabilities count
+                type: integer
+            required:
+            - critical
+            - high
+            - low
+            - medium
+            - suppressed
+            - unknown
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

@@ -41,8 +41,9 @@ spec:
             description: RegistrySpec defines the desired state of Registry
             properties:
               authSecret:
-                description: AuthSecret is the name of the secret in the same namespace
-                  that contains the credentials to access the registry.
+                description: |-
+                  AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry.
+                  The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
                 type: string
               caBundle:
                 description: CABundle is the CA bundle to use when connecting to the
@@ -92,9 +93,7 @@ spec:
                     tags to scan.
                   properties:
                     matchConditions:
-                      description: |-
-                        MatchConditions filters image tags using CEL expressions.
-                        At most 10 MatchConditions are allowed per repository.
+                      description: MatchConditions filters image tags using CEL expressions.
                       items:
                         description: MatchCondition defines a CEL expression to filter
                           image tags.
@@ -104,6 +103,12 @@ spec:
                               Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                               Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
                             type: string
+                          labels:
+                            additionalProperties:
+                              type: string
+                            description: Labels are key-value pairs that can be used
+                              to organize and categorize match conditions.
+                            type: object
                           name:
                             description: |-
                               Name is an identifier for this match condition, used for strategic merging of MatchConditions,
@@ -114,7 +119,6 @@ spec:
                         - expression
                         - name
                         type: object
-                      maxItems: 10
                       type: array
                     name:
                       description: Name is the repository name.
