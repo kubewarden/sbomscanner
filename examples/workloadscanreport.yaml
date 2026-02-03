@@ -1,0 +1,19 @@
+kind: WorkloadScanReport
+apiVersion: storage.sbomscanner.kubewarden.io/v1alpha1
+metadata:
+  name: test-workloadscanreport
+  namespace: default
+spec:
+  containers:
+    - name: golang
+      imageRef:
+        registry: test-registry
+        namespace: default
+        repository: kubewarden/sbomscanner/test-assets/golang
+        tag: 1.12-alpine
+    - name: nginx
+      imageRef:
+        registry: docker-hub
+        namespace: default
+        repository: library/nginx
+        tag: "1.21"
