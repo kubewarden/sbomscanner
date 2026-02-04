@@ -14,18 +14,21 @@ func Test_filterByTag(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name            string
-		matchConditions []v1alpha1.MatchCondition
-		tag             string
-		want            bool
-		wantErr         bool
+		name    string
+		repo    *v1alpha1.Repository
+		tag     string
+		want    bool
+		wantErr bool
 	}{
 		{
 			name: "matches single condition",
-			matchConditions: []v1alpha1.MatchCondition{
-				{
-					Name:       "no images with -dev tags",
-					Expression: "!tag.matches('$-dev')",
+			repo: &v1alpha1.Repository{
+				Name: "test-repo",
+				MatchConditions: []v1alpha1.MatchCondition{
+					{
+						Name:       "no images with -dev tags",
+						Expression: "!tag.matches('$-dev')",
+					},
 				},
 			},
 			tag:     imageTag,
@@ -33,15 +36,19 @@ func Test_filterByTag(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "matches multiple condition",
-			matchConditions: []v1alpha1.MatchCondition{
-				{
-					Name:       "no images with -dev tags",
-					Expression: "!tag.matches('$-dev')",
-				},
-				{
-					Name:       "images >= 1.27.0",
-					Expression: "semver(tag, true).isGreaterThan(semver('1.27.0'))",
+			name: "matches multiple condition with AND operator",
+			repo: &v1alpha1.Repository{
+				Name:          "test-repo",
+				MatchOperator: v1alpha1.MatchOperatorAnd,
+				MatchConditions: []v1alpha1.MatchCondition{
+					{
+						Name:       "no images with -dev tags",
+						Expression: "!tag.matches('$-dev')",
+					},
+					{
+						Name:       "images >= 1.27.0",
+						Expression: "semver(tag, true).isGreaterThan(semver('1.27.0'))",
+					},
 				},
 			},
 			tag:     imageTag,
@@ -49,15 +56,19 @@ func Test_filterByTag(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "matches only one condition and then fails",
-			matchConditions: []v1alpha1.MatchCondition{
-				{
-					Name:       "no images with -dev tags",
-					Expression: "!tag.matches('$-dev')",
-				},
-				{
-					Name:       "images >= 1.27.2",
-					Expression: "semver(tag, true).isGreaterThan(semver('1.27.2'))",
+			name: "matches only one condition and then fails with AND operator",
+			repo: &v1alpha1.Repository{
+				Name:          "test-repo",
+				MatchOperator: v1alpha1.MatchOperatorAnd,
+				MatchConditions: []v1alpha1.MatchCondition{
+					{
+						Name:       "no images with -dev tags",
+						Expression: "!tag.matches('$-dev')",
+					},
+					{
+						Name:       "images >= 1.27.2",
+						Expression: "semver(tag, true).isGreaterThan(semver('1.27.2'))",
+					},
 				},
 			},
 			tag:     imageTag,
@@ -65,24 +76,97 @@ func Test_filterByTag(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:            "no conditions are provided",
-			matchConditions: []v1alpha1.MatchCondition{},
-			tag:             imageTag,
-			want:            true,
-			wantErr:         false,
+			name: "matches one condition with OR operator",
+			repo: &v1alpha1.Repository{
+				Name:          "test-repo",
+				MatchOperator: v1alpha1.MatchOperatorOr,
+				MatchConditions: []v1alpha1.MatchCondition{
+					{
+						Name:       "no images with -dev tags",
+						Expression: "!tag.matches('$-dev')",
+					},
+					{
+						Name:       "images >= 1.27.2",
+						Expression: "semver(tag, true).isGreaterThan(semver('1.27.2'))",
+					},
+				},
+			},
+			tag:     imageTag,
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "matches no conditions with OR operator",
+			repo: &v1alpha1.Repository{
+				Name:          "test-repo",
+				MatchOperator: v1alpha1.MatchOperatorOr,
+				MatchConditions: []v1alpha1.MatchCondition{
+					{
+						Name:       "images with -dev tags only",
+						Expression: "tag.matches('-dev$')",
+					},
+					{
+						Name:       "images >= 1.27.2",
+						Expression: "semver(tag, true).isGreaterThan(semver('1.27.2'))",
+					},
+				},
+			},
+			tag:     imageTag,
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "no conditions are provided",
+			repo: &v1alpha1.Repository{
+				Name:            "test-repo",
+				MatchConditions: []v1alpha1.MatchCondition{},
+			},
+			tag:     imageTag,
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    "nil repository",
+			repo:    nil,
+			tag:     imageTag,
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "defaults to AND operator when not specified",
+			repo: &v1alpha1.Repository{
+				Name: "test-repo",
+				// Operator not set, should default to AND
+				MatchConditions: []v1alpha1.MatchCondition{
+					{
+						Name:       "no images with -dev tags",
+						Expression: "!tag.matches('$-dev')",
+					},
+					{
+						Name:       "images >= 1.27.2",
+						Expression: "semver(tag, true).isGreaterThan(semver('1.27.2'))",
+					},
+				},
+			},
+			tag:     imageTag,
+			want:    false,
+			wantErr: false,
 		},
 		{
 			name: "wrong expression provided",
-			matchConditions: []v1alpha1.MatchCondition{
-				{
-					Name:       "no images with -dev tags",
-					Expression: "!tag.matches('$-dev')",
-				},
-				{
-					Name: "images >= 1.27.2",
-					// the expression below has a syntax error to force its failure,
-					// it misses the final ')' at the end of the string.
-					Expression: "semver(tag, true).isGreaterThan(semver('1.27.2')",
+			repo: &v1alpha1.Repository{
+				Name: "test-repo",
+				MatchConditions: []v1alpha1.MatchCondition{
+					{
+						Name:       "no images with -dev tags",
+						Expression: "!tag.matches('$-dev')",
+					},
+					{
+						Name: "images >= 1.27.2",
+						// the expression below has a syntax error to force its failure,
+						// it misses the final ')' at the end of the string.
+						Expression: "semver(tag, true).isGreaterThan(semver('1.27.2')",
+					},
 				},
 			},
 			tag:     imageTag,
@@ -90,21 +174,16 @@ func Test_filterByTag(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, gotErr := FilterByTag(tagEvaluator, test.matchConditions, test.tag)
-			if gotErr != nil {
-				if !test.wantErr {
-					t.Errorf("filterByTag() failed: %v", gotErr)
-				}
+			got, gotErr := FilterByTag(tagEvaluator, test.repo, test.tag)
+			if test.wantErr {
+				require.Error(t, gotErr)
 				return
 			}
-			if test.wantErr {
-				t.Fatal("filterByTag() succeeded unexpectedly")
-			}
-			if test.want != got {
-				t.Errorf("filterByTag() = %v, want %v", got, test.want)
-			}
+			require.NoError(t, gotErr)
+			require.Equal(t, test.want, got)
 		})
 	}
 }
