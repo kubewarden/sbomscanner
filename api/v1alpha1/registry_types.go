@@ -7,10 +7,27 @@ import (
 )
 
 const (
+	// AnnotationRescanRequestedKey is set on a Registry to request a rescan.
+	// The value is the timestamp when the rescan was requested.
+	AnnotationRescanRequestedKey = "sbomscanner.kubewarden.io/rescan-requested"
+)
+
+const (
 	// CatalogTypeNoCatalog is used for registries that don't
 	// expose/implement the _catalog endpoint.
 	CatalogTypeNoCatalog       = "NoCatalog"
 	CatalogTypeOCIDistribution = "OCIDistribution"
+)
+
+// MatchOperator defines how multiple match conditions are combined.
+// +kubebuilder:validation:Enum=And;Or
+type MatchOperator string
+
+const (
+	// MatchOperatorAnd requires all conditions to pass.
+	MatchOperatorAnd MatchOperator = "And"
+	// MatchOperatorOr requires at least one condition to pass.
+	MatchOperatorOr MatchOperator = "Or"
 )
 
 // RegistrySpec defines the desired state of Registry
@@ -23,6 +40,7 @@ type RegistrySpec struct {
 	// An empty list means all the repositories found in the registry are going to be scanned.
 	Repositories []Repository `json:"repositories,omitempty"`
 	// AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry.
+	// The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 	AuthSecret string `json:"authSecret,omitempty"`
 	// ScanInterval is the interval at which the registry is scanned.
 	// If not set, automatic scanning is disabled.
@@ -55,20 +73,26 @@ type Repository struct {
 	// Name is the repository name.
 	Name string `json:"name"`
 	// MatchConditions filters image tags using CEL expressions.
-	// At most 10 MatchConditions are allowed per repository.
-	// +kubebuilder:validation:MaxItems=10
 	MatchConditions []MatchCondition `json:"matchConditions,omitempty"`
+	// MatchOperator specifies how this condition is combined with other conditions.
+	// When set to "And" (default), all conditions must pass for the filter to match.
+	// When set to "Or", at least one condition must pass for the filter to match.
+	// +kubebuilder:default=And
+	// +optional
+	MatchOperator MatchOperator `json:"matchOperator,omitempty"`
 }
 
 // MatchCondition defines a CEL expression to filter image tags.
 type MatchCondition struct {
 	// Name is an identifier for this match condition, used for strategic merging of MatchConditions,
-	// as well as providing an identifier for logging purposes. A good name should be descriptive of
-	// the associated expression.
+	// as well as providing an identifier for logging purposes.
+	// A good name should be descriptive of the associated expression.
 	Name string `json:"name"`
 	// Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
 	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
 	Expression string `json:"expression"`
+	// Labels are key-value pairs that can be used to organize and categorize match conditions.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // Platform describes the platform which the image in the manifest runs on.
@@ -93,12 +117,12 @@ func (p *Platform) String() string {
 	return platform
 }
 
-// GetMatchConditionsByRepository returns MatchConditions for the given repository.
-// Returns an empty list if the repository doesn't exist or has no MatchConditions.
-func (r *Registry) GetMatchConditionsByRepository(repo string) []MatchCondition {
-	for _, repository := range r.Spec.Repositories {
-		if repository.Name == repo {
-			return repository.MatchConditions
+// GetRepository returns the Repository configuration for the given repository name.
+// Returns nil if the repository doesn't exist.
+func (r *Registry) GetRepository(name string) *Repository {
+	for i := range r.Spec.Repositories {
+		if r.Spec.Repositories[i].Name == name {
+			return &r.Spec.Repositories[i]
 		}
 	}
 	return nil
