@@ -46,3 +46,17 @@ func TransformStripVulnerabilityReport(obj interface{}) (interface{}, error) {
 
 	return cache.TransformStripManagedFields()(vulnerabilityReport)
 }
+
+// TransformStripWorkloadScanReport strips the WorkloadScanReport object of its status.
+// This is useful for caching scenarios where the Reports data is not needed, reducing memory usage.
+func TransformStripWorkloadScanReport(object interface{}) (interface{}, error) {
+	report, ok := object.(*storagev1alpha1.WorkloadScanReport)
+	if !ok {
+		return object, fmt.Errorf("expected WorkloadScanReport object, got %T", object)
+	}
+
+	report.Containers = nil
+	report.Status = storagev1alpha1.WorkloadScanReportStatus{}
+
+	return cache.TransformStripManagedFields()(report)
+}
