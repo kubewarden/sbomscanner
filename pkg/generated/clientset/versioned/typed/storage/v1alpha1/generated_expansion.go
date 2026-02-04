@@ -7,3 +7,5 @@ type ImageExpansion interface{}
 type SBOMExpansion interface{}
 
 type VulnerabilityReportExpansion interface{}
+
+type WorkloadScanReportExpansion interface{}

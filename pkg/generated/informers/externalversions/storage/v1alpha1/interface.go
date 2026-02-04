@@ -14,6 +14,8 @@ type Interface interface {
 	SBOMs() SBOMInformer
 	// VulnerabilityReports returns a VulnerabilityReportInformer.
 	VulnerabilityReports() VulnerabilityReportInformer
+	// WorkloadScanReports returns a WorkloadScanReportInformer.
+	WorkloadScanReports() WorkloadScanReportInformer
 }
 
 type version struct {
@@ -40,4 +42,9 @@ func (v *version) SBOMs() SBOMInformer {
 // VulnerabilityReports returns a VulnerabilityReportInformer.
 func (v *version) VulnerabilityReports() VulnerabilityReportInformer {
 	return &vulnerabilityReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// WorkloadScanReports returns a WorkloadScanReportInformer.
+func (v *version) WorkloadScanReports() WorkloadScanReportInformer {
+	return &workloadScanReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

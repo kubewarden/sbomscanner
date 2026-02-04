@@ -1,17 +1,15 @@
-package vulnerabilityreport
+package v1alpha1
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 )
 
-func TestComputeSummary(t *testing.T) {
-	results := []storagev1alpha1.Result{
+func TestNewSummaryFromResults(t *testing.T) {
+	results := []Result{
 		{
-			Vulnerabilities: []storagev1alpha1.Vulnerability{
+			Vulnerabilities: []Vulnerability{
 				{Severity: "CRITICAL", Suppressed: false},
 				{Severity: "HIGH", Suppressed: false},
 				{Severity: "MEDIUM", Suppressed: false},
@@ -21,16 +19,16 @@ func TestComputeSummary(t *testing.T) {
 			},
 		},
 		{
-			Vulnerabilities: []storagev1alpha1.Vulnerability{
+			Vulnerabilities: []Vulnerability{
 				{Severity: "CRITICAL", Suppressed: false},
 				{Severity: "MEDIUM", Suppressed: true}, // another suppressed
 			},
 		},
 	}
 
-	summary := ComputeSummary(results)
+	summary := NewSummaryFromResults(results)
 
-	expected := storagev1alpha1.Summary{
+	expected := Summary{
 		Critical:   2,
 		High:       1,
 		Medium:     1,

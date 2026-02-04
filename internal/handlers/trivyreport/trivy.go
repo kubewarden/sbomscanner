@@ -1,4 +1,4 @@
-package vulnerabilityreport
+package trivyreport
 
 import (
 	"bytes"
@@ -15,9 +15,9 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 )
 
-// NewFromTrivyResults converts the results obtained by the Trivy scan,
+// NewResultsFromTrivyReport converts the results obtained by the Trivy scan,
 // into the SBOMscanner VulnerabilityReport format.
-func NewFromTrivyResults(reportResults trivyTypes.Report) ([]storagev1alpha1.Result, error) {
+func NewResultsFromTrivyReport(reportResults trivyTypes.Report) ([]storagev1alpha1.Result, error) {
 	results := []storagev1alpha1.Result{}
 
 	for _, trivyRes := range reportResults.Results {

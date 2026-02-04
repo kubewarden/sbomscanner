@@ -2,10 +2,7 @@ package v1alpha1
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"slices"
-	"time"
 
 	"github.com/go-logr/logr"
 
@@ -15,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
-	"github.com/kubewarden/sbomscanner/internal/cel"
 )
 
 const (
@@ -108,87 +104,17 @@ func (v *RegistryCustomValidator) ValidateDelete(_ context.Context, registry *v1
 	return nil, nil
 }
 
-func validateScanInterval(registry *v1alpha1.Registry) *field.Error {
-	if registry.Spec.ScanInterval == nil {
-		return nil
-	}
-
-	if registry.Spec.ScanInterval.Duration < time.Minute {
-		fieldPath := field.NewPath("spec").Child("scanInterval")
-		return field.Invalid(fieldPath, registry.Spec.ScanInterval, "scanInterval must be at least 1 minute")
-	}
-
-	return nil
-}
-
-func validateCatalogType(registry *v1alpha1.Registry) *field.Error {
-	// CatalogType is set to default in the defaulter.
-	if registry.Spec.CatalogType == "" {
-		return nil
-	}
-
-	if !slices.Contains(availableCatalogTypes, registry.Spec.CatalogType) {
-		fieldPath := field.NewPath("spec").Child("catalogType")
-		return field.Invalid(fieldPath, registry.Spec.CatalogType, fmt.Sprintf("%s is not a valid CatalogType", registry.Spec.CatalogType))
-	}
-
-	return nil
-}
-
-func validateRepositories(registry *v1alpha1.Registry) field.ErrorList {
-	var allErrs field.ErrorList
-
-	fieldPath := field.NewPath("spec").Child("repositories")
-	if registry.Spec.CatalogType == v1alpha1.CatalogTypeNoCatalog && len(registry.Spec.Repositories) == 0 {
-		allErrs = append(allErrs, field.Invalid(fieldPath, registry.Spec.Repositories, "repositories must be explicitly provided when catalogType is NoCatalog"))
-	}
-
-	tagEvaluator, err := cel.NewTagEvaluator()
-	if err != nil {
-		allErrs = append(allErrs, field.InternalError(fieldPath, errors.New("failed to create CEL tag evaluator")))
-		return allErrs
-	}
-
-	for i, repo := range registry.Spec.Repositories {
-		for j, mc := range repo.MatchConditions {
-			if err := tagEvaluator.Validate(mc.Expression); err != nil {
-				allErrs = append(allErrs, field.Invalid(fieldPath.Index(i).Child("matchConditions").Index(j).Child("expression"), mc.Expression, err.Error()))
-			}
-		}
-	}
-
-	return allErrs
-}
-
-func validatePlatforms(registry *v1alpha1.Registry) field.ErrorList {
-	var allErrs field.ErrorList
-
-	if registry.Spec.Platforms == nil {
-		return allErrs
-	}
-
-	fieldPath := field.NewPath("spec").Child("platforms")
-
-	for i, platform := range registry.Spec.Platforms {
-		if err := validatePlatform(platform); err != nil {
-			allErrs = append(allErrs, field.Invalid(fieldPath.Index(i), platform, err.Error()))
-		}
-	}
-
-	return allErrs
-}
-
 func validateRegistry(registry *v1alpha1.Registry) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if err := validateScanInterval(registry); err != nil {
+	if err := validateScanInterval(registry.Spec.ScanInterval); err != nil {
 		allErrs = append(allErrs, err)
 	}
-	if err := validateCatalogType(registry); err != nil {
+	if err := validateCatalogType(registry.Spec.CatalogType); err != nil {
 		allErrs = append(allErrs, err)
 	}
-	allErrs = append(allErrs, validateRepositories(registry)...)
-	allErrs = append(allErrs, validatePlatforms(registry)...)
+	allErrs = append(allErrs, validateRepositories(registry.Spec.Repositories, registry.Spec.CatalogType)...)
+	allErrs = append(allErrs, validatePlatforms(registry.Spec.Platforms)...)
 
 	return allErrs
 }
