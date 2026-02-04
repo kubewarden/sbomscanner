@@ -110,11 +110,11 @@ spec:
 
 Here's a list of registries that do NOT support `_catalog` (or intentionally disable it):
 
-* Amazon ECR
+- Amazon ECR
 
-* Google Container Registry (GCR)
+- Google Container Registry (GCR)
 
-* GitHub Container Registry (GHCR)
+- GitHub Container Registry (GHCR)
 
 ## 4. Filtering By Platforms
 
@@ -140,6 +140,7 @@ spec:
 To configure multiple platforms, you can list them this way:
 
 ```yaml
+
 ...
 spec:
   uri: dev-registry.default.svc.cluster.local:5000
@@ -199,6 +200,34 @@ spec:
 
 This way the user can scan only for a defined range of image versions (from `v1.0.0` to `v1.1.0`).
 
+By default, all conditions must pass for a tag to be included (AND logic).
+
+### Using OR Logic
+
+If you want a tag to match when at least one condition passes, set the `matchOperator` field to `Or`:
+
+```yaml
+apiVersion: sbomscanner.kubewarden.io/v1alpha1
+kind: Registry
+metadata:
+  name: my-first-registry
+  namespace: default
+spec:
+  uri: dev-registry.default.svc.cluster.local:5000
+  repositories:
+    - name: kubewarden/sbomscanner/test-assets/test-image
+      matchOperator: Or
+      matchConditions:
+        - name: "latest tag"
+          expression: "tag == 'latest'"
+        - name: "production tags"
+          expression: "tag.endsWith('-prod')"
+        - name: "stable tags"
+          expression: "tag.endsWith('-stable')"
+```
+
+This configuration scans tags that are either `latest`, end with `-prod`, or end with `-stable`.
+
 ### Common Expression Language
 
 The Common Expression Language ([CEL](https://github.com/google/cel-go)) is used in the Kubernetes API to declare validation rules, policy rules, and other constraints or conditions.
@@ -211,20 +240,20 @@ Here's the most common CEL expressions that can be used for tag filtering:
 
 #### String and Regex
 
-| function | example | description |
-| --- | --- | ---|
-| `startsWith` | `tag.startsWith('v1')` | Tags that starts with `v1` prefix. |
-| `endsWith` | `tag.endsWith('-prod')` | Tags that ends with `-prod` suffix. |
-| `matches` | `tag.matches('^v[01]\.*')` | Tags that matches the regex `^v[01]\.*`. |
+| function     | example                    | description                              |
+| ------------ | -------------------------- | ---------------------------------------- |
+| `startsWith` | `tag.startsWith('v1')`     | Tags that starts with `v1` prefix.       |
+| `endsWith`   | `tag.endsWith('-prod')`    | Tags that ends with `-prod` suffix.      |
+| `matches`    | `tag.matches('^v[01]\.*')` | Tags that matches the regex `^v[01]\.*`. |
 
 Reference: https://github.com/google/cel-spec/blob/master/doc/langdef.md#string-functions
 
 #### Semver
 
-| function | example | description |
-| --- | --- | ---|
+| function        | example                                                   | description                                 |
+| --------------- | --------------------------------------------------------- | ------------------------------------------- |
 | `isGreaterThan` | `semver(tag, true).isGreaterThan(semver('v1.1.0', true))` | Tags that are greater than a given version. |
-| `isLessThan` | `semver(tag, true).isLessThan(semver('v1.1.0', true))` | Tags that are less than a given version. |
+| `isLessThan`    | `semver(tag, true).isLessThan(semver('v1.1.0', true))`    | Tags that are less than a given version.    |
 
 Reference: https://kubernetes.io/docs/reference/using-api/cel/#kubernetes-semver-library
 
