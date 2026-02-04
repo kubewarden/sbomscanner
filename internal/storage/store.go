@@ -3,7 +3,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,39 +12,25 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 	"github.com/stephenafamo/bob/dialect/psql"
-	"github.com/stephenafamo/bob/dialect/psql/dm"
-	"github.com/stephenafamo/bob/dialect/psql/im"
 	"github.com/stephenafamo/bob/dialect/psql/sm"
-	"github.com/stephenafamo/bob/dialect/psql/um"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/conversion"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/storage"
 )
 
-// objectSchema is the schema of an object in the database.
-// NOTE: the struct fields must be exported in order to work.
-type objectSchema struct {
-	ID        int64  `db:"id"`
-	Name      string `db:"name"`
-	Namespace string `db:"namespace"`
-	Object    []byte `db:"object"`
-}
-
 var _ storage.Interface = &store{}
 
 type store struct {
 	db          *pgxpool.Pool
+	repository  repository.Repository
 	broadcaster *natsBroadcaster
-	table       string
 	newFunc     func() runtime.Object
 	newListFunc func() runtime.Object
 	logger      *slog.Logger
@@ -99,11 +84,6 @@ func (s *store) GetCurrentResourceVersion(ctx context.Context) (uint64, error) {
 func (s *store) Create(ctx context.Context, key string, obj, out runtime.Object, _ uint64) error {
 	s.logger.DebugContext(ctx, "Creating object", "key", key, "object", obj)
 
-	name, namespace := extractNameAndNamespace(key)
-	if name == "" || namespace == "" {
-		return storage.NewInternalError(fmt.Errorf("invalid key: %s", key))
-	}
-
 	rv, err := s.nextResourceVersion(ctx)
 	if err != nil {
 		return storage.NewInternalError(err)
@@ -113,31 +93,29 @@ func (s *store) Create(ctx context.Context, key string, obj, out runtime.Object,
 		return storage.NewInternalError(err)
 	}
 
-	bytes, err := json.Marshal(obj)
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
+		return storage.NewInternalError(fmt.Errorf("failed to begin transaction: %w", err))
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			s.logger.ErrorContext(ctx, "failed to rollback transaction", "error", err)
+		}
+	}()
+
+	if err := s.repository.Create(ctx, tx, obj); err != nil {
+		if errors.Is(err, repository.ErrAlreadyExists) {
+			return storage.NewKeyExistsError(key, 0)
+		}
 		return storage.NewInternalError(err)
 	}
 
-	query, args, err := psql.Insert(
-		im.Into(psql.Quote(s.table)),
-		im.Values(psql.Arg(name), psql.Arg(namespace), psql.Arg(bytes)),
-		im.OnConflict().DoNothing(),
-	).Build(ctx)
-	if err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return storage.NewInternalError(err)
-	}
-
-	result, err := s.db.Exec(ctx, query, args...)
-	if err != nil {
-		return storage.NewInternalError(err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return storage.NewKeyExistsError(key, 0)
 	}
 
 	if err := s.broadcaster.Action(watch.Added, obj); err != nil {
-		return storage.NewInternalError(err)
+		s.logger.ErrorContext(ctx, "failed to broadcast add action", "error", err)
 	}
 
 	if out != nil {
@@ -170,49 +148,37 @@ func (s *store) Delete(
 		return storage.NewInternalError(err)
 	}
 	defer func() {
-		if err = tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			s.logger.ErrorContext(ctx, "failed to rollback transaction", "error", err)
 		}
 	}()
 
-	query, args, err := psql.Delete(
-		dm.From(psql.Quote(s.table)),
-		dm.Where(psql.Quote("name").EQ(psql.Arg(name))),
-		dm.Where(psql.Quote("namespace").EQ(psql.Arg(namespace))),
-		dm.Returning("name", "namespace", "object"),
-	).Build(ctx)
-
-	var objectRecord objectSchema
-	err = tx.QueryRow(ctx, query, args...).Scan(
-		&objectRecord.Name,
-		&objectRecord.Namespace,
-		&objectRecord.Object,
-	)
+	obj, err := s.repository.Delete(ctx, tx, name, namespace)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return storage.NewKeyNotFoundError(key, 0)
 		}
 		return storage.NewInternalError(err)
 	}
 
-	if err = json.Unmarshal(objectRecord.Object, out); err != nil {
-		return storage.NewInternalError(err)
-	}
-
-	if err = preconditions.Check(key, out); err != nil {
+	if err := preconditions.Check(key, obj); err != nil {
 		return err
 	}
 
-	if err = validateDeletion(ctx, out); err != nil {
+	if err := validateDeletion(ctx, obj); err != nil {
 		return err
 	}
 
-	if err = tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return storage.NewInternalError(err)
 	}
 
-	if err = s.broadcaster.Action(watch.Deleted, out); err != nil {
-		return storage.NewInternalError(err)
+	if err := s.broadcaster.Action(watch.Deleted, obj); err != nil {
+		s.logger.ErrorContext(ctx, "failed to broadcast delete action", "error", err)
+	}
+
+	if err := setValue(obj, out); err != nil {
+		return err
 	}
 
 	return nil
@@ -237,12 +203,14 @@ func (s *store) Watch(ctx context.Context, key string, opts storage.ListOptions)
 		opts.ProgressNotify,
 		"watchList",
 		opts.SendInitialEvents,
+		"allowWatchBookmarks",
+		opts.Predicate.AllowWatchBookmarks,
 	)
 
 	// WatchList: streaming list as watch events
 	// When SendInitialEvents is true, we send all existing items as ADDED events,
 	// followed by a BOOKMARK to signal initial list completion.
-	if opts.SendInitialEvents != nil && *opts.SendInitialEvents {
+	if opts.SendInitialEvents != nil && *opts.SendInitialEvents && opts.Predicate.AllowWatchBookmarks {
 		return s.watchList(ctx, key, opts)
 	}
 
@@ -328,7 +296,6 @@ func (s *store) watchList(ctx context.Context, key string, opts storage.ListOpti
 		})
 	}
 
-	// Create bookmark with the annotation that signals initial events are done
 	bookmarkObj := s.newFunc()
 	rv, err := strconv.ParseUint(listMeta.GetResourceVersion(), 10, 64)
 	if err != nil {
@@ -384,35 +351,21 @@ func (s *store) Get(ctx context.Context, key string, opts storage.GetOptions, ob
 		return storage.NewInternalError(fmt.Errorf("unable to set objPtr zero value: %w", err))
 	}
 
-	query, args, err := psql.Select(
-		sm.Columns("name", "namespace", "object"),
-		sm.From(psql.Quote(s.table)),
-		sm.Where(psql.Quote("name").EQ(psql.Arg(name))),
-		sm.Where(psql.Quote("namespace").EQ(psql.Arg(namespace))),
-	).Build(ctx)
+	obj, err := s.repository.Get(ctx, s.db, name, namespace)
 	if err != nil {
-		return storage.NewInternalError(err)
-	}
-
-	var objectRecord objectSchema
-	err = s.db.QueryRow(ctx, query, args...).Scan(
-		&objectRecord.Name,
-		&objectRecord.Namespace,
-		&objectRecord.Object,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNotFound) {
 			if opts.IgnoreNotFound {
 				return nil
 			}
+
 			return storage.NewKeyNotFoundError(key, 0)
 		}
+
 		return storage.NewInternalError(err)
 	}
 
-	err = json.Unmarshal(objectRecord.Object, objPtr)
-	if err != nil {
-		return storage.NewInternalError(err)
+	if err := setValue(obj, objPtr); err != nil {
+		return err
 	}
 
 	return nil
@@ -422,8 +375,6 @@ func (s *store) Get(ctx context.Context, key string, opts storage.GetOptions, ob
 // that satisfies runtime.IsList definition).
 // The returned contents may be delayed, but it is guaranteed that they will
 // match 'opts.ResourceVersion' according 'opts.ResourceVersionMatch'.
-//
-//nolint:gocognit,funlen // This function can't be easily split into smaller parts.
 func (s *store) GetList(ctx context.Context, key string, opts storage.ListOptions, listObj runtime.Object) error {
 	s.logger.DebugContext(ctx, "Getting list",
 		"key", key,
@@ -435,155 +386,40 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 	)
 
 	// Parse the requested resource version to determine list semantics.
-	requestedRV, err := s.Versioner().ParseResourceVersion(opts.ResourceVersion)
+	_, err := s.Versioner().ParseResourceVersion(opts.ResourceVersion)
 	if err != nil {
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid resource version: %v", err))
 	}
 
-	var continueToken int64
-	if opts.Predicate.Continue != "" {
-		var err error
-		continueToken, err = strconv.ParseInt(opts.Predicate.Continue, 10, 64)
-		if err != nil {
-			return storage.NewInternalError(fmt.Errorf("invalid continue token: %w", err))
-		}
-	}
-
-	queryBuilder := psql.Select(
-		sm.From(psql.Quote(s.table)),
-		sm.Columns("id", "name", "namespace", "object"),
-		sm.OrderBy(psql.Quote("id")),
-	)
-
 	namespace := extractNamespace(key)
-	if namespace != "" {
-		queryBuilder.Apply(
-			sm.Where(psql.Quote("namespace").EQ(psql.Arg(namespace))),
-		)
-	}
-
-	if continueToken > 0 {
-		queryBuilder.Apply(
-			sm.Where(psql.Quote("id").GT(psql.Arg(continueToken))),
-		)
-	}
-
-	// Apply resource version filtering when a specific RV is requested.
-	// Skip this during WatchList since initial events will naturally have RVs
-	// lower than the list RV.
-	//
-	// NOTE: ResourceVersionMatch is ignored. This storage always uses
-	// NotOlderThan semantics, even if Exact is specified.
-	// This matches legacy apiserver behavior from before ResourceVersionMatch
-	// was introduced in Kubernetes 1.19.
-	// True Exact semantics would require MVCC snapshots which PostgreSQL
-	// sequences don't provide.
-	if requestedRV != 0 && (opts.SendInitialEvents == nil || !*opts.SendInitialEvents) {
-		queryBuilder.Apply(
-			sm.Where(psql.Raw("(object->'metadata'->>'resourceVersion')::bigint >= ?", requestedRV)),
-		)
-	}
-
-	// Fetch one extra row to determine if there are more results.
-	// This is necessary when using label or field selectors because the SQL
-	// filtering happens at query time, so we can't predict how many rows match.
-	// Without the extra row, we'd return a continue token whenever count equals
-	// limit, which could lead to an empty final page.
-	if opts.Predicate.Limit > 0 {
-		queryBuilder.Apply(sm.Limit(opts.Predicate.Limit + 1))
-	}
-
-	if opts.Predicate.Label != nil {
-		labelSelectorExpressions, err := buildLabelSelectorExpressions(opts.Predicate.Label)
-		if err != nil {
-			return storage.NewInternalError(err)
-		}
-		for _, expression := range labelSelectorExpressions {
-			queryBuilder.Apply(sm.Where(expression))
-		}
-	}
-
-	if opts.Predicate.Field != nil {
-		fieldSelectorExpressions, err := buildFieldSelectorExpressions(opts.Predicate.Field)
-		if err != nil {
-			return storage.NewInternalError(err)
-		}
-		for _, expression := range fieldSelectorExpressions {
-			queryBuilder.Apply(sm.Where(expression))
-		}
-	}
-
-	query, args, err := queryBuilder.Build(ctx)
+	items, continueToken, err := s.repository.List(ctx, s.db, namespace, opts)
 	if err != nil {
 		return storage.NewInternalError(err)
 	}
-
-	rows, err := s.db.Query(ctx, query, args...)
-	if err != nil {
-		return storage.NewInternalError(err)
-	}
-	defer rows.Close()
 
 	itemsValue, err := getItems(listObj)
 	if err != nil {
 		return err
 	}
 
-	var lastID int64
-	var count int64
-	var hasMore bool
-	for rows.Next() {
-		if opts.Predicate.Limit > 0 && count == opts.Predicate.Limit {
-			hasMore = true
-			break
-		}
-
-		var objectRecord objectSchema
-		err = rows.Scan(
-			&objectRecord.ID,
-			&objectRecord.Name,
-			&objectRecord.Namespace,
-			&objectRecord.Object,
-		)
-		if err != nil {
-			return storage.NewInternalError(err)
-		}
-
-		obj := s.newFunc()
-		if err = json.Unmarshal(objectRecord.Object, obj); err != nil {
-			return storage.NewInternalError(err)
-		}
-
-		// Track last lastID for continue token
-		lastID = objectRecord.ID
-		count++
-
-		// Append the object to the items slice
-		itemsValue.Set(reflect.Append(itemsValue, reflect.ValueOf(obj).Elem()))
-	}
-
-	if err = rows.Err(); err != nil {
-		return storage.NewInternalError(err)
-	}
-
-	// Generate continue token if we hit the limit
-	var nextContinueToken string
-	if hasMore {
-		nextContinueToken = strconv.FormatInt(lastID, 10)
+	for _, item := range items {
+		itemsValue.Set(reflect.Append(itemsValue, reflect.ValueOf(item).Elem()))
 	}
 
 	// Determine the list's resource version.
 	// For RV "" or "0", we generate a new RV to mark this point in time.
 	// This ensures any subsequent watch from this RV won't miss events.
-	listRV := requestedRV
-	if requestedRV == 0 {
+	var listRV uint64
+	if opts.ResourceVersion == "" || opts.ResourceVersion == "0" {
 		listRV, err = s.nextResourceVersion(ctx)
 		if err != nil {
 			return storage.NewInternalError(err)
 		}
+	} else {
+		listRV, _ = strconv.ParseUint(opts.ResourceVersion, 10, 64)
 	}
 
-	if err := s.Versioner().UpdateList(listObj, listRV, nextContinueToken, nil); err != nil {
+	if err := s.Versioner().UpdateList(listObj, listRV, continueToken, nil); err != nil {
 		return storage.NewInternalError(err)
 	}
 
@@ -625,7 +461,7 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 //
 // )
 //
-//nolint:gocognit,funlen // This functions can't be easily split into smaller parts.
+//nolint:gocognit // This functions can't be easily split into smaller parts.
 func (s *store) GuaranteedUpdate(
 	ctx context.Context,
 	key string,
@@ -647,55 +483,32 @@ func (s *store) GuaranteedUpdate(
 		return storage.NewInternalError(err)
 	}
 	defer func() {
-		if err = tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			s.logger.ErrorContext(ctx, "failed to rollback transaction", "error", err)
 		}
 	}()
 
 	for {
-		query, args, err := psql.Select(
-			sm.Columns("name", "namespace", "object"),
-			sm.From(psql.Quote(s.table)),
-			sm.Where(psql.Quote("name").EQ(psql.Arg(name))),
-			sm.Where(psql.Quote("namespace").EQ(psql.Arg(namespace))),
-		).Build(ctx)
-		if err != nil {
-			return storage.NewInternalError(err)
-		}
-
-		if err = runtime.SetZeroValue(destination); err != nil {
+		if err := runtime.SetZeroValue(destination); err != nil {
 			return storage.NewInternalError(fmt.Errorf("unable to set destination to zero value: %w", err))
 		}
 
-		var objectRecord objectSchema
-		err = tx.QueryRow(ctx, query, args...).Scan(
-			&objectRecord.Name,
-			&objectRecord.Namespace,
-			&objectRecord.Object,
-		)
+		obj, err := s.repository.Get(ctx, tx, name, namespace)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, repository.ErrNotFound) {
 				if !ignoreNotFound {
 					return storage.NewKeyNotFoundError(key, 0)
 				}
 				return nil
 			}
-			return err
-		}
-
-		obj := s.newFunc()
-		err = json.Unmarshal(objectRecord.Object, obj)
-		if err != nil {
 			return storage.NewInternalError(err)
 		}
 
-		err = preconditions.Check(key, obj)
-		if err != nil {
+		if err := preconditions.Check(key, obj); err != nil {
 			return err
 		}
 
-		var updatedObj runtime.Object
-		updatedObj, _, err = tryUpdate(obj, storage.ResponseMeta{})
+		updatedObj, _, err := tryUpdate(obj, storage.ResponseMeta{})
 		if err != nil {
 			if apierrors.IsConflict(err) && strings.Contains(err.Error(), registry.OptimisticLockErrorMsg) {
 				s.logger.DebugContext(ctx, "Optimistic lock conflict", "key", key, "error", err)
@@ -715,36 +528,22 @@ func (s *store) GuaranteedUpdate(
 			return storage.NewInternalError(err)
 		}
 
-		var bytes []byte
-		bytes, err = json.Marshal(updatedObj)
-		if err != nil {
+		if err := s.repository.Update(ctx, tx, name, namespace, updatedObj); err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return storage.NewKeyNotFoundError(key, 0)
+			}
 			return storage.NewInternalError(err)
 		}
 
-		updateQuery, updateArgs, err := psql.Update(
-			um.Table(psql.Quote(s.table)),
-			um.SetCol("object").To(psql.Arg(bytes)),
-			um.Where(psql.Quote("name").EQ(psql.Arg(name))),
-			um.Where(psql.Quote("namespace").EQ(psql.Arg(namespace))),
-		).Build(ctx)
-		if err != nil {
+		if err := tx.Commit(ctx); err != nil {
 			return storage.NewInternalError(err)
 		}
 
-		_, err = tx.Exec(ctx, updateQuery, updateArgs...)
-		if err != nil {
-			return storage.NewInternalError(err)
+		if err := s.broadcaster.Action(watch.Modified, updatedObj); err != nil {
+			s.logger.ErrorContext(ctx, "failed to broadcast modified action", "error", err)
 		}
 
-		if err = tx.Commit(ctx); err != nil {
-			return storage.NewInternalError(err)
-		}
-
-		if err = s.broadcaster.Action(watch.Modified, updatedObj); err != nil {
-			return storage.NewInternalError(err)
-		}
-
-		if err = setValue(updatedObj, destination); err != nil {
+		if err := setValue(updatedObj, destination); err != nil {
 			return err
 		}
 
@@ -760,24 +559,7 @@ func (s *store) Count(key string) (int64, error) {
 
 	namespace := extractNamespace(key)
 
-	queryBuilder := psql.Select(
-		sm.Columns("COUNT(*)"),
-		sm.From(psql.Quote(s.table)),
-	)
-
-	if namespace != "" {
-		queryBuilder.Apply(
-			sm.Where(psql.Quote("namespace").EQ(psql.Arg(namespace))),
-		)
-	}
-
-	query, args, err := queryBuilder.Build(context.Background())
-	if err != nil {
-		return 0, storage.NewInternalError(err)
-	}
-
-	var count int64
-	err = s.db.QueryRow(context.Background(), query, args...).Scan(&count)
+	count, err := s.repository.Count(context.Background(), s.db, namespace)
 	if err != nil {
 		return 0, storage.NewInternalError(err)
 	}
@@ -892,67 +674,4 @@ func getItems(listObj runtime.Object) (reflect.Value, error) {
 	}
 
 	return itemsValue, nil
-}
-
-// buildLabelSelectorExpressions builds SQL expressions from the provided k8s label selector
-// using PostgreSQL JSONB operators.
-func buildLabelSelectorExpressions(labelSelector labels.Selector) ([]psql.Expression, error) {
-	var expressions []psql.Expression
-	requirements, selectable := labelSelector.Requirements()
-	if !selectable {
-		return expressions, nil
-	}
-
-	for _, req := range requirements {
-		var expression psql.Expression
-
-		switch req.Operator() {
-		case selection.Equals, selection.DoubleEquals:
-			expression = psql.Raw("object->'metadata'->'labels'->>?", req.Key()).EQ(psql.Arg(req.Values().List()[0]))
-		case selection.NotEquals:
-			expression = psql.Raw("object->'metadata'->'labels'->>?", req.Key()).NE(psql.Arg(req.Values().List()[0]))
-		case selection.In:
-			expression = psql.Raw("object->'metadata'->'labels'->>? = ANY(?)", req.Key(), req.Values().List())
-		case selection.NotIn:
-			expression = psql.Raw("object->'metadata'->'labels'->>? != ALL(?)", req.Key(), req.Values().List())
-		case selection.Exists:
-			expression = psql.Raw("jsonb_exists(object->'metadata'->'labels', ?)", req.Key())
-		case selection.DoesNotExist:
-			expression = psql.Not(psql.Raw("jsonb_exists(object->'metadata'->'labels', ?)", req.Key()))
-		case selection.GreaterThan, selection.LessThan:
-			return nil, fmt.Errorf("unsupported label selector operator: %s", req.Operator())
-		}
-
-		expressions = append(expressions, expression)
-	}
-
-	return expressions, nil
-}
-
-// buildFieldSelectorExpressions builds SQL expressions from the provided k8s field selector
-// using PostgreSQL JSONB operators.
-func buildFieldSelectorExpressions(fieldSelector fields.Selector) ([]psql.Expression, error) {
-	var expressions []psql.Expression
-	requirements := fieldSelector.Requirements()
-
-	for _, req := range requirements {
-		// Convert dot notation to JSON path
-		// "metadata.name" -> {metadata,name}
-		pathParts := strings.Split(req.Field, ".")
-		jsonPath := "{" + strings.Join(pathParts, ",") + "}"
-
-		var expression psql.Expression
-
-		switch req.Operator {
-		case selection.Equals, selection.DoubleEquals:
-			expression = psql.Raw("object #>> ?", jsonPath).EQ(psql.Arg(req.Value))
-		case selection.NotEquals:
-			expression = psql.Raw("object #>> ?", jsonPath).NE(psql.Arg(req.Value))
-		case selection.In, selection.NotIn, selection.Exists, selection.DoesNotExist, selection.GreaterThan, selection.LessThan:
-			return nil, fmt.Errorf("unsupported field selector operator: %v", req.Operator)
-		}
-
-		expressions = append(expressions, expression)
-	}
-	return expressions, nil
 }
