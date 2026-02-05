@@ -254,8 +254,7 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		}()
 	}
 
-	app := trivyCommands.NewApp()
-	app.SetArgs([]string{
+	args := []string{
 		"image",
 		"--skip-version-check",
 		"--disable-telemetry",
@@ -266,13 +265,41 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		// See: https://github.com/aquasecurity/trivy/discussions/9666
 		"--java-db-repository", h.trivyJavaDBRepository,
 		"--output", sbomFile.Name(),
-		fmt.Sprintf(
-			"%s/%s@%s",
-			image.GetImageMetadata().RegistryURI,
-			image.GetImageMetadata().Repository,
-			image.GetImageMetadata().Digest,
-		),
-	})
+	}
+
+	// Handle insecure connection
+	if registry.Spec.Insecure {
+		args = append(args, "--insecure")
+	} else if registry.Spec.CABundle != "" {
+		// Write CA bundle to a temp file
+		caBundleFile, err := os.CreateTemp(h.workDir, "trivy.cabundle.*.crt")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create CA bundle file: %w", err)
+		}
+		defer func() {
+			if err := caBundleFile.Close(); err != nil {
+				h.logger.Error("failed to close CA bundle file", "error", err)
+			}
+			if err := os.Remove(caBundleFile.Name()); err != nil {
+				h.logger.Error("failed to remove CA bundle file", "error", err)
+			}
+		}()
+		if _, err := caBundleFile.WriteString(registry.Spec.CABundle); err != nil {
+			return nil, fmt.Errorf("failed to write CA bundle content: %w", err)
+		}
+		args = append(args, "--cacert", caBundleFile.Name())
+	}
+
+	// Add image reference
+	args = append(args, fmt.Sprintf(
+		"%s/%s@%s",
+		image.GetImageMetadata().RegistryURI,
+		image.GetImageMetadata().Repository,
+		image.GetImageMetadata().Digest,
+	))
+
+	app := trivyCommands.NewApp()
+	app.SetArgs(args)
 
 	if err = app.ExecuteContext(ctx); err != nil {
 		return nil, fmt.Errorf("failed to execute trivy: %w", err)
