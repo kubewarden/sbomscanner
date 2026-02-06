@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 )
 
 const keyPrefix = "/storage.sbomscanner.kubewarden.io/sboms"
@@ -101,12 +102,15 @@ func (suite *storeTestSuite) SetupTest() {
 	_, err = suite.db.Exec(suite.T().Context(), "ALTER SEQUENCE resource_version_seq RESTART WITH 1")
 	suite.Require().NoError(err, "failed to reset resource version sequence")
 
+	repo := repository.NewGenericObjectRepository("sboms", func() runtime.Object { return &storagev1alpha1.SBOM{} })
+
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(suite.nc, "sboms", watchBroadcaster, TransformStripSBOM, slog.Default())
+
 	store := &store{
 		db:          suite.db,
+		repository:  repo,
 		broadcaster: natsBroadcaster,
-		table:       "sboms",
 		newFunc:     func() runtime.Object { return &storagev1alpha1.SBOM{} },
 		newListFunc: func() runtime.Object { return &storagev1alpha1.SBOMList{} },
 		logger:      slog.Default(),
@@ -424,9 +428,12 @@ func (suite *storeTestSuite) TestWatchList() {
 	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
 	suite.Require().NoError(err)
 
+	predicate := matcher(labels.Everything(), fields.Everything())
+	predicate.AllowWatchBookmarks = true
+
 	opts := k8sstorage.ListOptions{
 		SendInitialEvents: ptr.To(true),
-		Predicate:         matcher(labels.Everything(), fields.Everything()),
+		Predicate:         predicate,
 		Recursive:         true,
 	}
 

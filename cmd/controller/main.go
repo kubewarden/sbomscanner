@@ -26,6 +26,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/nats-io/nats.go"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -49,6 +51,7 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
 	"github.com/kubewarden/sbomscanner/internal/controller"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/storage"
 	webhookv1alpha1 "github.com/kubewarden/sbomscanner/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -231,14 +234,38 @@ func main() {
 						Kind:       "VulnerabilityReport",
 					},
 				}: {
-					Transform: cache.TransformStripManagedFields(),
-					// Metadata-only watch, skip deep copy since we treat it as read-only.
+					// Read-only
 					UnsafeDisableDeepCopy: ptr.To(true),
+				},
+				&corev1.Pod{}: {
+					Transform: controller.TransformStripPod,
+					// Read-only
+					UnsafeDisableDeepCopy: ptr.To(true),
+				},
+				&metav1.PartialObjectMetadata{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: corev1.SchemeGroupVersion.String(),
+						Kind:       "Namespace",
+					},
+				}: {
+					// Read-only
+					UnsafeDisableDeepCopy: ptr.To(true),
+				},
+				&metav1.PartialObjectMetadata{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: appsv1.SchemeGroupVersion.String(),
+						Kind:       "ReplicaSet",
+					},
+				}: {
+					// Read-only
+					UnsafeDisableDeepCopy: ptr.To(true),
+				},
+				&storagev1alpha1.WorkloadScanReport{}: {
+					Transform: storage.TransformStripWorkloadScanReport,
 				},
 			},
 		},
 		Controller: config.Controller{
-			// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
 			ReconciliationTimeout: 90 * time.Second,
 		},
 	})
@@ -247,12 +274,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controller.SetupIndexer(signalHandler, mgr); err != nil {
+	if err := controller.SetupIndexer(signalHandler, mgr); err != nil {
 		setupLog.Error(err, "unable to set up indexer")
 		os.Exit(1)
 	}
 
-	if err = (&controller.ScanJobReconciler{
+	if err := (&controller.ScanJobReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		Publisher: publisher,
@@ -261,7 +288,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.VulnerabilityReportReconciler{
+	if err := (&controller.VulnerabilityReportReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -269,10 +296,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.RegistryScanRunner{
+	if err := (&controller.RegistryScanRunner{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create runner", "runner", "RegistryScanRunner")
+		os.Exit(1)
+	}
+
+	if err := (&controller.WorkloadScanReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "WorkloadScan")
 		os.Exit(1)
 	}
 
@@ -283,6 +318,11 @@ func main() {
 
 	if err = webhookv1alpha1.SetupScanJobWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "ScanJob")
+		os.Exit(1)
+	}
+
+	if err = webhookv1alpha1.SetupWorkloadScanConfigurationWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "WorkloadScanConfiguration")
 		os.Exit(1)
 	}
 

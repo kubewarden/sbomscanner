@@ -25,7 +25,7 @@ import (
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
-	vulnReport "github.com/kubewarden/sbomscanner/internal/handlers/vulnerabilityreport"
+	trivyreport "github.com/kubewarden/sbomscanner/internal/handlers/trivyreport"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 )
 
@@ -230,11 +230,11 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 		return fmt.Errorf("failed to unmarshal report: %w", err)
 	}
 
-	results, err := vulnReport.NewFromTrivyResults(reportOrig)
+	results, err := trivyreport.NewResultsFromTrivyReport(reportOrig)
 	if err != nil {
 		return fmt.Errorf("failed to convert from trivy results: %w", err)
 	}
-	summary := vulnReport.ComputeSummary(results)
+	summary := storagev1alpha1.NewSummaryFromResults(results)
 
 	vulnerabilityReport := &storagev1alpha1.VulnerabilityReport{
 		ObjectMeta: metav1.ObjectMeta{

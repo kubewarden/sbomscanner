@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-with-dummy-init
+  namespace: test2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-with-dummy-init
+  template:
+    metadata:
+      labels:
+        app: nginx-with-dummy-init
+    spec:
+      initContainers:
+        - name: dummy-init
+          image: ghcr.io/tarampampam/curl:8.7.0
+          command: ["sh", "-c", "echo dummy init container && exit 0"]
+      containers:
+        - name: nginx
+          image: ghcr.io/nginxinc/nginx-unprivileged:1.24
+          ports:
+            - containerPort: 80

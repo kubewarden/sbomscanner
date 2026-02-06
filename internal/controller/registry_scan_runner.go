@@ -8,6 +8,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -15,7 +17,9 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
-const scanInterval = 1 * time.Minute
+// registryScanRunnerPeriod is the interval between registry scan checks.
+// Since the client is cached, we can afford a relatively short period.
+const registryScanRunnerPeriod = 10 * time.Second
 
 // RegistryScanRunner handles periodic scanning of registries based on their scan intervals.
 type RegistryScanRunner struct {
@@ -27,7 +31,7 @@ func (r *RegistryScanRunner) Start(ctx context.Context) error {
 	log := log.FromContext(ctx)
 	log.Info("Starting registry scan runner")
 
-	ticker := time.NewTicker(scanInterval)
+	ticker := time.NewTicker(registryScanRunnerPeriod)
 	defer ticker.Stop()
 
 	for {
@@ -70,40 +74,25 @@ func (r *RegistryScanRunner) scanRegistries(ctx context.Context) error {
 func (r *RegistryScanRunner) checkRegistryForScan(ctx context.Context, registry *v1alpha1.Registry) error {
 	log := log.FromContext(ctx)
 
-	if registry.Spec.ScanInterval == nil || registry.Spec.ScanInterval.Duration == 0 {
-		log.V(2).Info("Skipping registry with disabled scan interval", "registry", registry.Name)
-
-		return nil
-	}
+	rescanRequested := registry.Annotations[v1alpha1.AnnotationRescanRequestedKey]
 
 	lastScanJob, err := r.getLastScanJob(ctx, registry)
-	if err != nil {
-		// If no ScanJob exists, create the initial one
-		if apierrors.IsNotFound(err) {
-			if err = r.createScanJob(ctx, registry); err != nil {
-				return fmt.Errorf("failed to create initial scan job for registry %s: %w", registry.Name, err)
-			}
-			log.Info("Created initial scan job for registry", "registry", registry.Name, "namespace", registry.Namespace)
-
-			return nil
-		}
-
+	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to get last scan job for registry %s: %w", registry.Name, err)
 	}
-
-	if !lastScanJob.IsComplete() && !lastScanJob.IsFailed() {
-		log.V(1).Info("Registry has a running ScanJob, skipping.", "registry", registry.Name, "scanJob", lastScanJob)
+	// If a job is running wait the next cycle
+	if lastScanJob != nil && !lastScanJob.IsComplete() && !lastScanJob.IsFailed() {
+		log.V(1).Info("Registry has a running ScanJob, skipping", "registry", registry.Name, "scanJob", lastScanJob.Name)
 
 		return nil
 	}
 
-	if lastScanJob.Status.CompletionTime != nil {
-		timeSinceLastScan := time.Since(lastScanJob.Status.CompletionTime.Time)
-		if timeSinceLastScan < registry.Spec.ScanInterval.Duration {
-			log.V(2).Info("Registry doesn't need scanning yet", "registry", registry.Name, "timeSinceLastScan", timeSinceLastScan)
-
-			return nil
-		}
+	shouldScan, err := r.shouldCreateScanJob(ctx, registry, lastScanJob, rescanRequested)
+	if err != nil {
+		return err
+	}
+	if !shouldScan {
+		return nil
 	}
 
 	if err := r.createScanJob(ctx, registry); err != nil {
@@ -112,7 +101,89 @@ func (r *RegistryScanRunner) checkRegistryForScan(ctx context.Context, registry 
 
 	log.Info("Created scan job for registry", "registry", registry.Name, "namespace", registry.Namespace)
 
+	if rescanRequested != "" {
+		if err := r.removeRescanAnnotation(ctx, registry, rescanRequested); err != nil {
+			return fmt.Errorf("failed to remove rescan annotation for registry %s: %w", registry.Name, err)
+		}
+	}
+
 	return nil
+}
+
+// shouldCreateScanJob determines if a scan job should be created.
+func (r *RegistryScanRunner) shouldCreateScanJob(ctx context.Context, registry *v1alpha1.Registry, lastScanJob *v1alpha1.ScanJob, rescanRequested string) (bool, error) {
+	log := log.FromContext(ctx)
+
+	if lastScanJob == nil {
+		// No previous scan job exists and rescan was requested, we should create one
+		if rescanRequested != "" {
+			return true, nil
+		}
+		// Otherwise create initial scan if scan interval is configured
+		if registry.Spec.ScanInterval != nil && registry.Spec.ScanInterval.Duration > 0 {
+			return true, nil
+		}
+
+		return false, nil
+	}
+
+	// If rescan was requested, always create a new scan job
+	if rescanRequested != "" {
+		log.Info("Rescan requested for registry", "registry", registry.Name, "namespace", registry.Namespace, "requestedAt", rescanRequested)
+
+		return true, nil
+	}
+
+	// Check scan interval
+	if registry.Spec.ScanInterval == nil || registry.Spec.ScanInterval.Duration == 0 {
+		log.V(1).Info("Skipping registry with disabled scan interval", "registry", registry.Name)
+
+		return false, nil
+	}
+
+	if lastScanJob.Status.CompletionTime != nil {
+		timeSinceLastScan := time.Since(lastScanJob.Status.CompletionTime.Time)
+		if timeSinceLastScan < registry.Spec.ScanInterval.Duration {
+			log.V(1).Info("Registry doesn't need scanning yet", "registry", registry.Name, "timeSinceLastScan", timeSinceLastScan)
+
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// removeRescanAnnotation removes the rescan annotation if it matches the expected value.
+func (r *RegistryScanRunner) removeRescanAnnotation(ctx context.Context, registry *v1alpha1.Registry, expectedValue string) error {
+	log := log.FromContext(ctx)
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var current v1alpha1.Registry
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      registry.Name,
+			Namespace: registry.Namespace,
+		}, &current); err != nil {
+			return err
+		}
+
+		currentAnnotation := current.Annotations[v1alpha1.AnnotationRescanRequestedKey]
+
+		// Only remove the annotation if it's the same one we processed.
+		// If the annotation changed (newer timestamp), another rescan was requested
+		// and we should leave it for the next cycle.
+		if currentAnnotation != expectedValue {
+			log.V(1).Info("Rescan annotation changed, not removing",
+				"registry", registry.Name,
+				"processed", expectedValue,
+				"current", currentAnnotation)
+
+			return nil
+		}
+
+		delete(current.Annotations, v1alpha1.AnnotationRescanRequestedKey)
+
+		return r.Update(ctx, &current)
+	})
 }
 
 // getLastScanJob finds the most recent ScanJob for a registry (any status).

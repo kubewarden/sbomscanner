@@ -1,0 +1,18 @@
+apiVersion: sbomscanner.kubewarden.io/v1alpha1
+kind: WorkloadScanConfiguration
+metadata:
+  name: default
+spec:
+  # Only scan workloads in namespaces with the label "scan-workloads: enabled"
+  namespaceSelector:
+    matchLabels:
+      sbomscanner.kubewarden.io/workloadscan: "enabled"
+  # Store all scan resources in a central namespace
+  targetNamespace: sbomscanner
+  scanInterval: 1h
+  scanOnChange: true
+  platforms:
+    - arch: amd64
+      os: linux
+    - arch: arm64
+      os: linux
