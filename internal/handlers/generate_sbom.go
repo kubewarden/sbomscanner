@@ -270,7 +270,9 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 	// Handle insecure connection
 	if registry.Spec.Insecure {
 		args = append(args, "--insecure")
-	} else if registry.Spec.CABundle != "" {
+	}
+	// Handle custom CA bundle
+	if !registry.Spec.Insecure && registry.Spec.CABundle != "" {
 		// Write CA bundle to a temp file
 		caBundleFile, err := os.CreateTemp(h.workDir, "trivy.cabundle.*.crt")
 		if err != nil {
