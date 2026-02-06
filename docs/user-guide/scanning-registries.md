@@ -30,7 +30,7 @@ spec:
   uri: ghcr.io
   scanInterval: 1h
   repositories:
-    - kubewarden/sbomscanner/test-assets/golang
+    - name: kubewarden/sbomscanner/test-assets/golang
 ```
 
 This configuration:
@@ -62,7 +62,7 @@ metadata:
 spec:
   uri: ghcr.io
   repositories:
-    - kubewarden/sbomscanner/test-assets/golang
+    - name: kubewarden/sbomscanner/test-assets/golang
 ```
 
 Example `ScanJob` manifest:
