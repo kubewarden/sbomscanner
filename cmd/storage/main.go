@@ -33,17 +33,19 @@ func main() {
 
 func run() error {
 	var (
-		certFile           string
-		keyFile            string
-		pgURIFile          string
-		pgTLSCAFile        string
-		natsURL            string
-		natsCertFile       string
-		natsKeyFile        string
-		natsCAFile         string
-		maxRequestBodySize string
-		logLevel           string
-		init               bool
+		certFile                string
+		keyFile                 string
+		pgURIFile               string
+		pgTLSCAFile             string
+		natsURL                 string
+		natsCertFile            string
+		natsKeyFile             string
+		natsCAFile              string
+		maxRequestBodySize      string
+		serviceAccountNamespace string
+		serviceAccountName      string
+		logLevel                string
+		init                    bool
 	)
 
 	flag.StringVar(&certFile, "cert-file", "/tls/tls.crt", "Path to the TLS certificate file for serving HTTPS requests.")
@@ -55,6 +57,8 @@ func run() error {
 	flag.StringVar(&natsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
 	flag.StringVar(&natsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
 	flag.StringVar(&maxRequestBodySize, "max-request-body-size", "100MB", "The maximum size of request bodies accepted by the server. 0 means no limit.")
+	flag.StringVar(&serviceAccountNamespace, "service-account-namespace", "sbomscanner", "The namespace of the service account used by the controller. This is used by the admission plugins.")
+	flag.StringVar(&serviceAccountName, "service-account-name", "sbomscanner-controller", "The name of the service account used by the controller. This is used by the admission plugins.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.Parse()
@@ -82,9 +86,11 @@ func run() error {
 	}
 
 	serverConfig := apiserver.StorageAPIServerConfig{
-		CertFile:            certFile,
-		KeyFile:             keyFile,
-		MaxRequestBodyBytes: maxRequestBodyBytes,
+		CertFile:                certFile,
+		KeyFile:                 keyFile,
+		MaxRequestBodyBytes:     maxRequestBodyBytes,
+		ServiceAccountNamespace: serviceAccountNamespace,
+		ServiceAccountName:      serviceAccountName,
 	}
 
 	db, err := newDB(ctx, pgURIFile, pgTLSCAFile)

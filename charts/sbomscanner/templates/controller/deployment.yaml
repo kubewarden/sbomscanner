@@ -46,6 +46,10 @@ spec:
             - -health-probe-bind-address=:8081
             - -nats-url
             - {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local:4222
+            - -service-account-namespace
+            - {{ .Release.Namespace }}
+            - -service-account-name
+            - {{ include "sbomscanner.fullname" . }}-controller
             {{- if .Values.controller.logLevel }}
             - -log-level={{ .Values.controller.logLevel }}
             {{- end }}
