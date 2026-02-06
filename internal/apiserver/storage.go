@@ -25,6 +25,7 @@ import (
 
 	"github.com/kubewarden/sbomscanner/api/storage/install"
 	"github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/apiserver/admission"
 	"github.com/kubewarden/sbomscanner/internal/storage"
 	storageopenapi "github.com/kubewarden/sbomscanner/pkg/generated/openapi"
 )
@@ -58,6 +59,10 @@ type StorageAPIServerConfig struct {
 	// MaxRequestBodyBytes is the limit on the request size that would be accepted and decoded in a write request.
 	// 0 means no limit.
 	MaxRequestBodyBytes int64
+	// ServiceAccountNamespace is the namespace of the service account used by the admission plugins.
+	ServiceAccountNamespace string
+	// ServiceAccountName is the name of the service account used by the admission plugins.
+	ServiceAccountName string
 }
 
 type StorageAPIServer struct {
@@ -85,9 +90,21 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 		Codecs.LegacyCodec(v1alpha1.SchemeGroupVersion),
 	)
 	recommendedOptions.Etcd = nil
-	recommendedOptions.Admission = nil
 	recommendedOptions.Features.EnablePriorityAndFairness = false
 	recommendedOptions.SecureServing.ServerCert.GeneratedCert = dynamicCertKeyPairContent
+
+	// Register admission plugins
+	workloadScanReportValidationPlugin := admission.NewWorkloadScanReportValidation(
+		cfg.ServiceAccountNamespace,
+		cfg.ServiceAccountName,
+	)
+	workloadScanReportValidationPlugin.Register(recommendedOptions.Admission.Plugins)
+	recommendedOptions.Admission.RecommendedPluginOrder = append(recommendedOptions.Admission.RecommendedPluginOrder,
+		workloadScanReportValidationPlugin.GetName())
+	recommendedOptions.Admission.EnablePlugins = append(
+		recommendedOptions.Admission.EnablePlugins,
+		workloadScanReportValidationPlugin.GetName(),
+	)
 
 	// Create server config
 	serverConfig := genericapiserver.NewRecommendedConfig(Codecs)

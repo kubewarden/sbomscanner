@@ -57,18 +57,20 @@ import (
 )
 
 type Config struct {
-	MetricsAddr          string
-	ProbeAddr            string
-	PprofAddr            string
-	EnableLeaderElection bool
-	SecureMetrics        bool
-	EnableHTTP2          bool
-	NatsURL              string
-	NatsCertFile         string
-	NatsKeyFile          string
-	NatsCAFile           string
-	Init                 bool
-	LogLevel             string
+	MetricsAddr             string
+	ProbeAddr               string
+	PprofAddr               string
+	EnableLeaderElection    bool
+	SecureMetrics           bool
+	EnableHTTP2             bool
+	NatsURL                 string
+	NatsCertFile            string
+	NatsKeyFile             string
+	NatsCAFile              string
+	ServiceAccountNamespace string
+	ServiceAccountName      string
+	Init                    bool
+	LogLevel                string
 }
 
 func parseFlags() Config {
@@ -89,6 +91,8 @@ func parseFlags() Config {
 	flag.StringVar(&cfg.NatsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
 	flag.StringVar(&cfg.NatsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
 	flag.StringVar(&cfg.NatsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
+	flag.StringVar(&cfg.ServiceAccountNamespace, "service-account-namespace", "sbomscanner", "The namespace of the service account used by the controller. This is used in validating webhooks.")
+	flag.StringVar(&cfg.ServiceAccountName, "service-account-name", "sbomscanner-controller", "The name of the service account used by the controller. This is used in validating webhooks.")
 	flag.BoolVar(&cfg.Init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level")
 
@@ -311,7 +315,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr); err != nil {
+	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr, cfg.ServiceAccountNamespace, cfg.ServiceAccountName); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Registry")
 		os.Exit(1)
 	}

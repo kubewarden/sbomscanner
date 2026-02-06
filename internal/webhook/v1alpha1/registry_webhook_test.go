@@ -8,8 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
@@ -32,7 +36,9 @@ func TestRegistryDefaulter_Default(t *testing.T) {
 		},
 	}
 
-	defaulter := &RegistryCustomDefaulter{}
+	defaulter := &RegistryCustomDefaulter{
+		logger: logr.Discard(),
+	}
 
 	err := defaulter.Default(t.Context(), registry)
 	require.NoError(t, err)
@@ -287,7 +293,6 @@ var registryTestCases = []registryTestCase{
 				},
 			},
 		},
-		expectedField: "spec.repositories",
 	},
 }
 
@@ -297,7 +302,9 @@ func TestRegistryCustomValidator_ValidateCreate(t *testing.T) {
 			validator := &RegistryCustomValidator{
 				logger: logr.Discard(),
 			}
-			warnings, err := validator.ValidateCreate(t.Context(), test.registry)
+
+			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{})
+			warnings, err := validator.ValidateCreate(ctx, test.registry)
 
 			if test.expectedError != "" {
 				require.Error(t, err)
@@ -324,7 +331,8 @@ func TestRegistryCustomValidator_ValidateUpdate(t *testing.T) {
 				logger: logr.Discard(),
 			}
 
-			warnings, err := validator.ValidateUpdate(t.Context(), &v1alpha1.Registry{}, test.registry)
+			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{})
+			warnings, err := validator.ValidateUpdate(ctx, &v1alpha1.Registry{}, test.registry)
 
 			if test.expectedError != "" {
 				require.Error(t, err)
@@ -335,6 +343,189 @@ func TestRegistryCustomValidator_ValidateUpdate(t *testing.T) {
 				require.Len(t, details.Causes, 1)
 				assert.Equal(t, test.expectedField, details.Causes[0].Field)
 				assert.Contains(t, details.Causes[0].Message, test.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Empty(t, warnings)
+		})
+	}
+}
+
+func TestRegistryCustomValidator_ValidateDelete(t *testing.T) {
+	validator := &RegistryCustomValidator{
+		logger: logr.Discard(),
+	}
+
+	registry := &v1alpha1.Registry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-registry",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RegistrySpec{
+			URI: "registry.test.local",
+		},
+	}
+
+	ctx := admission.NewContextWithRequest(t.Context(), admission.Request{})
+	warnings, err := validator.ValidateDelete(ctx, registry)
+
+	require.NoError(t, err)
+	assert.Empty(t, warnings)
+}
+
+type registryManagedResourceTestCase struct {
+	name            string
+	registry        *v1alpha1.Registry
+	username        string
+	expectForbidden bool
+}
+
+var registryManagedResourceTestCases = []registryManagedResourceTestCase{
+	{
+		name: "should allow for unmanaged resource",
+		registry: &v1alpha1.Registry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-registry",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.RegistrySpec{
+				URI: "registry.test.local",
+			},
+		},
+		username:        "system:serviceaccount:default:other-sa",
+		expectForbidden: false,
+	},
+	{
+		name: "should allow for managed resource by allowed service account",
+		registry: &v1alpha1.Registry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-registry",
+				Namespace: "default",
+				Labels: map[string]string{
+					api.LabelManagedByKey: api.LabelManagedByValue,
+				},
+			},
+			Spec: v1alpha1.RegistrySpec{
+				URI: "registry.test.local",
+			},
+		},
+		username:        "system:serviceaccount:sbomscanner:sbomscanner-controller",
+		expectForbidden: false,
+	},
+	{
+		name: "should deny for managed resource by other user",
+		registry: &v1alpha1.Registry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-registry",
+				Namespace: "default",
+				Labels: map[string]string{
+					api.LabelManagedByKey: api.LabelManagedByValue,
+				},
+			},
+			Spec: v1alpha1.RegistrySpec{
+				URI: "registry.test.local",
+			},
+		},
+		username:        "system:serviceaccount:default:other-sa",
+		expectForbidden: true,
+	},
+}
+
+func TestRegistryCustomValidator_ManagedResourceCreate(t *testing.T) {
+	for _, test := range registryManagedResourceTestCases {
+		t.Run(test.name, func(t *testing.T) {
+			validator := &RegistryCustomValidator{
+				serviceAccountNamespace: "sbomscanner",
+				serviceAccountName:      "sbomscanner-controller",
+				logger:                  logr.Discard(),
+			}
+
+			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UserInfo: authenticationv1.UserInfo{
+						Username: test.username,
+					},
+				},
+			})
+
+			warnings, err := validator.ValidateCreate(ctx, test.registry)
+
+			if test.expectForbidden {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "forbidden")
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Empty(t, warnings)
+		})
+	}
+}
+
+func TestRegistryCustomValidator_ManagedResourceUpdate(t *testing.T) {
+	baseRegistry := &v1alpha1.Registry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-registry",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RegistrySpec{
+			URI: "registry.test.local",
+		},
+	}
+
+	for _, test := range registryManagedResourceTestCases {
+		t.Run(test.name, func(t *testing.T) {
+			validator := &RegistryCustomValidator{
+				serviceAccountNamespace: "sbomscanner",
+				serviceAccountName:      "sbomscanner-controller",
+				logger:                  logr.Discard(),
+			}
+
+			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UserInfo: authenticationv1.UserInfo{
+						Username: test.username,
+					},
+				},
+			})
+
+			warnings, err := validator.ValidateUpdate(ctx, baseRegistry, test.registry)
+
+			if test.expectForbidden {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "forbidden")
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Empty(t, warnings)
+		})
+	}
+}
+
+func TestRegistryCustomValidator_ManagedResourceDelete(t *testing.T) {
+	for _, test := range registryManagedResourceTestCases {
+		t.Run(test.name, func(t *testing.T) {
+			validator := &RegistryCustomValidator{
+				serviceAccountNamespace: "sbomscanner",
+				serviceAccountName:      "sbomscanner-controller",
+				logger:                  logr.Discard(),
+			}
+
+			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UserInfo: authenticationv1.UserInfo{
+						Username: test.username,
+					},
+				},
+			})
+
+			warnings, err := validator.ValidateDelete(ctx, test.registry)
+
+			if test.expectForbidden {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "forbidden")
 			} else {
 				require.NoError(t, err)
 			}

@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
@@ -160,31 +159,11 @@ func (r *WorkloadScanReconciler) checkNamespaceSelector(ctx context.Context, nam
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *WorkloadScanReconciler) SetupWithManager(manager ctrl.Manager) error {
-	registryLabelPredicate, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			api.LabelManagedByKey:    api.LabelManagedByValue,
-			api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create registry label predicate: %w", err)
-	}
-
-	err = ctrl.NewControllerManagedBy(manager).
+	err := ctrl.NewControllerManagedBy(manager).
 		Named("workloadscan-controller").
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(mapObjToNamespace),
 			builder.WithPredicates(podImagesChangedPredicate())).
-		// Reconcile when managed Registry resources change.
-		Watches(&v1alpha1.Registry{},
-			handler.EnqueueRequestsFromMapFunc(mapObjToNamespace),
-			builder.WithPredicates(registryLabelPredicate),
-		).
-		// Reconcile when WorkloadScanReport spec changes (e.g., user modifications).
-		Watches(&storagev1alpha1.WorkloadScanReport{},
-			handler.EnqueueRequestsFromMapFunc(mapObjToNamespace),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
-		).
 		// Reconcile all matching namespaces when config changes.
 		Watches(&v1alpha1.WorkloadScanConfiguration{},
 			handler.EnqueueRequestsFromMapFunc(mapConfigToNamespaces(manager.GetClient())),

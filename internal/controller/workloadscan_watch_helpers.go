@@ -7,7 +7,6 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,29 +40,38 @@ func mapConfigToNamespaces(c client.Client) handler.MapFunc {
 		}
 
 		var namespaces metav1.PartialObjectMetadataList
-		namespaces.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("NamespaceList"))
-		if err := c.List(ctx, &namespaces); err != nil {
-			logger.Error(err, "failed to list namespaces")
-			return nil
-		}
+		namespaces.SetGroupVersionKind(
+			corev1.SchemeGroupVersion.WithKind("NamespaceList"),
+		)
 
-		var selector labels.Selector
+		var listOpts []client.ListOption
 		if config.Spec.NamespaceSelector != nil {
-			var err error
-			selector, err = metav1.LabelSelectorAsSelector(config.Spec.NamespaceSelector)
+			selector, err := metav1.LabelSelectorAsSelector(
+				config.Spec.NamespaceSelector,
+			)
 			if err != nil {
 				logger.Error(err, "invalid namespace selector")
 				return nil
 			}
+
+			listOpts = append(
+				listOpts,
+				client.MatchingLabelsSelector{Selector: selector},
+			)
 		}
 
-		var requests []ctrl.Request
+		if err := c.List(ctx, &namespaces, listOpts...); err != nil {
+			logger.Error(err, "failed to list namespaces")
+			return nil
+		}
+
+		requests := make([]ctrl.Request, 0, len(namespaces.Items))
 		for _, ns := range namespaces.Items {
-			if selector == nil || selector.Matches(labels.Set(ns.Labels)) {
-				requests = append(requests, ctrl.Request{
-					NamespacedName: types.NamespacedName{Namespace: ns.Name},
-				})
-			}
+			requests = append(requests, ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: ns.Name,
+				},
+			})
 		}
 
 		logger.Info("config changed, enqueuing namespaces", "count", len(requests))
