@@ -12,8 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/generic/registry"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 )
 
 const (
@@ -43,7 +45,7 @@ func NewSBOMStore(
 	db *pgxpool.Pool,
 	nc *nats.Conn,
 	logger *slog.Logger,
-) (*RegistryStoreWithWatcher, error) {
+) (*registry.Store, []manager.Runnable, error) {
 	strategy := newSBOMStrategy(scheme)
 	newFunc := func() runtime.Object { return &storagev1alpha1.SBOM{} }
 	newListFunc := func() runtime.Object { return &storagev1alpha1.SBOMList{} }
@@ -51,10 +53,12 @@ func NewSBOMStore(
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, sbomResourcePluralName, watchBroadcaster, TransformStripSBOM, logger)
 
+	repo := repository.NewGenericObjectRepository(sbomResourcePluralName, newFunc)
+
 	store := &store{
 		db:          db,
+		repository:  repo,
 		broadcaster: natsBroadcaster,
-		table:       sbomResourcePluralName,
 		newFunc:     newFunc,
 		newListFunc: newListFunc,
 		logger:      logger.With("store", sbomResourceSingularName),
@@ -79,13 +83,10 @@ func NewSBOMStore(
 
 	options := &generic.StoreOptions{RESTOptions: optsGetter, AttrFunc: getAttrs}
 	if err := registryStore.CompleteWithOptions(options); err != nil {
-		return nil, fmt.Errorf("unable to complete store with options: %w", err)
+		return nil, nil, fmt.Errorf("unable to complete store with options: %w", err)
 	}
 
-	return &RegistryStoreWithWatcher{
-		store:   registryStore,
-		watcher: natsWatcher,
-	}, nil
+	return registryStore, []manager.Runnable{natsWatcher}, nil
 }
 
 type sbomTableConvertor struct{}
