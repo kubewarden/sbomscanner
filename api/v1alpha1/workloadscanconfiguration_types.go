@@ -11,17 +11,20 @@ const (
 
 // WorkloadScanConfigurationSpec defines the desired configuration for workload scanning.
 type WorkloadScanConfigurationSpec struct {
+	// Enabled controls whether workload scanning is active.
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
 	// NamespaceSelector filters which namespaces are scanned for workloads.
 	// If not specified, workloads in all namespaces are scanned.
 	// +optional
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
-	// TargetNamespace is the namespace where Registry, ScanJob, SBOM, and VulnerabilityReport resources will be created.
-	// WorkloadScanReport resources will always be created in their respective workload namespaces.
-	// If not specified, resources will be created in the workload's namespace.
-	// This is useful in multi-tenant clusters to keep scan data isolated per namespace.
+	// ArtifactsNamespace is the namespace where scan artifacts (Registry, ScanJob, SBOM, VulnerabilityReport) are created.
+	// When empty, artifacts are created in the workload's own namespace.
+	// Can only be changed when Enabled is false.
+	// Note: WorkloadScanReport resources are always created in the workload's namespace, regardless of this setting.
 	// +optional
-	TargetNamespace string `json:"targetNamespace,omitempty"`
+	ArtifactsNamespace string `json:"artifactsNamespace,omitempty"`
 
 	// ScanInterval is the interval at which discovered registries are scanned.
 	// +optional
