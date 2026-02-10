@@ -2,7 +2,9 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -94,13 +96,23 @@ func (p *Platform) String() string {
 }
 
 // GetMatchConditionsByRepository returns MatchConditions for the given repository.
-// Returns an empty list if the repository doesn't exist or has no MatchConditions.
+// Returns nil if the repository doesn't exist or has no MatchConditions.
+//
+// For Docker Hub official images, the short name (e.g. "busybox") is an alias for
+// the "library/<name>" repository (e.g. "library/busybox"). This method checks
+// both forms so Registry resources work regardless of which was specified.
 func (r *Registry) GetMatchConditionsByRepository(repo string) []MatchCondition {
+	short := repo
+	if r.Spec.URI == name.DefaultRegistry {
+		short = strings.TrimPrefix(repo, "library/")
+	}
+
 	for _, repository := range r.Spec.Repositories {
-		if repository.Name == repo {
+		if repository.Name == repo || repository.Name == short {
 			return repository.MatchConditions
 		}
 	}
+
 	return nil
 }
 
