@@ -55,10 +55,14 @@ func (v *WorkloadScanConfigurationCustomValidator) ValidateCreate(_ context.Cont
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for the type Registry.
-func (v *WorkloadScanConfigurationCustomValidator) ValidateUpdate(_ context.Context, _, configuration *v1alpha1.WorkloadScanConfiguration) (admission.Warnings, error) {
+func (v *WorkloadScanConfigurationCustomValidator) ValidateUpdate(_ context.Context, oldConfiguration, configuration *v1alpha1.WorkloadScanConfiguration) (admission.Warnings, error) {
 	v.logger.Info("Validation for WorkloadScanConfiguration upon update", "name", configuration.GetName())
 
 	allErrs := validateWorkloadScanConfiguration(configuration)
+	allErrs = append(allErrs, validateArtifactsNamespaceUpdate(
+		oldConfiguration.Spec.ArtifactsNamespace,
+		configuration.Spec.ArtifactsNamespace,
+		configuration.Spec.Enabled)...)
 
 	if len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
@@ -101,4 +105,18 @@ func validateNamespaceSelector(selector *metav1.LabelSelector) field.ErrorList {
 	opts := metav1validation.LabelSelectorValidationOptions{}
 
 	return metav1validation.ValidateLabelSelector(selector, opts, fieldPath)
+}
+
+func validateArtifactsNamespaceUpdate(oldArtifactsNamespace, newArtifactsNamespace string, enabled bool) field.ErrorList {
+	if oldArtifactsNamespace != newArtifactsNamespace && enabled {
+		return field.ErrorList{
+			field.Invalid(
+				field.NewPath("spec").Child("artifactsNamespace"),
+				newArtifactsNamespace,
+				"can only be changed when enabled is false",
+			),
+		}
+	}
+
+	return nil
 }
