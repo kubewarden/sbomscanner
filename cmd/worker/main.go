@@ -33,6 +33,7 @@ func main() {
 	var runDir string
 	var trivyDBRepository string
 	var trivyJavaDBRepository string
+	var installationNamespace string
 	var init bool
 	var logLevel string
 
@@ -43,6 +44,7 @@ func main() {
 	flag.StringVar(&runDir, "run-dir", "/var/run/worker", "Directory to store temporary files.")
 	flag.StringVar(&trivyDBRepository, "trivy-db-repository", "public.ecr.aws/aquasecurity/trivy-db", "OCI repository to retrieve trivy-db.")
 	flag.StringVar(&trivyJavaDBRepository, "trivy-java-db-repository", "public.ecr.aws/aquasecurity/trivy-java-db", "OCI repository to retrieve trivy-java-db.")
+	flag.StringVar(&installationNamespace, "installation-namespace", "sbomscanner", "The namespace where sbomscanner is installed.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.Parse()
@@ -132,8 +134,8 @@ func main() {
 	}
 
 	registry := messaging.HandlerRegistry{
-		handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, logger),
-		handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, logger),
+		handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, installationNamespace, logger),
+		handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
 		handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 	}
 	failureHandler := handlers.NewScanJobFailureHandler(k8sClient, logger)

@@ -399,7 +399,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				mockPublisher.On("Publish", mock.Anything, GenerateSBOMSubject, messageID, expectedMessage).Return(nil).Once()
 			}
 
-			handler := NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, mockPublisher, slog.Default())
+			handler := NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, mockPublisher, "sbomscanner", slog.Default())
 
 			message, err := json.Marshal(&CreateCatalogMessage{
 				BaseMessage: BaseMessage{
@@ -629,7 +629,7 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 
 			mockPublisher := messagingMocks.NewMockPublisher(t)
 
-			handler := NewCreateCatalogHandler(registryClient, k8sClientWithInterceptors, scheme, mockPublisher, slog.Default())
+			handler := NewCreateCatalogHandler(registryClient, k8sClientWithInterceptors, scheme, mockPublisher, "sbomscanner", slog.Default())
 
 			message, err := json.Marshal(&CreateCatalogMessage{
 				BaseMessage: BaseMessage{
