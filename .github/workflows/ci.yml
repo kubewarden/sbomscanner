@@ -2,8 +2,12 @@ name: CI
 
 on:
   workflow_call:
-  push:
+  # push:
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 # Declare default permissions as read only.
 permissions: read-all
@@ -11,14 +15,17 @@ permissions: read-all
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
+          cache: false
           go-version-file: "go.mod"
-      - uses: ./.github/actions/free-up-disk-space
       - run: make test
+        env:
+          TESTCONTAINERS_RYUK_CONTAINER_PRIVILEGED: true
+          ENVTEST_DIR: /home/runner/.cache/envtest
       - name: Upload unit-tests coverage to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
@@ -35,9 +42,17 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Install helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
-      # Disable plugin verification until the following issue is addressed https://github.com/helm-unittest/helm-unittest/issues/777
-      - name: Install Helm-unittest
+      # Disable plugin verification: https://github.com/helm-unittest/helm-unittest/issues/777
+      - name: Install or update Helm-unittest
         run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
+          # if helm plugin list | grep -q '^unittest'; then
+          #   # Error: plugin repo was modified: https://github.com/helm/helm/issues/31664
+          #   git -C ~/.local/share/helm/plugins/helm-unittest checkout -- plugin.yaml
+          #   helm plugin update unittest
+          # else
+          #   # Disable plugin verification: https://github.com/helm-unittest/helm-unittest/issues/777
+          #   helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
+          # fi
       - run: make helm-unittest
 
   golangci:
