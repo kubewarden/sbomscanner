@@ -11,6 +11,7 @@ import (
 	"github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -19,11 +20,18 @@ import (
 
 // BuildDockerConfigForRegistry retrieve the Secret listed in the Registry resource
 // and creates the dockerconfig file.
-func BuildDockerConfigForRegistry(ctx context.Context, k8sClient client.Client, registry *v1alpha1.Registry) (string, error) {
+// For workloadscan-managed registries, the secret is looked up in installationNamespace
+// instead of the registry's namespace.
+func BuildDockerConfigForRegistry(ctx context.Context, k8sClient client.Client, registry *v1alpha1.Registry, installationNamespace string) (string, error) {
+	secretNamespace := registry.Namespace
+	if registry.Labels[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue {
+		secretNamespace = installationNamespace
+	}
+
 	authSecret := &corev1.Secret{}
 	err := k8sClient.Get(ctx, k8stypes.NamespacedName{
 		Name:      registry.Spec.AuthSecret,
-		Namespace: registry.Namespace,
+		Namespace: secretNamespace,
 	}, authSecret)
 	if err != nil {
 		return "", fmt.Errorf("cannot get Secret %s: %w", registry.Spec.AuthSecret, err)

@@ -43,6 +43,7 @@ type CreateCatalogHandler struct {
 	k8sClient             client.Client
 	scheme                *runtime.Scheme
 	publisher             messaging.Publisher
+	installationNamespace string
 	logger                *slog.Logger
 }
 
@@ -52,6 +53,7 @@ func NewCreateCatalogHandler(
 	k8sClient client.Client,
 	scheme *runtime.Scheme,
 	publisher messaging.Publisher,
+	installationNamespace string,
 	logger *slog.Logger,
 ) *CreateCatalogHandler {
 	return &CreateCatalogHandler{
@@ -59,6 +61,7 @@ func NewCreateCatalogHandler(
 		k8sClient:             k8sClient,
 		publisher:             publisher,
 		scheme:                scheme,
+		installationNamespace: installationNamespace,
 		logger:                logger.With("handler", "create_catalog_handler"),
 	}
 }
@@ -126,7 +129,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	// authentication to get access to the registry
 	if registry.IsPrivate() {
 		var dockerConfig string
-		dockerConfig, err = dockerauth.BuildDockerConfigForRegistry(ctx, h.k8sClient, registry)
+		dockerConfig, err = dockerauth.BuildDockerConfigForRegistry(ctx, h.k8sClient, registry, h.installationNamespace)
 		if err != nil {
 			return fmt.Errorf("cannot setup docker auth: %w", err)
 		}
