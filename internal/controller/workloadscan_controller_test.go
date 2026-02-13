@@ -70,7 +70,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 			By("Creating managed registries in both namespaces")
 			registry1 := &v1alpha1.Registry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 					Labels: map[string]string{
 						api.LabelManagedByKey:    api.LabelManagedByValue,
@@ -98,7 +98,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 			registry2 := &v1alpha1.Registry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "workloadscan-quay-io",
+					Name:      computeRegistryName("quay.io"),
 					Namespace: otherNamespace.Name,
 					Labels: map[string]string{
 						api.LabelManagedByKey:    api.LabelManagedByValue,
@@ -138,7 +138,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 						{
 							Name: "app",
 							ImageRef: storagev1alpha1.ImageRef{
-								Registry:   "workloadscan-ghcr-io",
+								Registry:   computeRegistryName("ghcr.io"),
 								Namespace:  namespace.Name,
 								Repository: "test/app",
 								Tag:        "v1",
@@ -162,7 +162,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 						{
 							Name: "app",
 							ImageRef: storagev1alpha1.ImageRef{
-								Registry:   "workloadscan-quay-io",
+								Registry:   computeRegistryName("quay.io"),
 								Namespace:  otherNamespace.Name,
 								Repository: "test/other",
 								Tag:        "latest",
@@ -239,7 +239,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 			By("Creating managed registries in both namespaces")
 			registry1 := &v1alpha1.Registry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 					Labels: map[string]string{
 						api.LabelManagedByKey:    api.LabelManagedByValue,
@@ -267,7 +267,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 			registry2 := &v1alpha1.Registry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "workloadscan-quay-io",
+					Name:      computeRegistryName("quay.io"),
 					Namespace: otherNamespace.Name,
 					Labels: map[string]string{
 						api.LabelManagedByKey:    api.LabelManagedByValue,
@@ -307,7 +307,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 						{
 							Name: "app",
 							ImageRef: storagev1alpha1.ImageRef{
-								Registry:   "workloadscan-ghcr-io",
+								Registry:   computeRegistryName("ghcr.io"),
 								Namespace:  namespace.Name,
 								Repository: "test/app",
 								Tag:        "v1",
@@ -331,7 +331,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 						{
 							Name: "app",
 							ImageRef: storagev1alpha1.ImageRef{
-								Registry:   "workloadscan-quay-io",
+								Registry:   computeRegistryName("quay.io"),
 								Namespace:  otherNamespace.Name,
 								Repository: "test/other",
 								Tag:        "latest",
@@ -446,7 +446,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Creating a pre-existing managed registry")
 				existingRegistry := &v1alpha1.Registry{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "workloadscan-ghcr-io",
+						Name:      computeRegistryName("ghcr.io"),
 						Namespace: namespace.Name,
 						Labels: map[string]string{
 							api.LabelManagedByKey:    api.LabelManagedByValue,
@@ -486,7 +486,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 							{
 								Name: "app",
 								ImageRef: storagev1alpha1.ImageRef{
-									Registry:   "workloadscan-ghcr-io",
+									Registry:   computeRegistryName("ghcr.io"),
 									Namespace:  namespace.Name,
 									Repository: "test/app",
 									Tag:        "v1",
@@ -506,7 +506,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying the registry was deleted")
 				var registry v1alpha1.Registry
 				err = k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)
 				Expect(client.IgnoreNotFound(err)).To(Succeed())
@@ -562,7 +562,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying the registry was created with correct labels")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 
@@ -593,7 +593,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				Expect(report.Labels[api.LabelManagedByKey]).To(Equal(api.LabelManagedByValue))
 				Expect(report.Spec.Containers).To(HaveLen(1))
 				Expect(report.Spec.Containers[0].Name).To(Equal("app"))
-				Expect(report.Spec.Containers[0].ImageRef.Registry).To(Equal("workloadscan-ghcr-io"))
+				Expect(report.Spec.Containers[0].ImageRef.Registry).To(Equal(computeRegistryName("ghcr.io")))
 				Expect(report.Spec.Containers[0].ImageRef.Repository).To(Equal("test/app"))
 				Expect(report.Spec.Containers[0].ImageRef.Tag).To(Equal("v1"))
 			})
@@ -638,9 +638,9 @@ var _ = Describe("WorkloadScan Controller", func() {
 					registryNames[index] = registry.Name
 				}
 				Expect(registryNames).To(ContainElements(
-					"workloadscan-ghcr-io",
-					"workloadscan-index-docker-io",
-					"workloadscan-quay-io",
+					computeRegistryName("ghcr.io"),
+					computeRegistryName("index.docker.io"),
+					computeRegistryName("quay.io"),
 				))
 
 				By("Verifying the WorkloadScanReport contains all containers")
@@ -702,7 +702,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying the registry was also deleted")
 				var registry v1alpha1.Registry
 				err = k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)
 				Expect(client.IgnoreNotFound(err)).To(Succeed())
@@ -777,7 +777,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying registry was created in target namespace")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)).To(Succeed())
 
@@ -844,7 +844,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying registry has merged conditions")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)).To(Succeed())
 
@@ -913,7 +913,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying condition has labels for both namespaces")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Spec.Repositories[0].MatchConditions).To(HaveLen(1))
@@ -933,7 +933,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying namespace A label was removed but condition still exists")
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)).To(Succeed())
 
@@ -986,7 +986,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying both conditions exist")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Spec.Repositories[0].MatchConditions).To(HaveLen(2))
@@ -1004,7 +1004,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying tag-v1 condition was deleted (no labels remain)")
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)).To(Succeed())
 
@@ -1037,7 +1037,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying registry exists")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)).To(Succeed())
 
@@ -1052,7 +1052,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying registry was deleted")
 				err = k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: artifactsNamespace.Name,
 				}, &registry)
 				Expect(client.IgnoreNotFound(err)).To(Succeed())
@@ -1101,7 +1101,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying registry was created")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 			})
@@ -1156,7 +1156,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying the registry has the rescan annotation")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Annotations).To(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
@@ -1187,7 +1187,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying initial rescan annotation was set")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Annotations).To(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
@@ -1198,7 +1198,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying annotation was removed")
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Annotations).NotTo(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
@@ -1226,7 +1226,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying rescan annotation was set again")
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Annotations).To(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
@@ -1271,7 +1271,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Removing the rescan annotation to simulate it being processed")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				delete(registry.Annotations, v1alpha1.AnnotationRescanRequestedKey)
@@ -1288,7 +1288,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying rescan annotation was not set")
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Annotations).NotTo(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
@@ -1319,7 +1319,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Removing the rescan annotation to simulate it being processed")
 				var registry v1alpha1.Registry
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				delete(registry.Annotations, v1alpha1.AnnotationRescanRequestedKey)
@@ -1333,7 +1333,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying rescan annotation was not set")
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "workloadscan-ghcr-io",
+					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
 				Expect(registry.Annotations).NotTo(HaveKey(v1alpha1.AnnotationRescanRequestedKey))

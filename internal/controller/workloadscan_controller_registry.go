@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -357,15 +359,11 @@ func sortRepositories(repositories []v1alpha1.Repository) {
 	}
 }
 
-// computeRegistryName converts a registry uri to a valid Kubernetes resource name
-// Example: "ghcr.io" becomes "workloadscan-ghcr-io"
-// Example: "localhost:5000" becomes "workloadscan-localhost-5000"
-func computeRegistryName(registry string) string {
-	// Replace dots and colons with hyphens
-	sanitized := strings.ReplaceAll(registry, ".", "-")
-	sanitized = strings.ReplaceAll(sanitized, ":", "-")
-
-	return "workloadscan-" + sanitized
+// computeRegistryName converts a registry URI to a valid Kubernetes resource name by hashing it with SHA-256.
+func computeRegistryName(uri string) string {
+	sha := sha256.New()
+	fmt.Fprint(sha, uri)
+	return "workloadscan-" + hex.EncodeToString(sha.Sum(nil))
 }
 
 // groupImagesByRegistry parses images and groups them by registry uri -> repository -> tags
