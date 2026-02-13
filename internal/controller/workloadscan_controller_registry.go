@@ -107,14 +107,14 @@ func (r *WorkloadScanReconciler) updateRegistry(
 ) (bool, error) {
 	logger := log.FromContext(ctx)
 
-	neededConditions := buildNeededConditions(repositories)
-	oldConditions := extractConditionsFromRegistry(registry)
+	neededMatchConditions := buildNeededMatchConditions(repositories)
+	oldMatchConditions := extractMatchConditionsFromRegistry(registry)
 
-	processedRepositories, processedConditions := r.processExistingRepositories(registry, sourceNamespace, neededConditions)
+	processedRepositories, processedMatchConditions := r.processExistingRepositories(registry, sourceNamespace, neededMatchConditions)
 
-	// Add conditions that are needed but weren't in existing repositories
-	newConditions := neededConditions.Difference(processedConditions)
-	updatedRepositories := addNewConditions(processedRepositories, newConditions, sourceNamespace)
+	// Add match conditions that are needed but weren't in existing repositories
+	newMatchConditions := neededMatchConditions.Difference(processedMatchConditions)
+	updatedRepositories := addNewMatchConditions(processedRepositories, newMatchConditions, sourceNamespace)
 
 	if len(updatedRepositories) == 0 {
 		return true, nil
@@ -129,15 +129,15 @@ func (r *WorkloadScanReconciler) updateRegistry(
 	registry.Spec.ScanInterval = config.Spec.ScanInterval
 	registry.Spec.Platforms = config.Spec.Platforms
 
-	currentConditions := extractConditionsFromRegistry(registry)
-	hasNewConditions := currentConditions.Difference(oldConditions).Len() > 0
+	currentMatchConditions := extractMatchConditionsFromRegistry(registry)
+	hasNewMatchConditions := currentMatchConditions.Difference(oldMatchConditions).Len() > 0
 
-	if config.Spec.ScanOnChange && hasNewConditions {
+	if config.Spec.ScanOnChange && hasNewMatchConditions {
 		if registry.Annotations == nil {
 			registry.Annotations = make(map[string]string)
 		}
 		registry.Annotations[v1alpha1.AnnotationRescanRequestedKey] = time.Now().UTC().Format(time.RFC3339)
-		logger.V(1).Info("Conditions changed, marking registry for rescan", "registry", registry.Name)
+		logger.V(1).Info("Match conditions changed, marking registry for rescan", "registry", registry.Name)
 	}
 
 	if err := r.Update(ctx, registry); err != nil {
@@ -152,106 +152,106 @@ func (r *WorkloadScanReconciler) updateRegistry(
 	return false, nil
 }
 
-// buildNeededConditions builds the set of conditions this namespace needs from the repositories.
-func buildNeededConditions(repositories repositoryTags) sets.Set[matchConditionKey] {
-	neededConditions := sets.New[matchConditionKey]()
+// buildNeededMatchConditions builds the set of match conditions this namespace needs from the repositories.
+func buildNeededMatchConditions(repositories repositoryTags) sets.Set[matchConditionKey] {
+	neededMatchConditions := sets.New[matchConditionKey]()
 	for repositoryName, tags := range repositories {
 		for tag := range tags {
-			neededConditions.Insert(matchConditionKey{
+			neededMatchConditions.Insert(matchConditionKey{
 				repository: repositoryName,
 				name:       fmt.Sprintf("tag-%s", tag),
 				expression: fmt.Sprintf("tag == %q", tag),
 			})
 		}
 	}
-	return neededConditions
+	return neededMatchConditions
 }
 
-// extractConditionsFromRegistry extracts all conditions from a registry as a set.
-func extractConditionsFromRegistry(registry *v1alpha1.Registry) sets.Set[matchConditionKey] {
-	conditions := sets.New[matchConditionKey]()
+// extractMatchConditionsFromRegistry extracts all match conditions from a registry as a set.
+func extractMatchConditionsFromRegistry(registry *v1alpha1.Registry) sets.Set[matchConditionKey] {
+	matchConditions := sets.New[matchConditionKey]()
 	for _, repository := range registry.Spec.Repositories {
-		for _, condition := range repository.MatchConditions {
-			conditions.Insert(matchConditionKey{
+		for _, matchCondition := range repository.MatchConditions {
+			matchConditions.Insert(matchConditionKey{
 				repository: repository.Name,
-				name:       condition.Name,
-				expression: condition.Expression,
+				name:       matchCondition.Name,
+				expression: matchCondition.Expression,
 			})
 		}
 	}
-	return conditions
+	return matchConditions
 }
 
-// processExistingRepositories processes existing repositories and updates condition labels.
-// Returns the processed repositories and the set of conditions that were found in existing repositories.
+// processExistingRepositories processes existing repositories and updates match condition labels.
+// Returns the processed repositories and the set of match conditions that were found in existing repositories.
 func (r *WorkloadScanReconciler) processExistingRepositories(
 	registry *v1alpha1.Registry,
 	sourceNamespace string,
-	neededConditions sets.Set[matchConditionKey],
+	neededMatchConditions sets.Set[matchConditionKey],
 ) ([]v1alpha1.Repository, sets.Set[matchConditionKey]) {
 	var processedRepositories []v1alpha1.Repository
-	processedConditions := sets.New[matchConditionKey]()
+	processedMatchConditions := sets.New[matchConditionKey]()
 
 	for _, repository := range registry.Spec.Repositories {
-		conditions, processed := processRepositoryConditions(repository, sourceNamespace, neededConditions)
-		processedConditions = processedConditions.Union(processed)
+		repoMatchConditions, processed := processRepositoryMatchConditions(repository, sourceNamespace, neededMatchConditions)
+		processedMatchConditions = processedMatchConditions.Union(processed)
 
-		if len(conditions) > 0 {
+		if len(repoMatchConditions) > 0 {
 			processedRepositories = append(processedRepositories, v1alpha1.Repository{
 				Name:            repository.Name,
-				MatchConditions: conditions,
+				MatchConditions: repoMatchConditions,
 				MatchOperator:   v1alpha1.MatchOperatorOr,
 			})
 		}
 	}
 
-	return processedRepositories, processedConditions
+	return processedRepositories, processedMatchConditions
 }
 
-// processRepositoryConditions processes conditions for a single repository.
-// Returns the conditions to keep and the set of conditions that matched neededConditions.
-func processRepositoryConditions(
+// processRepositoryMatchConditions processes match conditions for a single repository.
+// Returns the match conditions to keep and the set that matched neededMatchConditions.
+func processRepositoryMatchConditions(
 	repository v1alpha1.Repository,
 	sourceNamespace string,
-	neededConditions sets.Set[matchConditionKey],
+	neededMatchConditions sets.Set[matchConditionKey],
 ) ([]v1alpha1.MatchCondition, sets.Set[matchConditionKey]) {
-	var conditionsToKeep []v1alpha1.MatchCondition
-	matchedConditions := sets.New[matchConditionKey]()
+	var matchConditionsToKeep []v1alpha1.MatchCondition
+	matchedMatchConditions := sets.New[matchConditionKey]()
 
-	for _, condition := range repository.MatchConditions {
+	for _, matchCondition := range repository.MatchConditions {
 		key := matchConditionKey{
 			repository: repository.Name,
-			name:       condition.Name,
-			expression: condition.Expression,
+			name:       matchCondition.Name,
+			expression: matchCondition.Expression,
 		}
 
-		if condition.Labels == nil {
-			condition.Labels = make(map[string]string)
+		if matchCondition.Labels == nil {
+			matchCondition.Labels = make(map[string]string)
 		}
 
 		nsLabel := namespacePrefix + sourceNamespace
-		if neededConditions.Has(key) {
-			condition.Labels[nsLabel] = "true"
-			matchedConditions.Insert(key)
+		if neededMatchConditions.Has(key) {
+			matchCondition.Labels[nsLabel] = "true"
+			matchedMatchConditions.Insert(key)
 		} else {
-			delete(condition.Labels, nsLabel)
+			delete(matchCondition.Labels, nsLabel)
 		}
 
-		if len(condition.Labels) > 0 {
-			conditionsToKeep = append(conditionsToKeep, condition)
+		if len(matchCondition.Labels) > 0 {
+			matchConditionsToKeep = append(matchConditionsToKeep, matchCondition)
 		}
 	}
 
-	return conditionsToKeep, matchedConditions
+	return matchConditionsToKeep, matchedMatchConditions
 }
 
-// addNewConditions adds new conditions to the repositories.
-func addNewConditions(
+// addNewMatchConditions adds new match conditions to the repositories.
+func addNewMatchConditions(
 	repositories []v1alpha1.Repository,
-	conditions sets.Set[matchConditionKey],
+	matchConditions sets.Set[matchConditionKey],
 	sourceNamespace string,
 ) []v1alpha1.Repository {
-	for key := range conditions {
+	for key := range matchConditions {
 		repository := findOrAppendRepository(&repositories, key.repository)
 		repository.MatchConditions = append(repository.MatchConditions, v1alpha1.MatchCondition{
 			Name:       key.name,
@@ -274,12 +274,12 @@ func (r *WorkloadScanReconciler) createRegistry(
 	logger := log.FromContext(ctx)
 	registryName := computeRegistryName(uri)
 
-	// Build repositories with conditions
+	// Build repositories with match conditions
 	var registryRepositories []v1alpha1.Repository
 	for repositoryName, tags := range repositories {
-		var conditions []v1alpha1.MatchCondition
+		var matchConditions []v1alpha1.MatchCondition
 		for tag := range tags {
-			conditions = append(conditions, v1alpha1.MatchCondition{
+			matchConditions = append(matchConditions, v1alpha1.MatchCondition{
 				Name:       fmt.Sprintf("tag-%s", tag),
 				Expression: fmt.Sprintf("tag == %q", tag),
 				Labels: map[string]string{
@@ -289,7 +289,7 @@ func (r *WorkloadScanReconciler) createRegistry(
 		}
 		registryRepositories = append(registryRepositories, v1alpha1.Repository{
 			Name:            repositoryName,
-			MatchConditions: conditions,
+			MatchConditions: matchConditions,
 			MatchOperator:   v1alpha1.MatchOperatorOr,
 		})
 	}
