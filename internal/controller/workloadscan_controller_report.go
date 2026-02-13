@@ -74,7 +74,7 @@ func (r *WorkloadScanReconciler) buildPodsByReport(ctx context.Context, pods []c
 			return nil, fmt.Errorf("failed to resolve workload owner for pod %s: %w", pod.Name, err)
 		}
 
-		reportName := computeWorkloadScanReportName(ownerReference.Kind, ownerReference.Name)
+		reportName := computeWorkloadScanReportName(ownerReference.Kind, ownerReference.UID)
 		if _, exists := podsByReport[reportName]; !exists {
 			podsByReport[reportName] = pod
 		}
@@ -160,8 +160,9 @@ func (r *WorkloadScanReconciler) resolveWorkloadOwner(ctx context.Context, pod *
 }
 
 // computeWorkloadScanReportName generates a name for a WorkloadScanReport
-func computeWorkloadScanReportName(kind, name string) string {
-	return fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+// using the workload's Kubernetes UID to avoid name length issues.
+func computeWorkloadScanReportName(kind string, uid types.UID) string {
+	return fmt.Sprintf("%s-%s", strings.ToLower(kind), uid)
 }
 
 // buildContainerRefs builds ContainerRef entries with ImageRef from a PodSpec

@@ -586,7 +586,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying the WorkloadScanReport was created")
 				var report storagev1alpha1.WorkloadScanReport
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pod-standalone-pod",
+					Name:      computeWorkloadScanReportName("Pod", pod.UID),
 					Namespace: namespace.Name,
 				}, &report)).To(Succeed())
 
@@ -646,7 +646,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying the WorkloadScanReport contains all containers")
 				var report storagev1alpha1.WorkloadScanReport
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pod-multi-registry-pod",
+					Name:      computeWorkloadScanReportName("Pod", pod.UID),
 					Namespace: namespace.Name,
 				}, &report)).To(Succeed())
 
@@ -678,7 +678,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying the report was created")
 				var report storagev1alpha1.WorkloadScanReport
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pod-temporary-pod",
+					Name:      computeWorkloadScanReportName("Pod", pod.UID),
 					Namespace: namespace.Name,
 				}, &report)).To(Succeed())
 
@@ -693,7 +693,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 
 				By("Verifying the report was deleted")
 				err = k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pod-temporary-pod",
+					Name:      computeWorkloadScanReportName("Pod", pod.UID),
 					Namespace: namespace.Name,
 				}, &report)
 				Expect(client.IgnoreNotFound(err)).To(Succeed())
@@ -789,7 +789,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				By("Verifying WorkloadScanReport was created in source namespace")
 				var report storagev1alpha1.WorkloadScanReport
 				Expect(k8sClient.Get(ctx, types.NamespacedName{
-					Name:      "pod-pod-a",
+					Name:      computeWorkloadScanReportName("Pod", podA.UID),
 					Namespace: sourceNamespaceA.Name,
 				}, &report)).To(Succeed())
 
