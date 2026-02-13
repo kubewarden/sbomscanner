@@ -219,6 +219,8 @@ func (h *GenerateSBOMHandler) findSBOMByDigest(ctx context.Context, digest strin
 }
 
 // generateSPDX generates SPDX JSON content for an image using Trivy.
+//
+//nolint:gocognit // This function can't be easily split into smaller parts.
 func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1alpha1.Image, registry *v1alpha1.Registry) ([]byte, error) {
 	sbomFile, err := os.CreateTemp(h.workDir, "trivy.sbom.*.json")
 	if err != nil {
