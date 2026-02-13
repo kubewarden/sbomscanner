@@ -73,11 +73,20 @@ func (k *staticKeychain) Resolve(target authn.Resource) (authn.Authenticator, er
 	return authn.Anonymous, nil
 }
 
-// runTestRegistry starts a test container registry, optionally with authentication, and pushes the provided test images to it.
-func runTestRegistry(ctx context.Context, testImages []name.Reference, private bool) (*registry.RegistryContainer, error) {
+// runTestRegistry starts a test container registry, optionally with authentication and custom CA certs, and pushes the provided test images to it.
+func runTestRegistry(ctx context.Context, testImages []name.Reference, private bool, useCerts bool) (*registry.RegistryContainer, error) {
 	opts := []testcontainers.ContainerCustomizer{}
 	if private {
 		opts = append(opts, registry.WithHtpasswd(htpasswd))
+	}
+	if useCerts {
+		certDir := "testdata/certs"
+		opts = append(opts,
+			testcontainers.WithEnv(map[string]string{
+				"REGISTRY_HTTP_TLS_CERTIFICATE": certDir + "/tls.crt",
+				"REGISTRY_HTTP_TLS_KEY":         certDir + "/tls.key",
+			}),
+		)
 	}
 
 	registryTestcontainer, err := registry.Run(
