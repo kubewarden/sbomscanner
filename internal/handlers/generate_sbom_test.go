@@ -597,7 +597,7 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	singleArchRef := name.MustParseReference(imageRefSingleArch)
 	testPrivateRegistry, err := runTestRegistry(t.Context(), []name.Reference{
 		singleArchRef,
-	}, true)
+	}, true, false)
 	require.NoError(t, err)
 	defer testPrivateRegistry.Terminate(t.Context())
 
@@ -731,7 +731,7 @@ func TestGenerateSBOMHandler_Handle_InsecureRegistry(t *testing.T) {
 	singleArchRef := name.MustParseReference(imageRefSingleArch)
 	testRegistry, err := runTestRegistry(t.Context(), []name.Reference{
 		singleArchRef,
-	}, false)
+	}, false, false)
 	require.NoError(t, err)
 	defer testRegistry.Terminate(t.Context())
 
@@ -775,6 +775,125 @@ func TestGenerateSBOMHandler_Handle_InsecureRegistry(t *testing.T) {
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-insecure-registry",
+		},
+	}
+
+	scheme := scheme.Scheme
+	err = storagev1alpha1.AddToScheme(scheme)
+	require.NoError(t, err)
+	err = v1alpha1.AddToScheme(scheme)
+	require.NoError(t, err)
+	err = corev1.AddToScheme(scheme)
+	require.NoError(t, err)
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithRuntimeObjects(image, registry, scanJob).
+		WithIndex(&storagev1alpha1.SBOM{}, storagev1alpha1.IndexImageMetadataDigest, func(obj client.Object) []string {
+			sbom, ok := obj.(*storagev1alpha1.SBOM)
+			if !ok {
+				return nil
+			}
+			return []string{sbom.GetImageMetadata().Digest}
+		}).
+		Build()
+
+	publisher := messagingMocks.NewMockPublisher(t)
+
+	expectedScanMessage, err := json.Marshal(&ScanSBOMMessage{
+		BaseMessage: BaseMessage{
+			ScanJob: ObjectRef{
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
+				UID:       string(scanJob.UID),
+			},
+		},
+		SBOM: ObjectRef{
+			Name:      image.Name,
+			Namespace: image.Namespace,
+		},
+	})
+	require.NoError(t, err)
+
+	publisher.On("Publish",
+		mock.Anything,
+		ScanSBOMSubject,
+		fmt.Sprintf("scanSBOM/%s/%s", scanJob.UID, image.Name),
+		expectedScanMessage,
+	).Return(nil).Once()
+
+	handler := NewGenerateSBOMHandler(k8sClient, scheme, "/tmp", testTrivyJavaDBRepository, publisher, slog.Default())
+
+	message, err := json.Marshal(&GenerateSBOMMessage{
+		BaseMessage: BaseMessage{
+			ScanJob: ObjectRef{
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
+				UID:       string(scanJob.UID),
+			},
+		},
+		Image: ObjectRef{
+			Name:      image.Name,
+			Namespace: image.Namespace,
+		},
+	})
+	require.NoError(t, err)
+
+	err = handler.Handle(t.Context(), &testMessage{data: message})
+	require.NoError(t, err)
+}
+
+func TestGenerateSBOMHandler_Handle_CARegistry(t *testing.T) {
+	singleArchRef := name.MustParseReference(imageRefSingleArch)
+	testRegistry, err := runTestRegistry(t.Context(), []name.Reference{
+		singleArchRef,
+	}, false, true)
+	require.NoError(t, err)
+	defer testRegistry.Terminate(t.Context())
+
+	// Read the CA bundle from testdata/certs/tls.crt
+	caBundle, err := os.ReadFile("testdata/certs/tls.crt")
+	require.NoError(t, err)
+
+	registry := &v1alpha1.Registry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ca-registry",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RegistrySpec{
+			URI:      testRegistry.RegistryName,
+			CABundle: string(caBundle),
+		},
+	}
+	registryData, err := json.Marshal(registry)
+	require.NoError(t, err)
+
+	image := &storagev1alpha1.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      computeImageUID(fmt.Sprintf("%s/%s", testRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
+			Namespace: "default",
+			UID:       "image-uid",
+		},
+		ImageMetadata: storagev1alpha1.ImageMetadata{
+			Registry:    "test-ca-registry",
+			RegistryURI: testRegistry.RegistryName,
+			Repository:  singleArchRef.Context().RepositoryStr(),
+			Tag:         singleArchRef.Identifier(),
+			Platform:    "linux/amd64",
+			Digest:      imageDigestSingleArch,
+		},
+	}
+
+	scanJob := &v1alpha1.ScanJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-scanjob-ca",
+			Namespace: "default",
+			UID:       "test-scanjob-ca-uid",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
+			},
+		},
+		Spec: v1alpha1.ScanJobSpec{
+			Registry: "test-ca-registry",
 		},
 	}
 
