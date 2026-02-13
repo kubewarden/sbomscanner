@@ -2,7 +2,12 @@ package handlers
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"net/http"
+	"os"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -10,6 +15,7 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/registry"
+	"github.com/testcontainers/testcontainers-go/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -74,19 +80,84 @@ func (k *staticKeychain) Resolve(target authn.Resource) (authn.Authenticator, er
 }
 
 // runTestRegistry starts a test container registry, optionally with authentication and custom CA certs, and pushes the provided test images to it.
-func runTestRegistry(ctx context.Context, testImages []name.Reference, private bool, useCerts bool) (*registry.RegistryContainer, error) {
+func runTestRegistry(ctx context.Context, testImages []name.Reference, private bool, cert, key string) (*registry.RegistryContainer, error) {
 	opts := []testcontainers.ContainerCustomizer{}
 	if private {
 		opts = append(opts, registry.WithHtpasswd(htpasswd))
 	}
-	if useCerts {
-		certDir := "testdata/certs"
+
+	// Configure TLS if cert and key are provided
+	var certFile, keyFile string
+	var craneOpts []crane.Option
+
+	if cert != "" && key != "" {
+		// Create temporary files for certificate and key
+		tmpCertFile, err := os.CreateTemp("", "registry-cert-*.crt")
+		if err != nil {
+			return nil, fmt.Errorf("unable to create temp cert file: %w", err)
+		}
+		defer os.Remove(tmpCertFile.Name())
+
+		if _, err := tmpCertFile.WriteString(cert); err != nil {
+			tmpCertFile.Close()
+			return nil, fmt.Errorf("unable to write cert content: %w", err)
+		}
+		tmpCertFile.Close()
+		certFile = tmpCertFile.Name()
+
+		tmpKeyFile, err := os.CreateTemp("", "registry-key-*.key")
+		if err != nil {
+			return nil, fmt.Errorf("unable to create temp key file: %w", err)
+		}
+		defer os.Remove(tmpKeyFile.Name())
+
+		if _, err := tmpKeyFile.WriteString(key); err != nil {
+			tmpKeyFile.Close()
+			return nil, fmt.Errorf("unable to write key content: %w", err)
+		}
+		tmpKeyFile.Close()
+		keyFile = tmpKeyFile.Name()
+
+		// Mount certificate files into the container
 		opts = append(opts,
+			testcontainers.WithFiles(
+				testcontainers.ContainerFile{
+					HostFilePath:      certFile,
+					ContainerFilePath: "/certs/registry.crt",
+					FileMode:          0644,
+				},
+				testcontainers.ContainerFile{
+					HostFilePath:      keyFile,
+					ContainerFilePath: "/certs/registry.key",
+					FileMode:          0600,
+				},
+			),
 			testcontainers.WithEnv(map[string]string{
-				"REGISTRY_HTTP_TLS_CERTIFICATE": certDir + "/tls.crt",
-				"REGISTRY_HTTP_TLS_KEY":         certDir + "/tls.key",
+				"REGISTRY_HTTP_TLS_CERTIFICATE": "/certs/registry.crt",
+				"REGISTRY_HTTP_TLS_KEY":         "/certs/registry.key",
 			}),
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("listening on").WithStartupTimeout(60*time.Second),
+			),
 		)
+
+		// Start with the system's CA pool
+		certPool, err := x509.SystemCertPool()
+		if err != nil {
+			// If we can't get the system pool, create a new one
+			certPool = x509.NewCertPool()
+		}
+
+		// Add our self-signed certificate to the pool
+		// so that crane can trust the registry when pushing images
+		certPool.AppendCertsFromPEM([]byte(cert))
+		tlsConfig := &tls.Config{
+			RootCAs: certPool,
+		}
+		transport := &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
+		craneOpts = append(craneOpts, crane.WithTransport(transport))
 	}
 
 	registryTestcontainer, err := registry.Run(
@@ -120,11 +191,14 @@ func runTestRegistry(ctx context.Context, testImages []name.Reference, private b
 		})
 	}
 
+	// Add auth to crane options
+	craneOpts = append(craneOpts, crane.WithAuthFromKeychain(authn.NewMultiKeychain(keychains...)))
+
 	for _, image := range testImages {
 		localImageRef := fmt.Sprintf("%s/%s:%s", registryHostAddress, image.Context().RepositoryStr(), image.Identifier())
 
 		// Use crane.Copy to preserve multi-arch manifests
-		if err := crane.Copy(image.String(), localImageRef, crane.WithAuthFromKeychain(authn.NewMultiKeychain(keychains...))); err != nil {
+		if err := crane.Copy(image.String(), localImageRef, craneOpts...); err != nil {
 			return nil, fmt.Errorf("unable to copy image: %w", err)
 		}
 	}

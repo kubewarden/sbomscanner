@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/mdelapenya/tlscert"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -597,7 +598,7 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	singleArchRef := name.MustParseReference(imageRefSingleArch)
 	testPrivateRegistry, err := runTestRegistry(t.Context(), []name.Reference{
 		singleArchRef,
-	}, true, false)
+	}, true, "", "")
 	require.NoError(t, err)
 	defer testPrivateRegistry.Terminate(t.Context())
 
@@ -731,7 +732,7 @@ func TestGenerateSBOMHandler_Handle_InsecureRegistry(t *testing.T) {
 	singleArchRef := name.MustParseReference(imageRefSingleArch)
 	testRegistry, err := runTestRegistry(t.Context(), []name.Reference{
 		singleArchRef,
-	}, false, false)
+	}, false, "", "")
 	require.NoError(t, err)
 	defer testRegistry.Terminate(t.Context())
 
@@ -843,16 +844,26 @@ func TestGenerateSBOMHandler_Handle_InsecureRegistry(t *testing.T) {
 }
 
 func TestGenerateSBOMHandler_Handle_CARegistry(t *testing.T) {
+	// Generate TLS certificates
+	cert := tlscert.SelfSignedFromRequest(tlscert.Request{
+		Host:      "localhost,127.0.0.1",
+		Name:      "test-registry",
+		ParentDir: t.TempDir(),
+	})
+
+	// Read certificate and key content
+	certContent, err := os.ReadFile(cert.CertPath)
+	require.NoError(t, err)
+
+	keyContent, err := os.ReadFile(cert.KeyPath)
+	require.NoError(t, err)
+
 	singleArchRef := name.MustParseReference(imageRefSingleArch)
 	testRegistry, err := runTestRegistry(t.Context(), []name.Reference{
 		singleArchRef,
-	}, false, true)
+	}, false, string(certContent), string(keyContent))
 	require.NoError(t, err)
 	defer testRegistry.Terminate(t.Context())
-
-	// Read the CA bundle from testdata/certs/tls.crt
-	caBundle, err := os.ReadFile("testdata/certs/tls.crt")
-	require.NoError(t, err)
 
 	registry := &v1alpha1.Registry{
 		ObjectMeta: metav1.ObjectMeta{
@@ -861,7 +872,7 @@ func TestGenerateSBOMHandler_Handle_CARegistry(t *testing.T) {
 		},
 		Spec: v1alpha1.RegistrySpec{
 			URI:      testRegistry.RegistryName,
-			CABundle: string(caBundle),
+			CABundle: string(certContent),
 		},
 	}
 	registryData, err := json.Marshal(registry)
