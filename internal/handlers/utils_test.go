@@ -119,43 +119,13 @@ func runTestRegistry(ctx context.Context, testImages []name.Reference, private b
 		keyFile = tmpKeyFile.Name()
 
 		// Mount certificate files into the container
+		// and set environment variables for the registry to use them
 		opts = append(opts,
-			testcontainers.WithFiles(
-				testcontainers.ContainerFile{
-					HostFilePath:      certFile,
-					ContainerFilePath: "/certs/registry.crt",
-					FileMode:          0644,
-				},
-				testcontainers.ContainerFile{
-					HostFilePath:      keyFile,
-					ContainerFilePath: "/certs/registry.key",
-					FileMode:          0600,
-				},
-			),
-			testcontainers.WithEnv(map[string]string{
-				"REGISTRY_HTTP_TLS_CERTIFICATE": "/certs/registry.crt",
-				"REGISTRY_HTTP_TLS_KEY":         "/certs/registry.key",
-			}),
-			testcontainers.WithWaitStrategy(
-				wait.ForLog("listening on").WithStartupTimeout(60*time.Second),
-			),
+			withCertificateAndKeyFiles(certFile, keyFile)...,
 		)
 
-		// Start with the system's CA pool
-		certPool, err := x509.SystemCertPool()
-		if err != nil {
-			// If we can't get the system pool, create a new one
-			certPool = x509.NewCertPool()
-		}
-
-		// Add our self-signed certificate to the pool
-		// so that crane can trust the registry when pushing images
-		certPool.AppendCertsFromPEM([]byte(cert))
-		tlsConfig := &tls.Config{
-			RootCAs: certPool,
-		}
 		transport := &http.Transport{
-			TLSClientConfig: tlsConfig,
+			TLSClientConfig: newTLSConfigWithCustomCA(cert),
 		}
 		craneOpts = append(craneOpts, crane.WithTransport(transport))
 	}
@@ -222,5 +192,47 @@ func imageFactory(registryURI, repository, tag, platform, digest, indexDigest st
 			Digest:      digest,
 			IndexDigest: indexDigest,
 		},
+	}
+}
+
+func newTLSConfigWithCustomCA(cert string) *tls.Config {
+	// Start with the system's CA pool
+	certPool, err := x509.SystemCertPool()
+	if err != nil {
+		// If we can't get the system pool, create a new one
+		certPool = x509.NewCertPool()
+	}
+
+	// Add our self-signed certificate to the pool
+	// so that crane can trust the registry when pushing images
+	certPool.AppendCertsFromPEM([]byte(cert))
+	tlsConfig := &tls.Config{
+		RootCAs: certPool,
+	}
+
+	return tlsConfig
+}
+
+func withCertificateAndKeyFiles(certFile, keyFile string) []testcontainers.ContainerCustomizer {
+	return []testcontainers.ContainerCustomizer{
+		testcontainers.WithFiles(
+			testcontainers.ContainerFile{
+				HostFilePath:      certFile,
+				ContainerFilePath: "/certs/registry.crt",
+				FileMode:          0644,
+			},
+			testcontainers.ContainerFile{
+				HostFilePath:      keyFile,
+				ContainerFilePath: "/certs/registry.key",
+				FileMode:          0600,
+			},
+		),
+		testcontainers.WithEnv(map[string]string{
+			"REGISTRY_HTTP_TLS_CERTIFICATE": "/certs/registry.crt",
+			"REGISTRY_HTTP_TLS_KEY":         "/certs/registry.key",
+		}),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("listening on").WithStartupTimeout(60 * time.Second),
+		),
 	}
 }
