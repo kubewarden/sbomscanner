@@ -2,7 +2,7 @@ package controller
 
 import (
 	"context"
-	"reflect"
+	"slices"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -108,9 +108,9 @@ func podImagesChangedPredicate() predicate.Predicate {
 			if !ok {
 				return false
 			}
-			oldImages := extractImagesFromPodSpec(oldPod.Spec)
-			newImages := extractImagesFromPodSpec(newPod.Spec)
-			return !reflect.DeepEqual(oldImages, newImages)
+			oldImages := slices.Sorted(slices.Values(extractImagesFromPodSpec(oldPod.Spec)))
+			newImages := slices.Sorted(slices.Values(extractImagesFromPodSpec(newPod.Spec)))
+			return !slices.Equal(oldImages, newImages)
 		},
 		DeleteFunc: func(_ event.DeleteEvent) bool {
 			return true
