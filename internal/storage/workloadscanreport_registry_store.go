@@ -102,6 +102,8 @@ func (c *workloadScanReportTableConvertor) ConvertToTable(_ context.Context, obj
 		ColumnDefinitions: []metav1.TableColumnDefinition{
 			{Name: "Name", Type: "string", Description: "Name of the workload scan report", Format: "name"},
 			{Name: "Namespace", Type: "string", Description: "Namespace of the workload scan report"},
+			{Name: "Kind", Type: "string", Description: "Kind of the owning workload"},
+			{Name: "Workload", Type: "string", Description: "Name of the owning workload"},
 			{Name: "Containers", Type: "integer", Description: "Number of containers in the workload"},
 			{Name: "Age", Type: "string", Description: "Age of the resource"},
 		},
@@ -119,11 +121,18 @@ func (c *workloadScanReportTableConvertor) ConvertToTable(_ context.Context, obj
 	}
 
 	for _, report := range reports {
+		var ownerKind, ownerName string
+		if len(report.OwnerReferences) > 0 {
+			ownerKind = report.OwnerReferences[0].Kind
+			ownerName = report.OwnerReferences[0].Name
+		}
 		row := metav1.TableRow{
 			Object: runtime.RawExtension{Object: &report},
 			Cells: []interface{}{
 				report.Name,
 				report.Namespace,
+				ownerKind,
+				ownerName,
 				len(report.Containers),
 				report.CreationTimestamp,
 			},

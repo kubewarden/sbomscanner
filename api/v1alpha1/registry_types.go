@@ -130,6 +130,7 @@ func (r *Registry) GetRepository(name string) *Repository {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="URI",type=string,JSONPath=`.spec.uri`
 
 // Registry is the Schema for the registries API
 type Registry struct {

@@ -3,10 +3,10 @@ kind: WorkloadScanConfiguration
 metadata:
   name: default
 spec:
+  artifactsNamespace: sbomscanner
   namespaceSelector:
     matchLabels:
       sbomscanner.kubewarden.io/workloadscan: "true"
-  targetNamespace: sbomscanner
   scanInterval: 1h
   scanOnChange: true
   platforms:

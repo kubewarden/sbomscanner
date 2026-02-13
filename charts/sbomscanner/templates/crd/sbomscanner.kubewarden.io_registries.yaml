@@ -15,7 +15,11 @@ spec:
     singular: registry
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.uri
+      name: URI
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Registry is the Schema for the registries API
