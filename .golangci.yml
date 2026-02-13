@@ -452,7 +452,7 @@ linters:
       - common-false-positives
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
-        # Allow "err" and "ok" vars to shadow existing declarations, otherwise we get too many false positives.
+      # Allow "err" and "ok" vars to shadow existing declarations, otherwise we get too many false positives.
       - text: '^shadow: declaration of "(err|ok)" shadows declaration'
         linters:
           - govet
@@ -497,6 +497,11 @@ linters:
         linters:
           - revive
         text: "dot-imports"
+      # Disable var-naming for api package
+      - path: '^api/.*\.go$'
+        linters:
+          - revive
+        text: "var-naming: avoid meaningless package names"
       # Disable dupl for api types
       - path: 'api/.*\.go'
         linters:
@@ -513,4 +518,3 @@ linters:
       - path: '^cmd\/.*\.go$'
         linters:
           - godoclint
-
