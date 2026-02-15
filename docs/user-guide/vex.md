@@ -24,7 +24,7 @@ kind: VEXHub
 metadata:
   name: kubewarden
 spec:
-  url: "https://github.com/kubewarden/vexhub"
+  url: "https://github.com/rancher/vexhub"
   enabled: true
 ```
 
