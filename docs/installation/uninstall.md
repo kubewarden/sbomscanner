@@ -13,6 +13,7 @@ all the resources of these types declared inside of the cluster:
 kubectl delete crd vexhubs.sbomscanner.kubewarden.io
 kubectl delete crd scanjobs.sbomscanner.kubewarden.io
 kubectl delete crd registries.sbomscanner.kubewarden.io
+kubectl delete crd workloadscanconfigurations.sbomscanner.kubewarden.io
 ```
 
 Finally, delete the namespace where SBOMscanner was deployed:
