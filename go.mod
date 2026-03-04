@@ -3,7 +3,7 @@ module github.com/kubewarden/sbomscanner
 go 1.26.0
 
 require (
-	github.com/aquasecurity/trivy v0.69.2
+	github.com/aquasecurity/trivy v0.69.3
 	github.com/aquasecurity/trivy-db v0.0.0-20260224070823-8ee75f8f4fff
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/aws/smithy-go v1.24.2
