@@ -52,9 +52,9 @@ The WorkloadScan feature can be controlled at two levels:
 
 1. **Helm chart flag**: A flag in the Helm chart allows disabling the feature completely. When disabled, the WorkloadScan reconcilers do not run and no resources are watched. This is useful for clusters where workload scanning is not needed and operators want to avoid any overhead from the reconcilers.
 
-2. **WorkloadScanConfiguration resource**: When the reconcilers are enabled, the feature is only active if a `WorkloadScanConfiguration` resource exists. If no configuration is present, the reconcilers will not process any workloads.
+2. **WorkloadScanConfiguration resource**: When the reconcilers are enabled, the feature is only active if a `WorkloadScanConfiguration` resource exists. If no configuration is present, the reconcilers will not process any workloads. The user must create this resource after installation.
 
-The Helm chart will provide a default `WorkloadScanConfiguration` with a namespace selector set to an arbitrary label (e.g., `sbomscanner.kubewarden.io/workloadscan: "true"`). This allows users to phase in the feature gradually by labeling the namespaces they want to include in workload scanning, rather than enabling it cluster-wide immediately.
+A sample `WorkloadScanConfiguration` is provided in the [examples folder](../../examples/workloadscanconfiguration.yaml). A typical configuration uses a namespace selector set to an arbitrary label (e.g., `sbomscanner.kubewarden.io/workloadscan: "true"`), allowing users to phase in the feature gradually by labeling the namespaces they want to include in workload scanning, rather than enabling it cluster-wide immediately.
 
 ## WorkloadScanConfiguration CRD
 
@@ -105,7 +105,7 @@ spec:
 
 The `namespaceSelector` field uses standard Kubernetes label selectors. When specified, only workloads in namespaces matching the selector are considered for scanning. If not specified, workloads in all namespaces are scanned.
 
-The `artifactsNamespace` field allows centralizing scan artifacts in a single namespace. If not specified, resources are created in the workload's namespace, which is the preferred approach for multi-tenant clusters where scan data should be isolated per namespace. This field can only be changed when `enabled` is `true`.
+The `artifactsNamespace` field allows centralizing scan artifacts in a single namespace. If not specified, resources are created in the workload's namespace, which is the preferred approach for multi-tenant clusters where scan data should be isolated per namespace. This field can only be changed when `enabled` is `false`.
 
 The `authSecret` field references a secret containing registry credentials. This secret must exist in the SBOMScanner installation namespace and use the `kubernetes.io/dockerconfigjson` format. See [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/) for details on creating this secret.
 

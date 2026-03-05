@@ -1,4 +1,4 @@
-# Workload Scanning
+# Scaning Workloads
 
 ## Overview
 
@@ -22,13 +22,19 @@ SBOMscanner resolves pods to their owning workload by walking the owner referenc
 
 ### Default behavior
 
-The feature is enabled by default when installing SBOMscanner via the Helm chart. A default `WorkloadScanConfiguration` resource is created with a namespace selector set to `sbomscanner.kubewarden.io/workloadscan: "true"`, which means scanning is not active in any namespace until you explicitly label the namespaces you want to include. This lets you phase in the feature gradually rather than enabling it cluster-wide on installation.
+The WorkloadScan reconcilers are enabled by default when installing SBOMscanner via the Helm chart. Workload scanning becomes active once you create a `WorkloadScanConfiguration` resource. A sample configuration is available in the [examples folder](../../examples/workloadscanconfiguration.yaml).
 
 ## Configuration
 
 The `WorkloadScanConfiguration` is a cluster-scoped singleton resource named `default`. It is the single entry point for controlling the workload scanning behavior. Only one instance is allowed.
 
-After installing SBOMscanner, the default configuration looks like this:
+To activate workload scanning after installation, create the configuration:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubewarden/sbomscanner/main/examples/workloadscanconfiguration.yaml
+```
+
+Or create your own configuration:
 
 ```yaml
 apiVersion: sbomscanner.kubewarden.io/v1alpha1
@@ -36,31 +42,32 @@ kind: WorkloadScanConfiguration
 metadata:
   name: default
 spec:
-  enabled: true
+  namespaceSelector:
+    matchLabels:
+      sbomscanner.kubewarden.io/workloadscan: "true"
   artifactsNamespace: sbomscanner
   scanOnChange: true
   scanInterval: 1h
   platforms:
     - arch: amd64
       os: linux
-  namespaceSelector:
-    matchLabels:
-      sbomscanner.kubewarden.io/workloadscan: "true"
+    - arch: arm64
+      os: linux
 ```
 
 ### Fields
 
-| Field                | Description                                                                                                                                                                                                                                                                                                             | Default                |
-| :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------- |
-| `enabled`            | Enable or disable workload scanning. See [Disabling workload scanning](#disabling-workload-scanning) for details.                                                                                                                                                                                                       | `true`                 |
-| `artifactsNamespace` | Namespace where managed `Registry`, `ScanJob`, `Image`, `SBOM`, and `VulnerabilityReport` resources are created. `WorkloadScanReport` resources are always created in the workload's namespace regardless of this setting. See [Multi-tenancy setup](#multi-tenancy-setup) for the behavior when this field is omitted. | Installation namespace |
-| `scanOnChange`       | Trigger a scan immediately when a new image is discovered, rather than waiting for the next `scanInterval` cycle.                                                                                                                                                                                                       | `true`                 |
-| `scanInterval`       | How often discovered registries are rescanned. The vulnerability database is continuously updated, so periodic rescans ensure reports reflect the latest findings even if the workload hasn't changed.                                                                                                                  | `1h`                   |
-| `platforms`          | Which platforms to scan for each discovered image. See [Scanning multiple platforms](#scanning-multiple-platforms).                                                                                                                                                                                                     | All platforms          |
-| `namespaceSelector`  | A standard [Kubernetes label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors). Only workloads in namespaces matching the selector are scanned. If omitted, workloads in all namespaces are scanned.                                                                 | -                      |
-| `authSecret`         | Name of a secret in the SBOMscanner installation namespace containing registry credentials in `kubernetes.io/dockerconfigjson` format. These credentials are propagated to all managed `Registry` resources. See [Private Registries](./private-registries.md).                                                         | -                      |
-| `caBundle`           | PEM-encoded CA certificate bundle for registries using a custom certificate authority.                                                                                                                                                                                                                                  | -                      |
-| `insecure`           | Allow connections to registries without TLS verification.                                                                                                                                                                                                                                                               | `false`                |
+| Field                | Description                                                                                                                                                                                                                                                                                                                                                             | Default                                   |
+| :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------- |
+| `enabled`            | Enable or disable workload scanning. See [Disabling workload scanning](#disabling-workload-scanning) for details.                                                                                                                                                                                                                                                       | `true`                                    |
+| `artifactsNamespace` | Namespace where managed `Registry`, `ScanJob`, `Image`, `SBOM`, and `VulnerabilityReport` resources are created. `WorkloadScanReport` resources are always created in the workload's namespace regardless of this setting. If omitted or empty, managed artifacts are created in the workload's namespace. See [Multi-tenancy setup](#multi-tenancy-setup) for details. | Workload's namespace (when omitted/empty) |
+| `scanOnChange`       | Trigger a scan when a managed Registry resource is created or updated.                                                                                                                                                                                                                                                                                                  | `true`                                    |
+| `scanInterval`       | How often discovered registries are rescanned. The vulnerability database is continuously updated, so periodic rescans ensure reports reflect the latest findings even if the workload hasn't changed.                                                                                                                                                                  | -                                         |
+| `platforms`          | Which platforms to scan for each discovered image. See [Scanning multiple platforms](#scanning-multiple-platforms).                                                                                                                                                                                                                                                     | All platforms                             |
+| `namespaceSelector`  | A standard [Kubernetes label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors). Only workloads in namespaces matching the selector are scanned. If omitted, workloads in all namespaces are scanned.                                                                                                                 | -                                         |
+| `authSecret`         | Name of a secret in the SBOMscanner installation namespace containing registry credentials in `kubernetes.io/dockerconfigjson` format. These credentials are propagated to all managed `Registry` resources. See [Private Registries](./private-registries.md).                                                                                                         | -                                         |
+| `caBundle`           | PEM-encoded CA certificate bundle for registries using a custom certificate authority.                                                                                                                                                                                                                                                                                  | -                                         |
+| `insecure`           | Allow connections to registries without TLS verification.                                                                                                                                                                                                                                                                                                               | `false`                                   |
 
 > **Note**: The `artifactsNamespace` field can only be changed when `enabled` is `false`. This prevents moving artifacts while scans are actively running.
 
@@ -94,7 +101,7 @@ When multiple platforms are specified, SBOMscanner produces separate `Vulnerabil
 
 There are two levels of disabling the feature:
 
-**Disabling at the configuration level** sets `enabled: false` in the `WorkloadScanConfiguration` resource. The reconcilers remain running but stop processing workloads. This is useful when you want to temporarily pause scanning without removing the entire configuration, or when you need to change the `artifactsNamespace` field (which requires `enabled` to be `false`).
+**Disabling at the configuration level** either sets `enabled: false` in the `WorkloadScanConfiguration` resource or deletes the resource entirely. When `enabled` is `false`, the reconcilers remain running but stop processing workloads. This is useful when you want to temporarily pause scanning without removing the entire configuration, or when you need to change the `artifactsNamespace` field (which requires `enabled` to be `false`). Deleting the `WorkloadScanConfiguration` resource also disables scanning and causes all managed resources to be cleaned up.
 
 **Disabling at the Helm chart level** prevents the reconcilers from starting entirely. No workload-scan-related resources are watched and no CPU or memory overhead is incurred. Use this when you don't need workload scanning at all:
 
@@ -108,7 +115,7 @@ This is particularly useful for clusters where scanning is handled through expli
 
 ## Enabling scanning for a namespace
 
-The default configuration uses a namespace selector that matches the label `sbomscanner.kubewarden.io/workloadscan: "true"`. Scanning is not active in any namespace until you apply this label.
+The example configuration above uses a namespace selector that matches the label `sbomscanner.kubewarden.io/workloadscan: "true"`. Scanning is not active in any namespace until you apply this label.
 
 Label the namespace you want to scan:
 
@@ -242,9 +249,9 @@ You generally don't need to interact with managed `Registry` resources directly.
 
 ## Multi-tenancy setup
 
-By default, the Helm chart sets `artifactsNamespace` to the installation namespace (e.g., `sbomscanner`). This centralizes all scan artifacts (`Registry`, `Image`, `SBOM`, `VulnerabilityReport`) in a single namespace, while `WorkloadScanReport` resources are always created in the workload's namespace. This is the simplest setup: if the same image runs in multiple namespaces, it is scanned only once, and all reports reference the shared results.
+When `artifactsNamespace` is set, all scan artifacts (`Registry`, `Image`, `SBOM`, `VulnerabilityReport`) are centralized in that namespace, while `WorkloadScanReport` resources are always created in the workload's namespace. This is the simplest setup: if the same image runs in multiple namespaces, it is scanned only once, and all reports reference the shared results.
 
-For multi-tenant clusters where teams should not have cross-namespace visibility into scan data, you can remove the `artifactsNamespace` field:
+For multi-tenant clusters where teams should not have cross-namespace visibility into scan data, omit the `artifactsNamespace` field:
 
 ```yaml
 apiVersion: sbomscanner.kubewarden.io/v1alpha1
@@ -252,12 +259,6 @@ kind: WorkloadScanConfiguration
 metadata:
   name: default
 spec:
-  enabled: true
-  scanOnChange: true
-  scanInterval: 1h
-  platforms:
-    - arch: amd64
-      os: linux
   namespaceSelector:
     matchLabels:
       sbomscanner.kubewarden.io/workloadscan: "true"
