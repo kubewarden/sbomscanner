@@ -46,20 +46,18 @@ on the target object we want to scan.
 
 For this feature we are going to add the following CRDs:
 
+* `NodeScanConfiguration`
 * `NodeScanJob`
+* `NodeSBOM`
+* `NodeVulnerabilityReport`
 
-* `NodeScanSBOM`
-
-* `NodeScanVulnerabilityReport`
-
-`NodeScanJob` will allow the user to configure the scan on the nodes. This will
-have the following inputs:
+`NodeScanConfiguration` will allow the user to configure the scan on the nodes. This will have the following inputs:
 * `scanInterval`: to define how often the scan will run on the cluster.
 * `skip`: to define the directories or files that needs to be skipped.
 
 ### NodeMetadata Struct
 
-`NodeScanSBOM` and `NodeScanVulnerabilityReport` are equal to the [`SBOM`](https://github.com/kubewarden/sbomscanner/blob/main/api/storage/v1alpha1/sbom_types.go) and 
+`NodeSBOM` and `NodeVulnerabilityReport` are equal to the [`SBOM`](https://github.com/kubewarden/sbomscanner/blob/main/api/storage/v1alpha1/sbom_types.go) and 
 [`VulnerabilityReport`](https://github.com/kubewarden/sbomscanner/blob/main/api/storage/v1alpha1/vulnerabilityreport_types.go) resource, execept for except for [`ImageMetadata`](https://github.com/kubewarden/sbomscanner/blob/main/api/storage/v1alpha1/image_metadata.go).
 In this case, we are going to use the `NodeMetadata` structure to store 
 information about the node.
@@ -67,46 +65,39 @@ information about the node.
 `NodeMetadata` will have the following attributes:
 
 * `Name` specifies the unique name of the node in the cluster.
-
 * `Platform` specifies the CPU architecture of the node. Example: amd64, arm64.
-
 * `OS` specifies the operating system of the node. Example: linux, windows.
 
-* `OSImage` specifies the OS image reported by the node. Example: Ubuntu 22.04.1 LTS.
+## Status Conditions
 
-* `KernelVersion` specifies the kernel version reported by the node.
+As we define a new CRDs, we also have to define its own status conditions.
 
-* `InternalIP` specifies the primary internal IP address of the node used for cluster communication.
+The `NodeScanJob` has a very similar status conditions as [`ScanJob`](https://github.com/kubewarden/sbomscanner/blob/main/api/v1alpha1/scanjob_types.go#L36):
 
-## 
+Status: `Scheduled` (The job is created but hasn't started doing actual work)
+* `Scheduled`: The system has accepted the request and scheduled it.
+* `Pending`: The job is in the queue waiting for resources or an executor to pick it up.
+
+Status: `InProgress` (The job is actively executing)
+* `InProgress`: Generic indicator that execution has started.
+* `FilesystemScan`: Currently iterating through the filesystem.
+* `SBOMGenerationInProgress`: Currently parsing dependencies and building the SBOM document.
+
+Status: `Complete` (The job finished successfully)
+* `Complete`: Generic success indicator.
+* `EntireFilesystemScanned`: Successfully scanned the target system.
+* `NoFilesystemToScan`: Finished quickly because the target directory/image was empty or missing.
+
+Status: `Failed` (The job encountered a terminal error)
+* `Failed`: Generic failure indicator (e.g., bad user input, invalid target).
+* `InternalError`: Failed due to an unexpected system crash, out-of-memory error, or infrastructure issue.
 
 # Drawbacks
 
 [drawbacks]: #drawbacks
 
-<!---
-Why should we **not** do this?
+Accessing the underlying node's filesystem from Kubernetes is inherently dangerous because it bridges the isolation boundary between the container and the host.
+If an attacker compromises a pod with write access to the node's root filesystem, they effectively gain full root access to the entire node.
 
-  * obscure corner cases
-  * will it impact performance?
-  * what other parts of the product will be affected?
-  * will the solution be hard to maintain in the future?
---->
+To avoid security risks, the `DaemonSet` MUST have `volumeMounts` with `readOnly: true`.
 
-# Alternatives
-
-[alternatives]: #alternatives
-
-<!---
-- What other designs/options have been considered?
-- What is the impact of not doing this?
---->
-
-# Unresolved questions
-
-[unresolved]: #unresolved-questions
-
-<!---
-- What are the unknowns?
-- What can happen if Murphy's law holds true?
---->
