@@ -27,6 +27,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -252,6 +253,15 @@ func main() {
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: appsv1.SchemeGroupVersion.String(),
 				Kind:       "ReplicaSet",
+			},
+		}] = cache.ByObject{
+			// Read-only
+			UnsafeDisableDeepCopy: ptr.To(true),
+		}
+		cacheByObject[&metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: batchv1.SchemeGroupVersion.String(),
+				Kind:       "Job",
 			},
 		}] = cache.ByObject{
 			// Read-only

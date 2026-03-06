@@ -2,15 +2,23 @@ package controller
 
 import (
 	"context"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/google/uuid"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kubewarden/sbomscanner/api"
@@ -1341,3 +1349,282 @@ var _ = Describe("WorkloadScan Controller", func() {
 		})
 	})
 })
+
+func TestResolveWorkloadOwner(t *testing.T) {
+	tests := []struct {
+		name         string
+		pod          *corev1.Pod
+		objects      []client.Object
+		expectedKind string
+		expectedName string
+		expectedUID  types.UID
+	}{
+		{
+			name: "standalone pod with no owner",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "standalone-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+				},
+			},
+			expectedKind: "Pod",
+			expectedName: "standalone-pod",
+			expectedUID:  "pod-uid",
+		},
+		{
+			name: "pod owned by ReplicaSet owned by Deployment",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deploy-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "ReplicaSet",
+							Name:       "my-rs",
+							UID:        "rs-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&appsv1.ReplicaSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-rs",
+						Namespace: "default",
+						UID:       "rs-uid",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "apps/v1",
+								Kind:       "Deployment",
+								Name:       "my-deploy",
+								UID:        "deploy-uid",
+								Controller: ptr.To(true),
+							},
+						},
+					},
+				},
+			},
+			expectedKind: "Deployment",
+			expectedName: "my-deploy",
+			expectedUID:  "deploy-uid",
+		},
+		{
+			name: "pod owned by standalone ReplicaSet",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "rs-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "ReplicaSet",
+							Name:       "standalone-rs",
+							UID:        "rs-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&appsv1.ReplicaSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "standalone-rs",
+						Namespace: "default",
+						UID:       "rs-uid",
+					},
+				},
+			},
+			expectedKind: "ReplicaSet",
+			expectedName: "standalone-rs",
+			expectedUID:  "rs-uid",
+		},
+		{
+			name: "pod owned by ReplicaSet that no longer exists",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "orphan-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "ReplicaSet",
+							Name:       "deleted-rs",
+							UID:        "rs-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			expectedKind: "ReplicaSet",
+			expectedName: "deleted-rs",
+			expectedUID:  "rs-uid",
+		},
+		{
+			name: "pod owned by Job owned by CronJob",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cronjob-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "batch/v1",
+							Kind:       "Job",
+							Name:       "my-job",
+							UID:        "job-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&batchv1.Job{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-job",
+						Namespace: "default",
+						UID:       "job-uid",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "batch/v1",
+								Kind:       "CronJob",
+								Name:       "my-cronjob",
+								UID:        "cronjob-uid",
+								Controller: ptr.To(true),
+							},
+						},
+					},
+				},
+			},
+			expectedKind: "CronJob",
+			expectedName: "my-cronjob",
+			expectedUID:  "cronjob-uid",
+		},
+		{
+			name: "pod owned by standalone Job",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "job-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "batch/v1",
+							Kind:       "Job",
+							Name:       "standalone-job",
+							UID:        "job-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			objects: []client.Object{
+				&batchv1.Job{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "standalone-job",
+						Namespace: "default",
+						UID:       "job-uid",
+					},
+				},
+			},
+			expectedKind: "Job",
+			expectedName: "standalone-job",
+			expectedUID:  "job-uid",
+		},
+		{
+			name: "pod owned by Job that no longer exists",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "orphan-job-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "batch/v1",
+							Kind:       "Job",
+							Name:       "deleted-job",
+							UID:        "job-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			expectedKind: "Job",
+			expectedName: "deleted-job",
+			expectedUID:  "job-uid",
+		},
+		{
+			name: "pod owned by StatefulSet",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sts-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "StatefulSet",
+							Name:       "my-sts",
+							UID:        "sts-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			expectedKind: "StatefulSet",
+			expectedName: "my-sts",
+			expectedUID:  "sts-uid",
+		},
+		{
+			name: "pod owned by DaemonSet",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ds-pod",
+					Namespace: "default",
+					UID:       "pod-uid",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "DaemonSet",
+							Name:       "my-ds",
+							UID:        "ds-uid",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			},
+			expectedKind: "DaemonSet",
+			expectedName: "my-ds",
+			expectedUID:  "ds-uid",
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	require.NoError(t, batchv1.AddToScheme(scheme))
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(test.objects...).
+				Build()
+
+			reconciler := &WorkloadScanReconciler{
+				Client: fakeClient,
+			}
+
+			ownerRef, err := reconciler.resolveWorkloadOwner(context.Background(), test.pod)
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedKind, ownerRef.Kind)
+			assert.Equal(t, test.expectedName, ownerRef.Name)
+			assert.Equal(t, test.expectedUID, ownerRef.UID)
+		})
+	}
+}
