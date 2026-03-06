@@ -41,6 +41,7 @@ if [[ -n "${API_KNOWN_VIOLATIONS_DIR:-}" ]]; then
     fi
 fi
 
+# Generate OpenAPI definitions (without model name file — that's done separately below).
 kube::codegen::gen_openapi \
     --output-dir "${SCRIPT_ROOT}/pkg/generated/openapi" \
     --output-pkg "${THIS_PKG}/pkg/generated/openapi" \
@@ -48,6 +49,29 @@ kube::codegen::gen_openapi \
     ${update_report:+"${update_report}"} \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
     "${SCRIPT_ROOT}/api/storage"
+
+# Generate model name accessors for our local API package only.
+# We call openapi-gen directly instead of using kube::codegen::gen_openapi with --output-model-name-file 
+# because gen_openapi hardcodes k8s.io/apimachinery packages as inputs 
+# and openapi-gen tries to write model name files into all input packages, including the read-only Go module cache. 
+# Running it with only our local packages avoids this.
+local_api_pkgs=()
+while read -r dir; do
+    pkg="$(cd "${dir}" && GO111MODULE=on go list -find .)"
+    local_api_pkgs+=("${pkg}")
+done < <(
+    grep -rl '+k8s:openapi-model-package' "${SCRIPT_ROOT}/api/storage" --include '*.go' \
+        | while read -r f; do dirname "$f"; done \
+        | LC_ALL=C sort -u
+)
+"${GOBIN}/openapi-gen" \
+    --output-model-name-file="zz_generated.model_name.go" \
+    --output-file zz_generated.model_name_tmp.go \
+    --output-dir "${SCRIPT_ROOT}/pkg/generated/openapi" \
+    --output-pkg "${THIS_PKG}/pkg/generated/openapi" \
+    --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    "${local_api_pkgs[@]}"
+rm -f "${SCRIPT_ROOT}/pkg/generated/openapi/zz_generated.model_name_tmp.go"
 
 kube::codegen::gen_client \
     --with-watch \
