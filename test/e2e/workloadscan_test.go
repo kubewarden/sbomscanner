@@ -35,17 +35,28 @@ const (
 
 func TestWorkloadScan(t *testing.T) {
 	f := features.New("Workload Scan").
-		Assess("Update WorkloadScanConfiguration with arm64 platform", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			workloadScanConfiguration := &v1alpha1.WorkloadScanConfiguration{}
-			err := cfg.Client().Resources().Get(ctx, v1alpha1.WorkloadScanConfigurationName, "", workloadScanConfiguration)
-			require.NoError(t, err, "failed to get WorkloadScanConfiguration")
-
-			workloadScanConfiguration.Spec.Platforms = []v1alpha1.Platform{
-				{Architecture: "amd64", OS: "linux"},
-				{Architecture: "arm64", OS: "linux"},
+		Assess("Create WorkloadScanConfiguration", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			workloadScanConfiguration := &v1alpha1.WorkloadScanConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: v1alpha1.WorkloadScanConfigurationName,
+				},
+				Spec: v1alpha1.WorkloadScanConfigurationSpec{
+					Enabled:            true,
+					ArtifactsNamespace: namespace,
+					ScanOnChange:       true,
+					Platforms: []v1alpha1.Platform{
+						{Architecture: "amd64", OS: "linux"},
+						{Architecture: "arm64", OS: "linux"},
+					},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
+						},
+					},
+				},
 			}
-			err = cfg.Client().Resources().Update(ctx, workloadScanConfiguration)
-			require.NoError(t, err, "failed to update WorkloadScanConfiguration")
+			err := cfg.Client().Resources().Create(ctx, workloadScanConfiguration)
+			require.NoError(t, err, "failed to create WorkloadScanConfiguration")
 
 			return ctx
 		}).
