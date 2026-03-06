@@ -506,6 +506,10 @@ linters:
       - path: 'api/.*\.go'
         linters:
           - dupl
+      # Disable recvcheck for api/storage types, as generated OpenAPI model name code uses value receivers
+      - path: 'api/storage/.*\.go$'
+        linters:
+          - recvcheck
       # Disable dupl for storage package
       - path: ^internal/storage/.*\.go$
         linters:
