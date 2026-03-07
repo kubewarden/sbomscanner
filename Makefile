@@ -31,7 +31,8 @@ helm-unittest:
 
 .PHONY: test-e2e
 test-e2e: controller-image storage-image worker-image
-	$(GO_BUILD_ENV) go test ./test/e2e/ -v
+	# TODO: decrease timeout once we move to self-hosted runners
+	$(GO_BUILD_ENV) go test ./test/e2e/ -v -timeout 30m
 
 .PHONY: fmt
 fmt:
