@@ -158,7 +158,7 @@ func runTestRegistry(ctx context.Context, testImages []name.Reference, opts test
 func imageFactory(registryURI, repository, tag, platform, digest, indexDigest string) *storagev1alpha1.Image {
 	return &storagev1alpha1.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      computeImageUID(fmt.Sprintf("%s/%s", registryURI, repository), tag, digest),
+			Name:      computeImageUID("test-registry", fmt.Sprintf("%s/%s", registryURI, repository), tag, digest),
 			Namespace: "default",
 		},
 		ImageMetadata: storagev1alpha1.ImageMetadata{

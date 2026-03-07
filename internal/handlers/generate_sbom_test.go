@@ -653,7 +653,7 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 
 	image := &storagev1alpha1.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      computeImageUID(fmt.Sprintf("%s/%s", testPrivateRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
+			Name:      computeImageUID("test-registry", fmt.Sprintf("%s/%s", testPrivateRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
 			Namespace: "default",
 			UID:       "image-uid",
 		},
@@ -826,7 +826,7 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 
 			image := &storagev1alpha1.Image{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      computeImageUID(fmt.Sprintf("%s/%s", testRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
+					Name:      computeImageUID(tc.registryName, fmt.Sprintf("%s/%s", testRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
 					Namespace: "default",
 					UID:       "image-uid",
 				},
