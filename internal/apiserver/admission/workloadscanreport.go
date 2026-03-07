@@ -16,6 +16,9 @@ import (
 
 const PluginNameWorkloadScanReportValidation = "WorkloadScanReportValidation"
 
+// gcServiceAccount is the well-known Kubernetes garbage collector service account.
+const gcServiceAccount = "system:serviceaccount:kube-system:generic-garbage-collector"
+
 type WorkloadScanReportValidation struct {
 	*admission.Handler
 	serviceAccountNamespace string
@@ -82,6 +85,7 @@ func (v *WorkloadScanReportValidation) Validate(_ context.Context, attrs admissi
 }
 
 // validateManagedWorkloadScanReport ensures that only the designated service account can modify managed WorkloadScanReport resources.
+// The Kubernetes garbage collector is also allowed to delete managed resources to support owner-based cascading deletion.
 func (v *WorkloadScanReportValidation) validateManagedWorkloadScanReport(attrs admission.Attributes, report *storagev1alpha1.WorkloadScanReport) error {
 	managedLabel := report.GetLabels()[api.LabelManagedByKey]
 	if managedLabel != api.LabelManagedByValue {
@@ -89,18 +93,24 @@ func (v *WorkloadScanReportValidation) validateManagedWorkloadScanReport(attrs a
 	}
 
 	allowedUsername := fmt.Sprintf("system:serviceaccount:%s:%s", v.serviceAccountNamespace, v.serviceAccountName)
-	if attrs.GetUserInfo().GetName() != allowedUsername {
-		return apierrors.NewForbidden(
-			schema.GroupResource{
-				Group:    attrs.GetResource().Group,
-				Resource: attrs.GetResource().Resource,
-			},
-			report.GetName(),
-			errors.New("modifying managed resources of type WorkloadScanReport is forbidden"),
-		)
+	if attrs.GetUserInfo().GetName() == allowedUsername {
+		return nil
 	}
 
-	return nil
+	// Allow the Kubernetes garbage collector to delete managed resources
+	// so that OwnerReference-based cascading deletion works correctly.
+	if attrs.GetOperation() == admission.Delete && attrs.GetUserInfo().GetName() == gcServiceAccount {
+		return nil
+	}
+
+	return apierrors.NewForbidden(
+		schema.GroupResource{
+			Group:    attrs.GetResource().Group,
+			Resource: attrs.GetResource().Resource,
+		},
+		report.GetName(),
+		errors.New("modifying managed resources of type WorkloadScanReport is forbidden"),
+	)
 }
 
 func (v *WorkloadScanReportValidation) ValidateInitialization() error {

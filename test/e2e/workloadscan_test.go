@@ -128,6 +128,28 @@ func TestWorkloadScan(t *testing.T) {
 
 			return ctx
 		}).
+		Assess("Delete deployment and verify WorkloadScanReport is garbage collected", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deploymentName,
+					Namespace: workloadScanNamespace1,
+				},
+			}
+			err := cfg.Client().Resources().Delete(ctx, deployment)
+			require.NoError(t, err, "failed to delete deployment in %s", workloadScanNamespace1)
+
+			// Wait for the WorkloadScanReport to be garbage collected
+			err = wait.For(func(ctx context.Context) (bool, error) {
+				reports := &storagev1alpha1.WorkloadScanReportList{}
+				if err := cfg.Client().Resources(workloadScanNamespace1).List(ctx, reports); err != nil {
+					return false, err
+				}
+				return len(reports.Items) == 0, nil
+			}, wait.WithTimeout(scanTimeout))
+			require.NoError(t, err, "WorkloadScanReport should be garbage collected in %s after deployment deletion", workloadScanNamespace1)
+
+			return ctx
+		}).
 		Assess("Disable configuration and verify cleanup", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			workloadScanConfiguration := &v1alpha1.WorkloadScanConfiguration{}
 			err := cfg.Client().Resources().Get(ctx, v1alpha1.WorkloadScanConfigurationName, "", workloadScanConfiguration)
@@ -169,6 +191,9 @@ func TestWorkloadScan(t *testing.T) {
 			workloadScanConfiguration.Spec.Enabled = true
 			err = cfg.Client().Resources().Update(ctx, workloadScanConfiguration)
 			require.NoError(t, err, "failed to switch to multi-tenancy mode")
+
+			// Recreate the deployment deleted in a previous step
+			createWorkloadScanDeployment(ctx, t, cfg, workloadScanNamespace1)
 
 			return ctx
 		}).
