@@ -30,6 +30,7 @@ type WorkloadScanReconciler struct {
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups="apps",resources=replicasets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=workloadscanconfigurations,verbs=get;list;watch
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=registries,verbs=get;list;watch;create;update;patch;delete
 

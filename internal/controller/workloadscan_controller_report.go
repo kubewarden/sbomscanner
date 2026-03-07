@@ -12,6 +12,7 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -153,6 +154,22 @@ func (r *WorkloadScanReconciler) resolveWorkloadOwner(ctx context.Context, pod *
 
 		if deploymentReference := metav1.GetControllerOf(replicaSet); deploymentReference != nil && deploymentReference.Kind == "Deployment" {
 			return deploymentReference, nil
+		}
+	}
+
+	if ownerReference.Kind == "Job" {
+		job := &metav1.PartialObjectMetadata{}
+		job.SetGroupVersionKind(batchv1.SchemeGroupVersion.WithKind("Job"))
+
+		if err := r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: ownerReference.Name}, job); err != nil {
+			if apierrors.IsNotFound(err) {
+				return ownerReference, nil
+			}
+			return nil, fmt.Errorf("failed to get Job %s/%s: %w", pod.Namespace, ownerReference.Name, err)
+		}
+
+		if cronJobReference := metav1.GetControllerOf(job); cronJobReference != nil && cronJobReference.Kind == "CronJob" {
+			return cronJobReference, nil
 		}
 	}
 
