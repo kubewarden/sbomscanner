@@ -493,4 +493,4 @@ require (
 // TODO: remove https://github.com/containerd/containerd/issues/12493 is resolved.
 replace github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.3.0
 
-replace github.com/aquasecurity/trivy => github.com/alegrey91/trivy v0.0.0-20260304104216-940a4a318177
+replace github.com/aquasecurity/trivy => github.com/alegrey91/trivy v0.0.0-20260302071107-2f62c94e971c

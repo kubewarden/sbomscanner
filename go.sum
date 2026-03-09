@@ -108,6 +108,8 @@ github.com/agnivade/levenshtein v1.2.1 h1:EHBY3UOn1gwdy/VbFwgo4cxecRznFk7fKWN1KO
 github.com/agnivade/levenshtein v1.2.1/go.mod h1:QVVI16kDrtSuwcpd0p1+xMC6Z/VfhtCyDIjcwga4/DU=
 github.com/alecthomas/chroma v0.10.0 h1:7XDcGkCQopCNKjZHfYrNLraA+M7e0fMiJ/Mfikbfjek=
 github.com/alecthomas/chroma v0.10.0/go.mod h1:jtJATyUxlIORhUOFNA9NZDWGAQ8wpxQQqNSB4rjA/1s=
+github.com/alegrey91/trivy v0.0.0-20260302071107-2f62c94e971c h1:7HuJGvBo4kQ9zj1Z5s0U4P3oKVQLArc5gHDCqDdrLVM=
+github.com/alegrey91/trivy v0.0.0-20260302071107-2f62c94e971c/go.mod h1:i4IoqSctFO866I/iyEpJTAOXZUCt/jNC+OHSZA2YdoY=
 github.com/alegrey91/trivy v0.0.0-20260304104216-940a4a318177 h1:0KYmj3tX2gvDodkcceznUF+tqDUW+92JS4QA6MN2UMw=
 github.com/alegrey91/trivy v0.0.0-20260304104216-940a4a318177/go.mod h1:i4IoqSctFO866I/iyEpJTAOXZUCt/jNC+OHSZA2YdoY=
 github.com/alicebob/miniredis/v2 v2.36.1 h1:Dvc5oAnNOr7BIfPn7tF269U8DvRW1dBG2D5n0WrfYMI=
