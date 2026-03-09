@@ -702,7 +702,7 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 	image, err := imageDetailsToImage(ref, details, registry, scheme, "test-index-digest")
 	require.NoError(t, err)
 
-	assert.Equal(t, image.Name, computeImageUID(ref.Context().Name(), ref.Identifier(), digest.String()))
+	assert.Equal(t, image.Name, computeImageUID(registry.Name, ref.Context().Name(), ref.Identifier(), digest.String()))
 	assert.Equal(t, "default", image.Namespace)
 	assert.Equal(t, "test-registry", image.GetImageMetadata().Registry)
 	assert.Equal(t, registryURI, image.GetImageMetadata().RegistryURI)

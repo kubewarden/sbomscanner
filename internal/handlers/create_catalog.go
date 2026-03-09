@@ -612,7 +612,7 @@ func imageDetailsToImage(
 
 	image := storagev1alpha1.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      computeImageUID(ref.Context().Name(), ref.Identifier(), details.Digest.String()),
+			Name:      computeImageUID(registry.Name, ref.Context().Name(), ref.Identifier(), details.Digest.String()),
 			Namespace: registry.Namespace,
 			Labels:    labels,
 		},
@@ -635,9 +635,11 @@ func imageDetailsToImage(
 	return image, nil
 }
 
-// computeImageUID returns a unique identifier for an image.
-func computeImageUID(name, identifier, digest string) string {
+// computeImageUID returns a unique identifier for an image scoped to a registry resource.
+// The registry name is included to ensure images from different Registry CRs
+// (e.g., a workloadscan-managed registry vs. a user-created one) get distinct Image resources.
+func computeImageUID(registryName, name, identifier, digest string) string {
 	sha := sha256.New()
-	fmt.Fprintf(sha, "%s:%s@%s", name, identifier, digest)
+	fmt.Fprintf(sha, "%s/%s:%s@%s", registryName, name, identifier, digest)
 	return hex.EncodeToString(sha.Sum(nil))
 }
