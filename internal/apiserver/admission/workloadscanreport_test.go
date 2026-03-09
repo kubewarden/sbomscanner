@@ -27,6 +27,9 @@ func TestWorkloadScanReportValidation_Validate(t *testing.T) {
 	forbiddenUser := &user.DefaultInfo{
 		Name: "system:serviceaccount:default:other",
 	}
+	gcUser := &user.DefaultInfo{
+		Name: gcServiceAccount,
+	}
 
 	managedReport := &storagev1alpha1.WorkloadScanReport{
 		ObjectMeta: metav1.ObjectMeta{
@@ -132,6 +135,28 @@ func TestWorkloadScanReportValidation_Validate(t *testing.T) {
 			oldObject:   unmanagedReport,
 			userInfo:    forbiddenUser,
 			expectError: false,
+		},
+		{
+			name:        "Delete managed report with GC service account",
+			operation:   admission.Delete,
+			oldObject:   managedReport,
+			userInfo:    gcUser,
+			expectError: false,
+		},
+		{
+			name:        "Create managed report with GC service account is forbidden",
+			operation:   admission.Create,
+			object:      managedReport,
+			userInfo:    gcUser,
+			expectError: true,
+		},
+		{
+			name:        "Update managed report with GC service account is forbidden",
+			operation:   admission.Update,
+			object:      managedReport,
+			oldObject:   managedReport,
+			userInfo:    gcUser,
+			expectError: true,
 		},
 		{
 			name:        "Connect operation is always allowed",
