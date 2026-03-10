@@ -153,20 +153,6 @@ func (c *Client) IsContainerImage(ctx context.Context, desc *remote.Descriptor) 
 	return manifest.Config.MediaType.IsConfig(), nil
 }
 
-func (c *Client) GetImageIndex(ctx context.Context, ref name.Reference) (cranev1.ImageIndex, error) {
-	c.logger.DebugContext(ctx, "GetImageIndex called", "image", ref.Name())
-
-	index, err := remote.Index(ref,
-		remote.WithContext(ctx),
-		remote.WithAuthFromKeychain(authn.DefaultKeychain),
-		remote.WithTransport(c.transport),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("cannot fetch image index %q: %w", ref, err)
-	}
-	return index, nil
-}
-
 func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, multiArchPlatform *cranev1.Platform) (ImageDetails, error) {
 	c.logger.DebugContext(ctx, "GetImageDetails called", "image", ref.Name(), "multiArchPlatform", multiArchPlatform)
 

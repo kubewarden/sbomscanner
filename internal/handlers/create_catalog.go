@@ -398,7 +398,7 @@ func (h *CreateCatalogHandler) refToImages(
 	}
 
 	if desc.MediaType.IsIndex() {
-		return h.multiArchRefToImages(ctx, message, registryClient, ref, registry)
+		return h.multiArchRefToImages(ctx, message, registryClient, ref, registry, desc)
 	}
 
 	return h.singleArchRefToImages(ctx, message, registryClient, ref, registry)
@@ -444,10 +444,11 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 	registryClient *registryclient.Client,
 	ref name.Reference,
 	registry *v1alpha1.Registry,
+	desc *remote.Descriptor,
 ) ([]storagev1alpha1.Image, error) {
-	imageIndex, err := registryClient.GetImageIndex(ctx, ref)
+	imageIndex, err := desc.ImageIndex()
 	if err != nil {
-		return nil, fmt.Errorf("cannot fetch image index for %q: %w", ref.Name(), err)
+		return nil, fmt.Errorf("cannot parse image index for %q: %w", ref.Name(), err)
 	}
 
 	manifest, err := imageIndex.IndexManifest()
