@@ -1,59 +1,55 @@
 |              |                                 |
 | :----------- | :------------------------------ |
-| Feature Name | Node Scanning                   |
+| Feature Name | Node Scan                       |
 | Start Date   | March 5th, 2026                 |
 | Category     | Architecture                    |
 | RFC PR       | [#]() |
 | State        | **ACCEPTED**                    |
 
-# 
+# Summary
 
 [summary]: #summary
 
-Define how the scan of cluster nodes works.
+Define the architectural and functional requirements for scanning Kubernetes cluster nodes.
 
 # Motivation
 
 [motivation]: #motivation
 
-We want to build a full-stack, SBOM-based security scanner for Kubernetes.
+We aim to develop a full-stack, SBOM-based security scanner for Kubernetes.
+Because nodes are the foundation of the cluster, maintaining visibility into their 
+security posture is critical.
 
-Nodes are a fundamental building block of the cluster, and we must ensure the 
-safety of the infrastructure where our workloads run. 
-
-To achieve this, we need the Node Scanning feature to provide a complete 
-overview of the security posture of our nodes.
+This feature provides a comprehensive overview of node-level vulnerabilities, 
+ensuring the safety of the infrastructure where workloads reside.
 
 ## Examples / User Stories
 
 [examples]: #examples
 
-- As a user, I want to periodically scan the nodes of my cluster to check for vulnerabilities.
-- As a user, I want to define how often the nodes needs to be scanned.
-- As a user, I want to have the ability to skip files and/or directories from the scan.
+- As a user, I want to automatically scan cluster nodes for vulnerabilities on a recurring basis.
+- As a user, I want to define the scan interval for my nodes.
+- As a user, I want the ability to exclude specific files or directories from the scan to reduce noise or avoid sensitive paths.
 
 # Detailed design
 
 [design]: #detailed-design
 
-The Node Scan feature will scan nodes in the cluster. This is achieved by 
-deploying a `DaemonSet` that runs the worker component.
-The worker will use a flag to determine its working mode (image or node scanning).
-This allows us to reuse existing code to change the worker's behavior depending 
-on the target object we want to scan.
+Node scanning is implemented by deploying a `DaemonSet` that executes a worker 
+component on every node. 
+The worker will be provided with a flag to operate between image scanning and node scanning 
+modes, allowing for significant code reuse across different scan targets.
 
 ## CRDs
 
 For this feature we are going to add the following CRDs:
 
-* `NodeScanConfiguration`
-* `NodeScanJob`
-* `NodeSBOM`
-* `NodeVulnerabilityReport`
-
-`NodeScanConfiguration` will allow the user to configure the scan on the nodes. This will have the following inputs:
-* `scanInterval`: to define how often the scan will run on the cluster.
-* `skip`: to define the directories or files that needs to be skipped.
+* `NodeScanConfiguration`: Defines the global scan settings.
+  * `scanInterval`: Duration between automated scans.
+  * `skip`: A list of file/directory paths to be ignored.
+* `NodeScanJob`: Represents a single execution of a node scan.
+* `NodeSBOM`: Stores the Software Bill of Materials for a specific node.
+* `NodeVulnerabilityReport`: Contains the results of the vulnerability analysis.
 
 ### NodeMetadata Struct
 
@@ -96,8 +92,6 @@ Status: `Failed` (The job encountered a terminal error)
 
 [drawbacks]: #drawbacks
 
-Accessing the underlying node's filesystem from Kubernetes is inherently dangerous because it bridges the isolation boundary between the container and the host.
-If an attacker compromises a pod with write access to the node's root filesystem, they effectively gain full root access to the entire node.
-
-To avoid security risks, the `DaemonSet` MUST have `volumeMounts` with `readOnly: true`.
-
+Mounting the host filesystem into a container bridges the isolation boundary and 
+introduces significant risk. To mitigate potential host compromise, the `DaemonSet` 
+must mount the host root filesystem as `readOnly: true`.
