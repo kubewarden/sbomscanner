@@ -38,7 +38,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	modernc.org/sqlite v1.46.1
-	sigs.k8s.io/controller-runtime v0.23.1
+	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2
 )
