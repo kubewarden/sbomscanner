@@ -1,7 +1,7 @@
 name: SBOMscanner Release
 title: "SBOMscanner <VERSION> release"
 description: Issue with all the items needed to release a new version of SBOMscanner 
-projects: ["kubewarden/6"]
+projects: ["sbomscanner/8"]
 labels: ["kind/chore"]
 
 body:
