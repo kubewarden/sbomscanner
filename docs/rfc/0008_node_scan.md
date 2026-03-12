@@ -66,9 +66,9 @@ information about the node.
 
 ## Status Conditions
 
-As we define a new CRDs, we also have to define its own status conditions.
+Since we're defining new CRDs, we also need to define their status conditions.
 
-The `NodeScanJob` has a very similar status conditions as [`ScanJob`](https://github.com/kubewarden/sbomscanner/blob/main/api/v1alpha1/scanjob_types.go#L36):
+The `NodeScanJob` has status conditions very similar to [`ScanJob`](https://github.com/kubewarden/sbomscanner/blob/main/api/v1alpha1/scanjob_types.go#L36):
 
 Status: `Scheduled` (The job is created but hasn't started doing actual work)
 * `Scheduled`: The system has accepted the request and scheduled it.
