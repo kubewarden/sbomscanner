@@ -27,6 +27,7 @@ ensuring the safety of the infrastructure where workloads reside.
 
 [examples]: #examples
 
+- As user, I want to have a comprehensive overview of node-level vulnerabilities, ensuring the safety of the infrastructure where workloads reside.
 - As a user, I want to automatically scan cluster nodes for vulnerabilities on a recurring basis.
 - As a user, I want to define the scan interval for my nodes.
 - As a user, I want the ability to exclude specific files or directories from the scan to reduce noise or avoid sensitive paths.
