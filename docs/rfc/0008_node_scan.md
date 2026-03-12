@@ -38,12 +38,20 @@ ensuring the safety of the infrastructure where workloads reside.
 
 Node scanning is implemented by deploying a `DaemonSet` that executes a worker 
 component on every node.
+
 The worker will be provided with a flag to operate between image scanning and node scanning 
 modes, allowing for significant code reuse across different scan targets.
 Setting the worker in node scanning mode will perform only node scanning for the 
 nodes of the cluster.
 It will sit idle most of the time and perform the job only when requested to do it.
-This feature also allows nodes to be excluded from the scan (eg. if they do not have enough resources).
+
+This feature also allows nodes to be excluded from the scan (eg. if they don't have enough resources).
+This can be achieved with the `nodeSelector`, where only nodes matching the selector 
+are considered for scanning. If not specified, all the nodes are scanned.
+
+To trigger a new scan, the user can set the `scanInterval` on the `NodeScanConfiguration`,
+or leave the `scanInterval` not set and apply a `NodeScanJob` manually 
+(with the `NodeScanConfiguration` already applied) as we already do for the `Registry`.
 
 ## CRDs
 
@@ -51,11 +59,15 @@ For this feature we are going to add the following CRDs:
 
 * `NodeScanConfiguration`: Defines the global scan settings.
   * `scanInterval`: Duration between automated scans.
+    If not specified, the `NodeScanJob` doesn't start.
   * `skip`: A list of file/directory paths to be ignored.
   * `nodeSelector`: Filter which nodes are scanned.
     If not specified, all the nodes are scanned.
+
 * `NodeScanJob`: Represents a single execution of a node scan.
+
 * `NodeSBOM`: Stores the Software Bill of Materials for a specific node.
+
 * `NodeVulnerabilityReport`: Contains the results of the vulnerability analysis.
 
 ### NodeMetadata Struct
