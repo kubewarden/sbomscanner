@@ -27,7 +27,7 @@ ensuring the safety of the infrastructure where workloads reside.
 
 [examples]: #examples
 
-- As user, I want to have a comprehensive overview of node-level vulnerabilities, ensuring the safety of the infrastructure where workloads reside.
+- As a user, I want to have a comprehensive overview of node-level vulnerabilities, ensuring the safety of the infrastructure where workloads reside.
 - As a user, I want to automatically scan cluster nodes for vulnerabilities on a recurring basis.
 - As a user, I want to define the scan interval for my nodes.
 - As a user, I want the ability to exclude specific files or directories from the scan to reduce noise or avoid sensitive paths.
@@ -37,9 +37,13 @@ ensuring the safety of the infrastructure where workloads reside.
 [design]: #detailed-design
 
 Node scanning is implemented by deploying a `DaemonSet` that executes a worker 
-component on every node. 
+component on every node.
 The worker will be provided with a flag to operate between image scanning and node scanning 
 modes, allowing for significant code reuse across different scan targets.
+Setting the worker in node scanning mode will perform only node scanning for the 
+nodes of the cluster.
+It will sit idle most of the time and perform the job only when requested to do it.
+This feature also allows nodes to be excluded from the scan (eg. if they do not have enough resources).
 
 ## CRDs
 
@@ -48,6 +52,8 @@ For this feature we are going to add the following CRDs:
 * `NodeScanConfiguration`: Defines the global scan settings.
   * `scanInterval`: Duration between automated scans.
   * `skip`: A list of file/directory paths to be ignored.
+  * `nodeSelector`: Filter which nodes are scanned.
+    If not specified, all the nodes are scanned.
 * `NodeScanJob`: Represents a single execution of a node scan.
 * `NodeSBOM`: Stores the Software Bill of Materials for a specific node.
 * `NodeVulnerabilityReport`: Contains the results of the vulnerability analysis.
