@@ -1079,8 +1079,8 @@ github.com/testcontainers/testcontainers-go/modules/localstack v0.40.0 h1:b+lN2C
 github.com/testcontainers/testcontainers-go/modules/localstack v0.40.0/go.mod h1:8LuTSboTo2MJKFKV5xH6z4ZH1s3jhRJWwvtPJzKogj4=
 github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0 h1:AOtFXssrDlLm84A2sTTR/AhvJiYbrIuCO59d+Ro9Tb0=
 github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0/go.mod h1:k2a09UKhgSp6vNpliIY0QSgm4Hi7GXVTzWvWgUemu/8=
-github.com/testcontainers/testcontainers-go/modules/registry v0.40.0 h1:z+CymIuT9quh8plBbM+lpncY6diV//q0LbRk+mxMpow=
-github.com/testcontainers/testcontainers-go/modules/registry v0.40.0/go.mod h1:TWdy7+y7w14Ii5UCSfr7qvxPYI3GE7lc7NEP0ofxlLQ=
+github.com/testcontainers/testcontainers-go/modules/registry v0.41.0 h1:Wa/SEmjJFspcg4ukBsU9sSsJoWNNW10Hbj6FT3Z4QL4=
+github.com/testcontainers/testcontainers-go/modules/registry v0.41.0/go.mod h1:xOQCIOIbOSgxQJ6gGDlVDEJL6+3e/8o1lSwIFgtant0=
 github.com/tetratelabs/wazero v1.11.0 h1:+gKemEuKCTevU4d7ZTzlsvgd1uaToIDtlQlmNbwqYhA=
 github.com/tetratelabs/wazero v1.11.0/go.mod h1:eV28rsN8Q+xwjogd7f4/Pp4xFxO7uOGbLcD/LzB1wiU=
 github.com/theupdateframework/go-tuf v0.7.0 h1:CqbQFrWo1ae3/I0UCblSbczevCCbS31Qvs5LdxRWqRI=
