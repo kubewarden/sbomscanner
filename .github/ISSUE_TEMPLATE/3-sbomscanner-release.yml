@@ -1,6 +1,6 @@
 name: SBOMscanner Release
 title: "SBOMscanner <VERSION> release"
-description: Issue with all the items needed to release a new version of SBOMscanner 
+description: Issue with all the items needed to release a new version of SBOMscanner
 projects: ["sbomscanner/8"]
 labels: ["kind/chore"]
 
@@ -24,10 +24,10 @@ body:
         - [ ] Push the tag upstream.
           `git push upstream <VERSION_NAME>`
         - [ ] Wait for CI to succeed.
-        - [ ] Review the PR opened by Updatecli that bump the Helm Chart, then **Squash and merge**.
+        - [ ] Review the PR opened by Updatecli that bumps the Helm Chart, then **Squash and merge**.
         - [ ] Trigger an [update-sbomscanner](https://github.com/kubewarden/helm-charts/actions/workflows/update-sbomscanner.yaml)
           job run. This opens an automated PR that syncs sbomscanner charts in [kubewarden/helm-charts](github.com/kubewarden/helm-charts) repo.
-        - [ ] Merge automated PR on kubewarden/helm-chart repo.
+        - [ ] Merge automated PR on kubewarden/helm-charts repo.
         - [ ] chart-releaser releases the charts on Helm chart repo.
         - [ ] Write and release the blog post about the release.
           - [ ] Publish posts in Mastodon, Bluesky.
