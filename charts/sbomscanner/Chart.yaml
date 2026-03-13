@@ -38,7 +38,7 @@ appVersion: v0.10.1
 
 dependencies:
   - name: nats
-    version: "2.12.4"
+    version: "2.12.5"
     repository: "https://nats-io.github.io/k8s/helm/charts/"
 
 annotations:
