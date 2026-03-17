@@ -75,6 +75,9 @@ type Config struct {
 	Init                    bool
 	LogLevel                string
 	WorkloadScan            bool
+	NodeScan                bool
+	NodeScanImage           string
+	NodeScanNamespace       string
 }
 
 func parseFlags() Config {
@@ -100,6 +103,7 @@ func parseFlags() Config {
 	flag.BoolVar(&cfg.Init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level")
 	flag.BoolVar(&cfg.WorkloadScan, "workloadscan", true, "Enable workload scan controllers.")
+	flag.BoolVar(&cfg.NodeScan, "nodescan", true, "Enable node scan controllers.")
 
 	flag.Parse()
 	return cfg
@@ -343,6 +347,16 @@ func main() {
 			Client: mgr.GetClient(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ImageWorkloadScan")
+			os.Exit(1)
+		}
+	}
+
+	if cfg.NodeScan {
+		if err := (&controller.NodeScanReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "NodeScan")
 			os.Exit(1)
 		}
 	}

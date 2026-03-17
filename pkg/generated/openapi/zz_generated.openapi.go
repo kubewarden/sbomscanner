@@ -28,6 +28,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.ImageRef{}.OpenAPIModelName():                        schema_sbomscanner_api_storage_v1alpha1_ImageRef(ref),
 		v1alpha1.ImageStatus{}.OpenAPIModelName():                     schema_sbomscanner_api_storage_v1alpha1_ImageStatus(ref),
 		v1alpha1.ImageWorkloadScanReports{}.OpenAPIModelName():        schema_sbomscanner_api_storage_v1alpha1_ImageWorkloadScanReports(ref),
+		v1alpha1.NodeMetadata{}.OpenAPIModelName():                    schema_sbomscanner_api_storage_v1alpha1_NodeMetadata(ref),
+		v1alpha1.NodeSBOM{}.OpenAPIModelName():                        schema_sbomscanner_api_storage_v1alpha1_NodeSBOM(ref),
+		v1alpha1.NodeSBOMList{}.OpenAPIModelName():                    schema_sbomscanner_api_storage_v1alpha1_NodeSBOMList(ref),
 		v1alpha1.Report{}.OpenAPIModelName():                          schema_sbomscanner_api_storage_v1alpha1_Report(ref),
 		v1alpha1.Result{}.OpenAPIModelName():                          schema_sbomscanner_api_storage_v1alpha1_Result(ref),
 		v1alpha1.SBOM{}.OpenAPIModelName():                            schema_sbomscanner_api_storage_v1alpha1_SBOM(ref),
@@ -550,6 +553,133 @@ func schema_sbomscanner_api_storage_v1alpha1_ImageWorkloadScanReports(ref common
 				Required: []string{"name", "namespace"},
 			},
 		},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_NodeMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeMetadata contains the metadata details of a node.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"machineID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MachineID specifies the machine ID of the node.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"platform": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Platform specifies the platform of the image. Example \"linux/amd64\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"machineID", "platform"},
+			},
+		},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_NodeSBOM(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeSBOM represents a Software Bill of Materials of a node",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"nodeMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1alpha1.NodeMetadata{}.OpenAPIModelName()),
+						},
+					},
+					"spdx": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SPDX contains the SPDX document of the SBOM in JSON format",
+							Ref:         ref(runtime.RawExtension{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"nodeMetadata", "spdx"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.NodeMetadata{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName(), runtime.RawExtension{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_NodeSBOMList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeSBOMList contains a list of Software Bill of Materials for nodes",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.NodeSBOM{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.NodeSBOM{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 

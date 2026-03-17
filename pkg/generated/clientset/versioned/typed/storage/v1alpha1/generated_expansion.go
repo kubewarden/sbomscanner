@@ -4,6 +4,8 @@ package v1alpha1
 
 type ImageExpansion interface{}
 
+type NodeSBOMExpansion interface{}
+
 type SBOMExpansion interface{}
 
 type VulnerabilityReportExpansion interface{}

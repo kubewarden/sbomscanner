@@ -19,6 +19,18 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - daemonsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - replicasets
   verbs:
   - get
@@ -35,6 +47,24 @@ rules:
 - apiGroups:
   - sbomscanner.kubewarden.io
   resources:
+  - nodescanconfigurations
+  - workloadscanconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - sbomscanner.kubewarden.io
+  resources:
+  - nodescanconfigurations/status
+  - scanjobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sbomscanner.kubewarden.io
+  resources:
   - registries
   - scanjobs
   verbs:
@@ -44,22 +74,6 @@ rules:
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - sbomscanner.kubewarden.io
-  resources:
-  - scanjobs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - sbomscanner.kubewarden.io
-  resources:
-  - workloadscanconfigurations
-  verbs:
-  - get
-  - list
   - watch
 - apiGroups:
   - storage.sbomscanner.kubewarden.io

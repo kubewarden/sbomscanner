@@ -1,9 +1,11 @@
 package handlers
 
 const (
-	GenerateSBOMSubject  = "sbomscanner.sbom.generate"
-	ScanSBOMSubject      = "sbomscanner.sbom.scan"
-	CreateCatalogSubject = "sbomscanner.catalog.create"
+	GenerateSBOMSubject     = "sbomscanner.sbom.generate"
+	ScanSBOMSubject         = "sbomscanner.sbom.scan"
+	CreateCatalogSubject    = "sbomscanner.catalog.create"
+	GenerateNodeSBOMSubject = "sbomscanner.nodesbom.generate"
+	ScanNodeSBOMSubject     = "sbomscanner.nodesbom.scan"
 )
 
 // ObjectRef is a reference to a Kubernetes object, used in messages to identify resources.
@@ -35,4 +37,21 @@ type GenerateSBOMMessage struct {
 type ScanSBOMMessage struct {
 	BaseMessage
 	SBOM ObjectRef `json:"sbom"`
+}
+
+// NodeBaseMessage is the base structure for node messages.
+type NodeBaseMessage struct {
+	NodeScanJob ObjectRef `json:"nodescanjob"`
+}
+
+// GenerateNodeSBOMMessage represents the request message for generating a node SBOM.
+type GenerateNodeSBOMMessage struct {
+	NodeBaseMessage
+	Node ObjectRef `json:"node"`
+}
+
+// ScanNodeSBOMMessage represents the request message for scanning a node SBOM.
+type ScanNodeSBOMMessage struct {
+	NodeBaseMessage
+	NodeSBOM ObjectRef `json:"nodesbom"`
 }
