@@ -27,3 +27,7 @@ go test
 ### Potential improvement
 
 <!-- Please describe, if any, potential improvement that you are envisioning -->
+
+## Checklist
+
+- [ ] I have read and understood the [Kubewarden AI Policy](https://github.com/kubewarden/community/blob/main/AI_POLICY.md)
