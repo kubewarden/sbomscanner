@@ -16,10 +16,8 @@ type NodeSBOMList struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:selectablefield:JSONPath=`.nodeMetadata.name`
-// +kubebuilder:selectablefield:JSONPath=`.nodeMetadata.namespace`
-// +kubebuilder:selectablefield:JSONPath=`.nodeMetadata.uid`
-// +kubebuilder:selectablefield:JSONPath=`.imageMetadata.indexDigest`
+// +kubebuilder:selectablefield:JSONPath=`.nodeMetadata.machineID`
+// +kubebuilder:selectablefield:JSONPath=`.nodeMetadata.platform`
 
 // NodeSBOM represents a Software Bill of Materials of a node
 type NodeSBOM struct {

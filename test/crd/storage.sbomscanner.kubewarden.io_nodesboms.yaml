@@ -59,9 +59,7 @@ spec:
         - spdx
         type: object
     selectableFields:
-    - jsonPath: .nodeMetadata.name
-    - jsonPath: .nodeMetadata.namespace
-    - jsonPath: .nodeMetadata.uid
-    - jsonPath: .imageMetadata.indexDigest
+    - jsonPath: .nodeMetadata.machineID
+    - jsonPath: .nodeMetadata.platform
     served: true
     storage: true
