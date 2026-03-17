@@ -6,6 +6,8 @@ type ImageExpansion interface{}
 
 type NodeSBOMExpansion interface{}
 
+type NodeVulnerabilityReportExpansion interface{}
+
 type SBOMExpansion interface{}
 
 type VulnerabilityReportExpansion interface{}

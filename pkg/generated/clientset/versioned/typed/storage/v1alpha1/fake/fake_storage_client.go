@@ -20,6 +20,10 @@ func (c *FakeStorageV1alpha1) NodeSBOMs(namespace string) v1alpha1.NodeSBOMInter
 	return newFakeNodeSBOMs(c, namespace)
 }
 
+func (c *FakeStorageV1alpha1) NodeVulnerabilityReports(namespace string) v1alpha1.NodeVulnerabilityReportInterface {
+	return newFakeNodeVulnerabilityReports(c, namespace)
+}
+
 func (c *FakeStorageV1alpha1) SBOMs(namespace string) v1alpha1.SBOMInterface {
 	return newFakeSBOMs(c, namespace)
 }

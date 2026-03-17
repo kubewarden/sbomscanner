@@ -18,6 +18,14 @@ type NodeSBOMListerExpansion interface{}
 // NodeSBOMNamespaceLister.
 type NodeSBOMNamespaceListerExpansion interface{}
 
+// NodeVulnerabilityReportListerExpansion allows custom methods to be added to
+// NodeVulnerabilityReportLister.
+type NodeVulnerabilityReportListerExpansion interface{}
+
+// NodeVulnerabilityReportNamespaceListerExpansion allows custom methods to be added to
+// NodeVulnerabilityReportNamespaceLister.
+type NodeVulnerabilityReportNamespaceListerExpansion interface{}
+
 // SBOMListerExpansion allows custom methods to be added to
 // SBOMLister.
 type SBOMListerExpansion interface{}

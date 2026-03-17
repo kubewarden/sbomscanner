@@ -14,6 +14,7 @@ type StorageV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ImagesGetter
 	NodeSBOMsGetter
+	NodeVulnerabilityReportsGetter
 	SBOMsGetter
 	VulnerabilityReportsGetter
 	WorkloadScanReportsGetter
@@ -30,6 +31,10 @@ func (c *StorageV1alpha1Client) Images(namespace string) ImageInterface {
 
 func (c *StorageV1alpha1Client) NodeSBOMs(namespace string) NodeSBOMInterface {
 	return newNodeSBOMs(c, namespace)
+}
+
+func (c *StorageV1alpha1Client) NodeVulnerabilityReports(namespace string) NodeVulnerabilityReportInterface {
+	return newNodeVulnerabilityReports(c, namespace)
 }
 
 func (c *StorageV1alpha1Client) SBOMs(namespace string) SBOMInterface {

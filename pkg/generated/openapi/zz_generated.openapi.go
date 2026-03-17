@@ -31,6 +31,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.NodeMetadata{}.OpenAPIModelName():                    schema_sbomscanner_api_storage_v1alpha1_NodeMetadata(ref),
 		v1alpha1.NodeSBOM{}.OpenAPIModelName():                        schema_sbomscanner_api_storage_v1alpha1_NodeSBOM(ref),
 		v1alpha1.NodeSBOMList{}.OpenAPIModelName():                    schema_sbomscanner_api_storage_v1alpha1_NodeSBOMList(ref),
+		v1alpha1.NodeVulnerabilityReport{}.OpenAPIModelName():         schema_sbomscanner_api_storage_v1alpha1_NodeVulnerabilityReport(ref),
+		v1alpha1.NodeVulnerabilityReportList{}.OpenAPIModelName():     schema_sbomscanner_api_storage_v1alpha1_NodeVulnerabilityReportList(ref),
 		v1alpha1.Report{}.OpenAPIModelName():                          schema_sbomscanner_api_storage_v1alpha1_Report(ref),
 		v1alpha1.Result{}.OpenAPIModelName():                          schema_sbomscanner_api_storage_v1alpha1_Result(ref),
 		v1alpha1.SBOM{}.OpenAPIModelName():                            schema_sbomscanner_api_storage_v1alpha1_SBOM(ref),
@@ -680,6 +682,105 @@ func schema_sbomscanner_api_storage_v1alpha1_NodeSBOMList(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			v1alpha1.NodeSBOM{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_NodeVulnerabilityReport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeVulnerabilityReport is the Schema for the scanresults API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"nodeMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeMetadata contains info about the scanned node",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1alpha1.NodeMetadata{}.OpenAPIModelName()),
+						},
+					},
+					"report": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Report is the actual vulnerability scan report",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1alpha1.Report{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"nodeMetadata", "report"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.NodeMetadata{}.OpenAPIModelName(), v1alpha1.Report{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_NodeVulnerabilityReportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeVulnerabilityReportList contains a list of ScanResult",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.NodeVulnerabilityReport{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.NodeVulnerabilityReport{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
