@@ -91,57 +91,55 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 
 	node := &corev1.Node{}
 	err = h.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      generateNodeSBOMMessage.Node.Name,
-		Namespace: generateNodeSBOMMessage.Node.Namespace,
+		Name: generateNodeSBOMMessage.Node.Name,
 	}, node)
 	if err != nil {
 		// Stop processing if the image is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
-			h.logger.InfoContext(ctx, "Image not found, stopping SBOM generation", "image", generateNodeSBOMMessage.Node.Name, "namespace", generateNodeSBOMMessage.Node.Namespace)
+			h.logger.InfoContext(ctx, "Image not found, stopping SBOM generation", "image", generateNodeSBOMMessage.Node.Name)
 			return nil
 		}
 
-		return fmt.Errorf("cannot get node %s/%s: %w", generateNodeSBOMMessage.Node.Namespace, generateNodeSBOMMessage.Node.Name, err)
+		return fmt.Errorf("cannot get node %s: %w", generateNodeSBOMMessage.Node.Name, err)
 	}
 	h.logger.DebugContext(ctx, "Node found", "node", node)
 
 	if nodeScanJob.IsFailed() {
-		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping SBOM generation", "nodescanjob", nodeScanJob.Name, "namespace", nodeScanJob.Namespace)
+		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping node SBOM generation", "nodescanjob", nodeScanJob.Name, "namespace", nodeScanJob.Namespace)
 		return nil
 	}
 
-	sbom, err := h.getOrGenerateNodeSBOM(ctx, node, generateNodeSBOMMessage)
+	nodeSbom, err := h.getOrGenerateNodeSBOM(ctx, node, generateNodeSBOMMessage)
 	if err != nil {
-		return fmt.Errorf("failed to get or generate SBOM: %w", err)
+		return fmt.Errorf("failed to get or generate node SBOM: %w", err)
 	}
 
 	if err = message.InProgress(); err != nil {
 		return fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
-	if err = h.k8sClient.Create(ctx, sbom); err != nil {
+	if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			h.logger.InfoContext(ctx, "node SBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name, "namespace", generateNodeSBOMMessage.Node.Namespace)
+			h.logger.InfoContext(ctx, "node SBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
 		} else {
-			return fmt.Errorf("failed to create SBOM: %w", err)
+			return fmt.Errorf("failed to create node SBOM: %w", err)
 		}
 	}
 
-	scanSBOMMessageID := fmt.Sprintf("scanSBOM/%s/%s", nodeScanJob.UID, generateNodeSBOMMessage.Node.Name)
-	scanSBOMMessage, err := json.Marshal(&ScanSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: generateNodeSBOMMessage.NodeScanJob,
+	scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.UID, generateNodeSBOMMessage.Node.Name)
+	scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
+		NodeBaseMessage: NodeBaseMessage{
+			NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
 		},
-		SBOM: ObjectRef{
-			Name:      generateNodeSBOMMessage.Node.Name,
-			Namespace: generateNodeSBOMMessage.Node.Namespace,
+		NodeSBOM: ObjectRef{
+			Name: generateNodeSBOMMessage.Node.Name,
 		},
 	})
 	if err != nil {
 		return fmt.Errorf("cannot marshal scan node SBOM message: %w", err)
 	}
 
-	if err = h.publisher.Publish(ctx, ScanSBOMSubject, scanSBOMMessageID, scanSBOMMessage); err != nil {
+	if err = h.publisher.Publish(ctx, ScanNodeSBOMSubject, scanNodeSBOMMessageID, scanNodeSBOMMessage); err != nil {
 		return fmt.Errorf("failed to publish scan node SBOM message: %w", err)
 	}
 
@@ -149,22 +147,22 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 }
 
 // getOrGenerateNodeSBOM checks if an SBOM with the same machine ID exists and reuses it, or generates a new one.
-func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, node *storagev1alpha1.Node, message *GenerateNodeSBOMMessage) (*storagev1alpha1.NodeSBOM, error) {
+func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, node *corev1.Node, message *GenerateNodeSBOMMessage) (*storagev1alpha1.NodeSBOM, error) {
 	// Check if an SBOM with the same machine ID already exists
-	existingSBOM, err := h.findSBOMByMachineID(ctx, node.GetNodeMetadata().MachineID, node.Namespace)
+	existingSBOM, err := h.findSBOMByMachineID(ctx, node.Status.NodeInfo.MachineID)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to check for existing SBOM: %w", err)
+		return nil, fmt.Errorf("failed to check for existing node SBOM: %w", err)
 	}
 
 	var spdxBytes []byte
 	if existingSBOM != nil {
-		h.logger.InfoContext(ctx, "Found existing SBOM with matching machine ID, reusing content",
+		h.logger.InfoContext(ctx, "Found existing node SBOM with matching machine ID, reusing content",
 			"sbom", existingSBOM.Name,
-			"machineID", node.GetNodeMetadata().MachineID,
+			"machineID", node.Status.NodeInfo.MachineID,
 		)
 		spdxBytes = existingSBOM.SPDX.Raw
 	} else {
-		h.logger.InfoContext(ctx, "No existing SBOM found, generating new one", "machineID", node.GetNodeMetadata().MachineID)
+		h.logger.InfoContext(ctx, "No existing node SBOM found, generating new one", "machineID", node.Status.NodeInfo.MachineID)
 		spdxBytes, err = h.generateSPDX(ctx, node)
 		if err != nil {
 			return nil, err
@@ -176,28 +174,31 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 		api.LabelPartOfKey:    api.LabelPartOfValue,
 	}
 
-	sbom := &storagev1alpha1.NodeSBOM{
+	nodeSbom := &storagev1alpha1.NodeSBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.Node.Name,
 			Namespace: message.Node.Namespace,
 			Labels:    sbomLabels,
 		},
-		NodeMetadata: node.GetNodeMetadata(),
-		SPDX:         runtime.RawExtension{Raw: spdxBytes},
+		NodeMetadata: storagev1alpha1.NodeMetadata{
+			MachineID: node.Status.NodeInfo.MachineID,
+			Platform:  node.Status.NodeInfo.Architecture,
+		},
+		SPDX: runtime.RawExtension{Raw: spdxBytes},
 	}
 
-	if err := controllerutil.SetControllerReference(node, sbom, h.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(node, nodeSbom, h.scheme); err != nil {
 		return nil, fmt.Errorf("failed to set owner reference: %w", err)
 	}
 
-	return sbom, nil
+	return nodeSbom, nil
 }
 
 // findSBOMByMachineID searches for an existing SBOM with the given machine ID.
-func (h *GenerateNodeSBOMHandler) findSBOMByMachineID(ctx context.Context, machineID string, namespace string) (*storagev1alpha1.NodeSBOM, error) {
+func (h *GenerateNodeSBOMHandler) findSBOMByMachineID(ctx context.Context, machineID string) (*storagev1alpha1.NodeSBOM, error) {
 	sbomList := &storagev1alpha1.NodeSBOMList{}
 	err := h.k8sClient.List(ctx, sbomList,
-		client.InNamespace(namespace),
+		//client.InNamespace(namespace),
 		client.MatchingFields{storagev1alpha1.IndexNodeMetadataMachineID: machineID},
 		client.Limit(1),
 	)
