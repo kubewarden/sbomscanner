@@ -44,9 +44,10 @@ type ScanSBOMHandler struct {
 	trivyDBRepository     string
 	trivyJavaDBRepository string
 	logger                *slog.Logger
+	isNodeMode            bool
 }
 
-// NewScanSBOMHandler creates a new instance of ScanSBOMHandler.
+// NewScanSBOMHandler creates a new instance of ScanSBOMHandler for container images.
 func NewScanSBOMHandler(
 	k8sClient client.Client,
 	scheme *runtime.Scheme,
@@ -62,73 +63,161 @@ func NewScanSBOMHandler(
 		trivyDBRepository:     trivyDBRepository,
 		trivyJavaDBRepository: trivyJavaDBRepository,
 		logger:                logger.With("handler", "scan_sbom_handler"),
+		isNodeMode:            false,
 	}
 }
 
-// Handle processes the ScanSBOMMessage and scans the specified SBOM resource for vulnerabilities.
+// NewScanNodeSBOMHandler creates a new instance of ScanSBOMHandler for nodes.
+func NewScanNodeSBOMHandler(
+	k8sClient client.Client,
+	scheme *runtime.Scheme,
+	workDir string,
+	trivyDBRepository string,
+	trivyJavaDBRepository string,
+	logger *slog.Logger,
+) *ScanSBOMHandler {
+	return &ScanSBOMHandler{
+		k8sClient:             k8sClient,
+		scheme:                scheme,
+		workDir:               workDir,
+		trivyDBRepository:     trivyDBRepository,
+		trivyJavaDBRepository: trivyJavaDBRepository,
+		logger:                logger.With("handler", "scan_node_sbom_handler"),
+		isNodeMode:            true,
+	}
+}
+
+// Handle processes the ScanSBOMMessage or ScanNodeSBOMMessage and scans the specified SBOM resource for vulnerabilities.
 func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message) error { //nolint:funlen,gocognit,gocyclo,cyclop // TODO: refactor this function in smaller ones
-	scanSBOMMessage := &ScanSBOMMessage{}
-	if err := json.Unmarshal(message.Data(), scanSBOMMessage); err != nil {
-		return fmt.Errorf("failed to unmarshal scan job message: %w", err)
+	var scanJobName, scanJobNamespace, scanJobUID string
+	var sbomName, sbomNamespace string
+	var rawSPDX []byte
+
+	if h.isNodeMode {
+		scanNodeSBOMMessage := &ScanNodeSBOMMessage{}
+		if err := json.Unmarshal(message.Data(), scanNodeSBOMMessage); err != nil {
+			return fmt.Errorf("failed to unmarshal scan job message: %w", err)
+		}
+		scanJobName = scanNodeSBOMMessage.NodeScanJob.Name
+		scanJobNamespace = scanNodeSBOMMessage.NodeScanJob.Namespace
+		scanJobUID = scanNodeSBOMMessage.NodeScanJob.UID
+		sbomName = scanNodeSBOMMessage.NodeSBOM.Name
+		sbomNamespace = scanNodeSBOMMessage.NodeSBOM.Namespace
+	} else {
+		scanSBOMMessage := &ScanSBOMMessage{}
+		if err := json.Unmarshal(message.Data(), scanSBOMMessage); err != nil {
+			return fmt.Errorf("failed to unmarshal scan job message: %w", err)
+		}
+		scanJobName = scanSBOMMessage.ScanJob.Name
+		scanJobNamespace = scanSBOMMessage.ScanJob.Namespace
+		scanJobUID = scanSBOMMessage.ScanJob.UID
+		sbomName = scanSBOMMessage.SBOM.Name
+		sbomNamespace = scanSBOMMessage.SBOM.Namespace
 	}
 
 	h.logger.InfoContext(ctx, "SBOM scan requested",
-		"sbom", scanSBOMMessage.SBOM.Name,
-		"namespace", scanSBOMMessage.SBOM.Namespace,
+		"sbom", sbomName,
+		"namespace", sbomNamespace,
 	)
 
-	scanJob := &v1alpha1.ScanJob{}
-	err := h.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      scanSBOMMessage.ScanJob.Name,
-		Namespace: scanSBOMMessage.ScanJob.Namespace,
-	}, scanJob)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// Stop processing if the scanjob is not found, since it might have been deleted.
-			h.logger.ErrorContext(ctx, "ScanJob not found, stopping SBOM scan", "scanJob", scanSBOMMessage.ScanJob.Name, "namespace", scanSBOMMessage.ScanJob.Namespace)
+	var isFailed bool
+	var registry *v1alpha1.Registry
+
+	if h.isNodeMode {
+		scanJob := &v1alpha1.NodeScanJob{}
+		err := h.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      scanJobName,
+			Namespace: scanJobNamespace,
+		}, scanJob)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				h.logger.ErrorContext(ctx, "ScanJob not found, stopping SBOM scan", "scanJob", scanJobName, "namespace", scanJobNamespace)
+				return nil
+			}
+			return fmt.Errorf("failed to get ScanJob: %w", err)
+		}
+		if string(scanJob.GetUID()) != scanJobUID {
+			h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", scanJobName, "namespace", scanJobNamespace,
+				"uid", scanJobUID)
 			return nil
 		}
-		return fmt.Errorf("failed to get ScanJob: %w", err)
+		isFailed = scanJob.IsFailed()
+	} else {
+		scanJob := &v1alpha1.ScanJob{}
+		err := h.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      scanJobName,
+			Namespace: scanJobNamespace,
+		}, scanJob)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				h.logger.ErrorContext(ctx, "ScanJob not found, stopping SBOM scan", "scanJob", scanJobName, "namespace", scanJobNamespace)
+				return nil
+			}
+			return fmt.Errorf("failed to get ScanJob: %w", err)
+		}
+		if string(scanJob.GetUID()) != scanJobUID {
+			h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", scanJobName, "namespace", scanJobNamespace,
+				"uid", scanJobUID)
+			return nil
+		}
+		isFailed = scanJob.IsFailed()
+
+		// Retrieve the registry from the scan job annotations.
+		registryData, ok := scanJob.Annotations[v1alpha1.AnnotationScanJobRegistryKey]
+		if !ok {
+			return fmt.Errorf("scan job %s/%s does not have a registry annotation", scanJobNamespace, scanJobName)
+		}
+		registry = &v1alpha1.Registry{}
+		if err = json.Unmarshal([]byte(registryData), registry); err != nil {
+			return fmt.Errorf("cannot unmarshal registry data from scan job %s/%s: %w", scanJobNamespace, scanJobName, err)
+		}
 	}
-	if string(scanJob.GetUID()) != scanSBOMMessage.ScanJob.UID {
-		h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", scanSBOMMessage.ScanJob.Name, "namespace", scanSBOMMessage.ScanJob.Namespace,
-			"uid", scanSBOMMessage.ScanJob.UID)
+
+	if isFailed {
+		h.logger.InfoContext(ctx, "ScanJob is in failed state, stopping SBOM scan", "scanjob", scanJobName, "namespace", scanJobNamespace)
 		return nil
 	}
 
-	h.logger.DebugContext(ctx, "ScanJob found", "scanjob", scanJob)
+	var owner client.Object
+	var getImageMetadata func() storagev1alpha1.ImageMetadata
+	var getNodeMetadata func() storagev1alpha1.NodeMetadata
 
-	if scanJob.IsFailed() {
-		h.logger.InfoContext(ctx, "ScanJob is in failed state, stopping SBOM scan", "scanjob", scanJob.Name, "namespace", scanJob.Namespace)
-		return nil
-	}
-
-	// Retrieve the registry from the scan job annotations.
-	registryData, ok := scanJob.Annotations[v1alpha1.AnnotationScanJobRegistryKey]
-	if !ok {
-		return fmt.Errorf("scan job %s/%s does not have a registry annotation", scanJob.Namespace, scanJob.Name)
-	}
-	registry := &v1alpha1.Registry{}
-	if err = json.Unmarshal([]byte(registryData), registry); err != nil {
-		return fmt.Errorf("cannot unmarshal registry data from scan job %s/%s: %w", scanJob.Namespace, scanJob.Name, err)
-	}
-
-	sbom := &storagev1alpha1.SBOM{}
-	err = h.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      scanSBOMMessage.SBOM.Name,
-		Namespace: scanSBOMMessage.SBOM.Namespace,
-	}, sbom)
-	if err != nil {
-		// Stop processing if the SBOM is not found, since it might have been deleted.
-		if apierrors.IsNotFound(err) {
-			h.logger.ErrorContext(ctx, "SBOM not found, stopping SBOM scan", "sbom", scanSBOMMessage.SBOM.Name, "namespace", scanSBOMMessage.SBOM.Namespace)
-			return nil
+	if h.isNodeMode {
+		sbom := &storagev1alpha1.NodeSBOM{}
+		err := h.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      sbomName,
+			Namespace: sbomNamespace,
+		}, sbom)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				h.logger.ErrorContext(ctx, "SBOM not found, stopping SBOM scan", "sbom", sbomName, "namespace", sbomNamespace)
+				return nil
+			}
+			return fmt.Errorf("failed to get SBOM: %w", err)
 		}
-		return fmt.Errorf("failed to get SBOM: %w", err)
+		rawSPDX = sbom.SPDX.Raw
+		owner = sbom
+		getNodeMetadata = sbom.GetNodeMetadata
+	} else {
+		sbom := &storagev1alpha1.SBOM{}
+		err := h.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      sbomName,
+			Namespace: sbomNamespace,
+		}, sbom)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				h.logger.ErrorContext(ctx, "SBOM not found, stopping SBOM scan", "sbom", sbomName, "namespace", sbomNamespace)
+				return nil
+			}
+			return fmt.Errorf("failed to get SBOM: %w", err)
+		}
+		rawSPDX = sbom.SPDX.Raw
+		owner = sbom
+		getImageMetadata = sbom.GetImageMetadata
 	}
 
 	vexHubList := &v1alpha1.VEXHubList{}
-	err = h.k8sClient.List(ctx, vexHubList, &client.ListOptions{})
+	err := h.k8sClient.List(ctx, vexHubList, &client.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list VEXHub: %w", err)
 	}
@@ -147,7 +236,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 		}
 	}()
 
-	_, err = sbomFile.Write(sbom.SPDX.Raw)
+	_, err = sbomFile.Write(rawSPDX)
 	if err != nil {
 		return fmt.Errorf("failed to write SBOM file: %w", err)
 	}
@@ -221,8 +310,8 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	}
 
 	h.logger.InfoContext(ctx, "SBOM scanned",
-		"sbom", scanSBOMMessage.SBOM.Name,
-		"namespace", scanSBOMMessage.SBOM.Namespace,
+		"sbom", sbomName,
+		"namespace", sbomNamespace,
 	)
 
 	if err = message.InProgress(); err != nil {
@@ -246,35 +335,65 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	}
 	summary := storagev1alpha1.NewSummaryFromResults(results)
 
-	vulnerabilityReport := &storagev1alpha1.VulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sbom.Name,
-			Namespace: sbom.Namespace,
-		},
-	}
-	if err = controllerutil.SetControllerReference(sbom, vulnerabilityReport, h.scheme); err != nil {
-		return fmt.Errorf("failed to set owner reference: %w", err)
-	}
-
-	_, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, vulnerabilityReport, func() error {
-		vulnerabilityReport.Labels = map[string]string{
-			v1alpha1.LabelScanJobUIDKey: string(scanJob.UID),
-			api.LabelManagedByKey:       api.LabelManagedByValue,
-			api.LabelPartOfKey:          api.LabelPartOfValue,
+	if h.isNodeMode {
+		nodeVulnerabilityReport := &storagev1alpha1.NodeVulnerabilityReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sbomName,
+				Namespace: sbomNamespace,
+			},
 		}
-		if registry.Labels[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue {
-			vulnerabilityReport.Labels[api.LabelWorkloadScanKey] = api.LabelWorkloadScanValue
+		if err = controllerutil.SetControllerReference(owner, nodeVulnerabilityReport, h.scheme); err != nil {
+			return fmt.Errorf("failed to set owner reference: %w", err)
 		}
 
-		vulnerabilityReport.ImageMetadata = sbom.GetImageMetadata()
-		vulnerabilityReport.Report = storagev1alpha1.Report{
-			Summary: summary,
-			Results: results,
+		_, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, nodeVulnerabilityReport, func() error {
+			nodeVulnerabilityReport.Labels = map[string]string{
+				v1alpha1.LabelScanJobUIDKey: string(scanJobUID),
+				api.LabelManagedByKey:       api.LabelManagedByValue,
+				api.LabelPartOfKey:          api.LabelPartOfValue,
+			}
+
+			nodeVulnerabilityReport.NodeMetadata = getNodeMetadata()
+			nodeVulnerabilityReport.Report = storagev1alpha1.Report{
+				Summary: summary,
+				Results: results,
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create or update vulnerability report: %w", err)
 		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create or update vulnerability report: %w", err)
+	} else {
+		vulnerabilityReport := &storagev1alpha1.VulnerabilityReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sbomName,
+				Namespace: sbomNamespace,
+			},
+		}
+		if err = controllerutil.SetControllerReference(owner, vulnerabilityReport, h.scheme); err != nil {
+			return fmt.Errorf("failed to set owner reference: %w", err)
+		}
+
+		_, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, vulnerabilityReport, func() error {
+			vulnerabilityReport.Labels = map[string]string{
+				v1alpha1.LabelScanJobUIDKey: string(scanJobUID),
+				api.LabelManagedByKey:       api.LabelManagedByValue,
+				api.LabelPartOfKey:          api.LabelPartOfValue,
+			}
+			if registry.Labels[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue {
+				vulnerabilityReport.Labels[api.LabelWorkloadScanKey] = api.LabelWorkloadScanValue
+			}
+
+			vulnerabilityReport.ImageMetadata = getImageMetadata()
+			vulnerabilityReport.Report = storagev1alpha1.Report{
+				Summary: summary,
+				Results: results,
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create or update vulnerability report: %w", err)
+		}
 	}
 
 	return nil
