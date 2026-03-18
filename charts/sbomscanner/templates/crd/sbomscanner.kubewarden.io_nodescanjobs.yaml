@@ -56,13 +56,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: ScanJobSpec defines the desired state of ScanJob.
-            properties:
-              registry:
-                description: Registry is the registry in the same namespace to scan.
-                type: string
-            required:
-            - registry
+            description: NodeScanJobSpec defines the desired state of NodeScanJob.
             type: object
           status:
             description: NodeScanJobStatus defines the observed state of NodeScanJob.

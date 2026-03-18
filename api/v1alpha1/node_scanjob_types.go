@@ -14,7 +14,7 @@ const (
 	IndexNodeScanJobMetadataUID = "metadata.uid"
 )
 
-// RegistryAnnotation stores a snapshot of the Registry targeted by the ScanJob.
+// RegistryAnnotation stores a snapshot of the Registry targeted by the NodeScanJob.
 const (
 	// AnnotationNodeScanJobCreationTimestampKey is used to store the creation timestamp of the NodeScanJob.
 	AnnotationNodeScanJobCreationTimestampKey = "sbomscanner.kubewarden.io/creation-timestamp"
@@ -61,16 +61,16 @@ type NodeScanJob struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ScanJobSpec       `json:"spec,omitempty"`
+	Spec   NodeScanJobSpec   `json:"spec,omitempty"`
 	Status NodeScanJobStatus `json:"status,omitempty"`
 }
 
-// GetCreationTimestampFromAnnotation returns the creation timestamp of the ScanJob.
+// GetCreationTimestampFromAnnotation returns the creation timestamp of the NodeScanJob.
 // It first attempts to parse the timestamp from the CreationTimestampAnnotation.
 // If the annotation is missing or malformed, it falls back to the Kubernetes object's
 // standard metadata.CreationTimestamp.
 func (s *NodeScanJob) GetCreationTimestampFromAnnotation() time.Time {
-	if timestampStr, ok := s.Annotations[AnnotationScanJobCreationTimestampKey]; ok {
+	if timestampStr, ok := s.Annotations[AnnotationNodeScanJobCreationTimestampKey]; ok {
 		if timestamp, err := time.Parse(time.RFC3339Nano, timestampStr); err == nil {
 			return timestamp
 		}
