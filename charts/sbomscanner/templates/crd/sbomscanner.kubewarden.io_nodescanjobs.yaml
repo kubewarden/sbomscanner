@@ -27,9 +27,6 @@ spec:
     - jsonPath: .status.scannedImagesCount
       name: Scanned
       type: integer
-    - jsonPath: .status.imagesCount
-      name: Total
-      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -129,8 +126,6 @@ spec:
                 type: string
             type: object
         type: object
-    selectableFields:
-    - jsonPath: .spec.registry
     served: true
     storage: true
     subresources:

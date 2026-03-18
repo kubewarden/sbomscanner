@@ -49,11 +49,9 @@ type NodeScanJobStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:selectablefield:JSONPath=`.spec.registry`
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.status=='True')].type",description="Current status"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.status=='True')].reason",description="Status reason"
 // +kubebuilder:printcolumn:name="Scanned",type="integer",JSONPath=".status.scannedImagesCount"
-// +kubebuilder:printcolumn:name="Total",type="integer",JSONPath=".status.imagesCount"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // NodeScanJob is the Schema for the nodescanjobs API.
