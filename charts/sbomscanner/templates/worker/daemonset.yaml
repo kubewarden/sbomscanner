@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-worker
   namespace: {{ .Release.Namespace }}
@@ -7,7 +7,6 @@ metadata:
     {{ include "sbomscanner.labels" .| nindent 4 }}
     app.kubernetes.io/component: worker
 spec:
-  replicas: {{ .Values.worker.replicas }}
   selector:
     matchLabels:
       {{ include "sbomscanner.selectorLabels" .| nindent 6 }}
@@ -55,7 +54,7 @@ spec:
             {{- if .Values.worker.logLevel }}
             - -log-level={{ .Values.worker.logLevel }}
             {{- end }}
-            - -mode=registry
+            - -mode=node
           {{- if and .Values.worker .Values.worker.resources }}
           resources:
 {{ toYaml .Values.worker.resources | indent 12 }}
