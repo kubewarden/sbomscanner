@@ -359,6 +359,15 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "NodeScan")
 			os.Exit(1)
 		}
+
+		if err := (&controller.NodeScanJobReconciler{
+			Client:    mgr.GetClient(),
+			Scheme:    mgr.GetScheme(),
+			Publisher: publisher,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "NodeScanJob")
+			os.Exit(1)
+		}
 	}
 
 	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr, cfg.ServiceAccountNamespace, cfg.ServiceAccountName); err != nil {

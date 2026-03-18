@@ -81,11 +81,17 @@ func (r *NodeScanJobReconciler) reconcileNodeScanJob(ctx context.Context, nodeSc
 				UID:       string(nodeScanJob.GetUID()),
 			},
 		},
+		Node: handlers.ObjectRef{
+			Name: "k3d-sbombastic-server-0",
+		},
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to marshal GenerateNodeSBOM message: %w", err)
 	}
 
+	fmt.Println("======= DEBUGGING =======")
+	fmt.Println(messageID)
+	fmt.Println(string(message))
 	if err := r.Publisher.Publish(ctx, handlers.GenerateNodeSBOMSubject, messageID, message); err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to publish GenerateNodeSBOM message: %w", err)
 	}
@@ -105,7 +111,7 @@ func (r *NodeScanJobReconciler) cleanupOldNodeScanJobs(ctx context.Context, curr
 	}
 
 	if err := r.List(ctx, scanJobList, listOpts...); err != nil {
-		return fmt.Errorf("failed to list NodeScanJobs %s: %w", err)
+		return fmt.Errorf("failed to list NodeScanJobs: %w", err)
 	}
 
 	if len(scanJobList.Items) <= scanJobsHistoryLimit {
