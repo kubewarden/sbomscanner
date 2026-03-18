@@ -1,0 +1,6 @@
+apiVersion: sbomscanner.kubewarden.io/v1alpha1
+kind: NodeScanConfiguration
+metadata:
+  name: default
+spec:
+  enabled: true
