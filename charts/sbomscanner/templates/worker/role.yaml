@@ -20,6 +20,7 @@ rules:
     resources:
       - scanjobs
       - scanjobs/status
+      - nodescanjobs
     verbs:
       - get
       - list
@@ -44,5 +45,6 @@ rules:
       - ""
     resources:
       - secrets
+      - nodes
     verbs:
       - get
