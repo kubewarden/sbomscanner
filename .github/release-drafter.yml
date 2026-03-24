@@ -32,19 +32,26 @@ template: |
 autolabeler:
   # Tag any PR with "!" in the subject as major update. In other words, breaking change
   - label: "kind/breaking-change"
-    title: "/.*!:.*/"
+    title:
+      - "/.*!:.*/"
   - label: "area/dependencies"
-    title: "chore(deps)"
+    title:
+      - "chore(deps)"
   - label: "area/dependencies"
-    title: "fix(deps)"
+    title:
+      - "fix(deps)"
   - label: "area/dependencies"
-    title: "build(deps)"
+    title:
+      - "build(deps)"
   - label: "kind/feature"
-    title: "feat"
+    title:
+      - "feat"
   - label: "kind/bug"
-    title: "fix"
+    title:
+      - "fix"
   - label: "kind/chore"
-    title: "chore"
+    title:
+      - "chore"
 
 version-resolver:
   major:

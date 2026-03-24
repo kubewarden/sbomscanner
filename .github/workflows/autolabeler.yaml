@@ -1,0 +1,16 @@
+name: Autolabeler
+
+on:
+  pull_request:
+    # Only following types are handled by the action, but one can default to all as well
+    types: [opened, reopened, synchronize, edited]
+
+jobs:
+  update_release_draft:
+    permissions:
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter/autolabeler@44a942e465867c7465b76aa808ddca6e0acae5da # v7.1.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
