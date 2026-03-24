@@ -11,6 +11,6 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter/autolabeler@44a942e465867c7465b76aa808ddca6e0acae5da # v7.1.0
+      - uses: release-drafter/release-drafter/autolabeler@139054aeaa9adc52ab36ddf67437541f039b88e2 # v7.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
