@@ -326,11 +326,13 @@ func (r *WorkloadScanReportRepository) buildImageRefConditions(containers []stor
 // buildContainerResult builds a ContainerResult from a ContainerRef and its vulnerability reports.
 func (r *WorkloadScanReportRepository) buildContainerResult(
 	container storagev1alpha1.ContainerRef,
-	reports []storagev1alpha1.VulnerabilityReport,
+	vulnerabilityReports []storagev1alpha1.VulnerabilityReport,
 ) storagev1alpha1.ContainerResult {
-	workloadReports := make([]storagev1alpha1.WorkloadScanVulnerabilityReport, 0, len(reports))
-	for _, vr := range reports {
+	workloadReports := make([]storagev1alpha1.WorkloadScanVulnerabilityReport, 0, len(vulnerabilityReports))
+	for _, vr := range vulnerabilityReports {
 		workloadReports = append(workloadReports, storagev1alpha1.WorkloadScanVulnerabilityReport{
+			Name:          vr.ObjectMeta.Name,
+			Namespace:     vr.ObjectMeta.Namespace,
 			ImageMetadata: vr.ImageMetadata,
 			Report:        vr.Report,
 		})

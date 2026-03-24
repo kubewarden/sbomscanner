@@ -1284,20 +1284,38 @@ func schema_sbomscanner_api_storage_v1alpha1_WorkloadScanVulnerabilityReport(ref
 				Description: "WorkloadScanVulnerabilityReport contains vulnerability report data for a specific platform.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the VulnerabilityReport.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace is the namespace where the VulnerabilityReport is stored.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"imageMetadata": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.ImageMetadata{}.OpenAPIModelName()),
+							Description: "ImageMetadata contains the VulnerabilityReport's image metadata.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1alpha1.ImageMetadata{}.OpenAPIModelName()),
 						},
 					},
 					"report": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1alpha1.Report{}.OpenAPIModelName()),
+							Description: "Report is the actual vulnerability scan report.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1alpha1.Report{}.OpenAPIModelName()),
 						},
 					},
 				},
-				Required: []string{"imageMetadata", "report"},
+				Required: []string{"name", "namespace", "imageMetadata", "report"},
 			},
 		},
 		Dependencies: []string{

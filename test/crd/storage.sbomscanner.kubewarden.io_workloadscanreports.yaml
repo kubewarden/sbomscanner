@@ -47,8 +47,8 @@ spec:
                       report data for a specific platform.
                     properties:
                       imageMetadata:
-                        description: ImageMetadata contains the metadata details of
-                          an image.
+                        description: ImageMetadata contains the VulnerabilityReport's
+                          image metadata.
                         properties:
                           digest:
                             description: Digest specifies the image manifest digest.
@@ -86,9 +86,15 @@ spec:
                         - repository
                         - tag
                         type: object
+                      name:
+                        description: Name is the name of the VulnerabilityReport.
+                        type: string
+                      namespace:
+                        description: Namespace is the namespace where the VulnerabilityReport
+                          is stored.
+                        type: string
                       report:
-                        description: Report contains metadata about the scanned image
-                          and a list of vulnerability results.
+                        description: Report is the actual vulnerability scan report.
                         properties:
                           results:
                             description: Results per target (e.g., layer, package
@@ -262,6 +268,8 @@ spec:
                         type: object
                     required:
                     - imageMetadata
+                    - name
+                    - namespace
                     - report
                     type: object
                   type: array
