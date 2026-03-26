@@ -65,7 +65,7 @@ jobs:
           set -e
           DIGEST=$(crane manifest ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ inputs.component }}@${{ env.ATTESTATION_MANIFEST_DIGEST }} |
                       jq -r '.layers[]
-                        | select(.annotations["in-toto.io/predicate-type"] == "https://slsa.dev/provenance/v0.2")
+                        | select(.annotations["in-toto.io/predicate-type"] == "https://slsa.dev/provenance/v1")
                         | .digest')
           echo "PROVENANCE_DIGEST=${DIGEST}" >> "$GITHUB_ENV"
       - name: Find SBOM manifest layer digest
