@@ -89,9 +89,6 @@ func (r *NodeScanJobReconciler) reconcileNodeScanJob(ctx context.Context, nodeSc
 		return ctrl.Result{}, fmt.Errorf("unable to marshal GenerateNodeSBOM message: %w", err)
 	}
 
-	fmt.Println("======= DEBUGGING =======")
-	fmt.Println(messageID)
-	fmt.Println(string(message))
 	if err := r.Publisher.Publish(ctx, handlers.GenerateNodeSBOMSubject, messageID, message); err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to publish GenerateNodeSBOM message: %w", err)
 	}
