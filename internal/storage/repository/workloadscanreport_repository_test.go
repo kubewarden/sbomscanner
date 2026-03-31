@@ -198,6 +198,8 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet() {
 	suite.Require().Len(gotReport.Containers, 1)
 	suite.Equal("nginx", gotReport.Containers[0].Name)
 	suite.Require().Len(gotReport.Containers[0].VulnerabilityReports, 1)
+	suite.Equal("nginx-vuln", gotReport.Containers[0].VulnerabilityReports[0].Name)
+	suite.Equal("default", gotReport.Containers[0].VulnerabilityReports[0].Namespace)
 	suite.Equal("sha256:abc123", gotReport.Containers[0].VulnerabilityReports[0].ImageMetadata.Digest)
 
 	// Verify summary was calculated from actual vulnerabilities
@@ -381,7 +383,9 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet_ScanInProgress_Parti
 
 	// One vulnerability report exists
 	suite.Require().Len(gotReport.Containers, 1)
-	suite.Len(gotReport.Containers[0].VulnerabilityReports, 1)
+	suite.Require().Len(gotReport.Containers[0].VulnerabilityReports, 1)
+	suite.Equal("app-vuln-amd64", gotReport.Containers[0].VulnerabilityReports[0].Name)
+	suite.Equal("default", gotReport.Containers[0].VulnerabilityReports[0].Namespace)
 }
 
 func (suite *workloadScanReportRepositoryTestSuite) TestList() {

@@ -113,6 +113,12 @@ type ContainerResult struct {
 
 // WorkloadScanVulnerabilityReport contains vulnerability report data for a specific platform.
 type WorkloadScanVulnerabilityReport struct {
+	// Name is the name of the VulnerabilityReport.
+	Name string `json:"name" protobuf:"bytes,3,req,name=name"`
+	// Namespace is the namespace where the VulnerabilityReport is stored.
+	Namespace string `json:"namespace" protobuf:"bytes,4,req,name=namespace"`
+	// ImageMetadata contains the VulnerabilityReport's image metadata.
 	ImageMetadata ImageMetadata `json:"imageMetadata" protobuf:"bytes,1,req,name=imageMetadata"`
-	Report        Report        `json:"report" protobuf:"bytes,2,req,name=report"`
+	// Report is the actual vulnerability scan report.
+	Report Report `json:"report" protobuf:"bytes,2,req,name=report"`
 }
