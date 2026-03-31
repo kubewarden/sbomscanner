@@ -471,9 +471,9 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 			continue
 		}
 
-		imageDetails, err := registryClient.GetImageDetails(ctx, ref, m.Platform)
+		imageDetails, err := registryClient.GetImageDetailsFromIndex(ctx, imageIndex, m.Digest, m.Platform)
 		if err != nil {
-			return nil, fmt.Errorf("cannot get image details for %q platform %v: %w", ref.Name(), m.Platform, err)
+			return nil, fmt.Errorf("cannot get image details for %q digest %s platform %v: %w", ref.Name(), m.Digest, m.Platform, err)
 		}
 
 		image, err := imageDetailsToImage(ref, imageDetails, registry, h.scheme, indexDigest.String())
