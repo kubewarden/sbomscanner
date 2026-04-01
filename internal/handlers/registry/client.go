@@ -153,6 +153,55 @@ func (c *Client) IsContainerImage(ctx context.Context, desc *remote.Descriptor) 
 	return manifest.Config.MediaType.IsConfig(), nil
 }
 
+// imageDetails extracts config, digest, platform, and layers from a cranev1.Image.
+// If platform is nil, it falls back to the platform from the image config file.
+func imageDetails(img cranev1.Image, platform *cranev1.Platform, label string) (ImageDetails, error) {
+	cfgFile, err := img.ConfigFile()
+	if err != nil {
+		return ImageDetails{}, fmt.Errorf("cannot read config for %s: %w", label, err)
+	}
+
+	imageDigest, err := img.Digest()
+	if err != nil {
+		return ImageDetails{}, fmt.Errorf("cannot compute image digest for %s: %w", label, err)
+	}
+
+	// When no platform is provided (single-arch images or index entries without
+	// an explicit platform), fall back to the platform from the config file.
+	// Note: the config file does not contain the Variant field.
+	if platform == nil {
+		platform = cfgFile.Platform()
+		if platform == nil {
+			return ImageDetails{}, fmt.Errorf("cannot get platform for %s", label)
+		}
+	}
+
+	layers, err := img.Layers()
+	if err != nil {
+		return ImageDetails{}, fmt.Errorf("cannot read layers for %s: %w", label, err)
+	}
+
+	return ImageDetails{
+		History:  cfgFile.History,
+		Layers:   layers,
+		Platform: *platform,
+		Digest:   imageDigest,
+	}, nil
+}
+
+// GetImageDetailsFromIndex fetches details for a specific image within a multi-arch index,
+// identified by its digest.
+func (c *Client) GetImageDetailsFromIndex(ctx context.Context, imageIndex cranev1.ImageIndex, digest cranev1.Hash, platform *cranev1.Platform) (ImageDetails, error) {
+	c.logger.DebugContext(ctx, "GetImageDetailsFromIndex called", "digest", digest, "platform", platform)
+
+	img, err := imageIndex.Image(digest)
+	if err != nil {
+		return ImageDetails{}, fmt.Errorf("cannot get image by digest %s: %w", digest, err)
+	}
+
+	return imageDetails(img, platform, digest.String())
+}
+
 func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, multiArchPlatform *cranev1.Platform) (ImageDetails, error) {
 	c.logger.DebugContext(ctx, "GetImageDetails called", "image", ref.Name(), "multiArchPlatform", multiArchPlatform)
 
@@ -170,36 +219,5 @@ func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, multiA
 		return ImageDetails{}, fmt.Errorf("cannot fetch image %q: %w", ref, err)
 	}
 
-	cfgFile, err := img.ConfigFile()
-	if err != nil {
-		return ImageDetails{}, fmt.Errorf("cannot read config for %s: %w", ref, err)
-	}
-
-	imageDigest, err := img.Digest()
-	if err != nil {
-		return ImageDetails{}, fmt.Errorf("cannot compute image digest %q: %w", ref, err)
-	}
-
-	// Single-arch images do not have a platform associated with them.
-	// In that case, we get the platform from the config file.
-	// Platform obtained from the config file does not have the Variant field set,
-	// as the config file does not contain that information.
-	if multiArchPlatform == nil {
-		multiArchPlatform = cfgFile.Platform()
-		if multiArchPlatform == nil {
-			return ImageDetails{}, fmt.Errorf("cannot get platform for %s", ref)
-		}
-	}
-
-	layers, err := img.Layers()
-	if err != nil {
-		return ImageDetails{}, fmt.Errorf("cannot read layers for %s: %w", ref, err)
-	}
-
-	return ImageDetails{
-		History:  cfgFile.History,
-		Layers:   layers,
-		Platform: *multiArchPlatform,
-		Digest:   imageDigest,
-	}, nil
+	return imageDetails(img, multiArchPlatform, ref.Name())
 }

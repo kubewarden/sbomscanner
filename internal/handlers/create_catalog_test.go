@@ -41,6 +41,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 	singleArchRef := name.MustParseReference(imageRefSingleArch)
 	multiArchRef := name.MustParseReference(imageRefMultiArch)
 	multiArchWithUnknownPlatformRef := name.MustParseReference(imageRefMultiArchWithUnknownPlatform)
+	multiArchWithSamePlatformRef := name.MustParseReference(imageRefMultiArchWithSamePlatform)
 	helmChartRef := name.MustParseReference(artifactRefHelmChart)
 	kubewardenPolicyRef := name.MustParseReference(artifactRefKubewardenPolicy)
 
@@ -48,6 +49,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		singleArchRef,
 		multiArchRef,
 		multiArchWithUnknownPlatformRef,
+		multiArchWithSamePlatformRef,
 		helmChartRef,
 		kubewardenPolicyRef,
 	},
@@ -95,6 +97,14 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/s390x", imageDigestLinuxS390xMultiArch, imageIndexDigestMultiArch),
 				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
 				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/arm64", imageDigestLinuxArm64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/arm/v7", imageFirstDisgestLinuxArmV7WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/arm/v7", imageSecondDisgestLinuxArmV7WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/arm64", imageDigestLinuxArm64WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "windows/amd64:10.0.17763.8389", imageDigestWindowsAmd64OsVersion10017WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "windows/amd64:10.0.20348.4773", imageDigestWindowsAmd64OsVersion10020WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/ppc64le", imageDigestLinuxPpc64leWithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/s390x", imageDigestLinuxS390xWithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
 			},
 		},
 		{
@@ -235,6 +245,30 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			expectedImages: []*storagev1alpha1.Image{
 				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
 				imageFactory(testRegistry.RegistryName, multiArchWithUnknownPlatformRef.Context().RepositoryStr(), multiArchWithUnknownPlatformRef.Identifier(), "linux/arm64", imageDigestLinuxArm64MultiArchWithUnknownPlatform, imageIndexDigestMultiArchWithUnknownPlatform),
+			},
+		},
+		{
+			name: "multiarch image with same platform but different digest",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: multiArchWithSamePlatformRef.Context().RepositoryStr(),
+						},
+					},
+					Platforms: []v1alpha1.Platform{
+						{OS: "linux", Architecture: "arm", Variant: "v7"},
+					},
+				},
+			},
+			expectedImages: []*storagev1alpha1.Image{
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/arm/v7", imageFirstDisgestLinuxArmV7WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/arm/v7", imageSecondDisgestLinuxArmV7WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
 			},
 		},
 		{
