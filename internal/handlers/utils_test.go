@@ -31,6 +31,11 @@ const (
 )
 
 const (
+	// Here are listed the images / digests stored on the kubewarden org registry.
+	// To add more, follow the instructions below.
+	// - copy the image to the registry:
+	//   crane copy <img-registry>/<img-name>:<img-version> ghcr.io/kubewarden/sbomscanner/test-assets/<img-name>:<img-version>
+	// - make the new image public from github settings
 	imageRefSingleArch    = "ghcr.io/kubewarden/sbomscanner/test-assets/nginx:1.27.1"
 	imageDigestSingleArch = "sha256:f41b7d70c5779beba4a570ca861f788d480156321de2876ce479e072fb0246f1"
 
@@ -48,6 +53,17 @@ const (
 	imageIndexDigestMultiArchWithUnknownPlatform      = "sha256:906b299349d8a28432228e0aff6b0c3796cec9300a51e5e5161bf8e5e56e07cb"
 	imageDigestLinuxAmd64MultiArchWithUnknownPlatform = "sha256:d2fabf8aca7ade7f2bcb63d0ef7966b697bed9482197d9906cf2578202d7f789"
 	imageDigestLinuxArm64MultiArchWithUnknownPlatform = "sha256:6c8913ca09035b8730212b9a5b2f2ce451fe37a36b4e591e3d5af77b2eb60971"
+
+	imageRefMultiArchWithSamePlatform                     = "ghcr.io/kubewarden/sbomscanner/test-assets/livenessprobe:v2.18.0"
+	imageIndexDigestMultiArchWithSamePlatform             = "sha256:c4cc074199c045dd73ab85f28897e2a32f4d6f38ffdba4f3b13b8007ccbd3570"
+	imageFirstDisgestLinuxArmV7WithSamePlatform           = "sha256:d358d0810576071a2a68181cf2f3a1f912d75e0e8d94691934665968d22edf9b"
+	imageSecondDisgestLinuxArmV7WithSamePlatform          = "sha256:cf4f7ce5931d94ef5b32bf7345810069c551f49fa0f07fa0f76d4bb6a9e4ac20"
+	imageDigestLinuxAmd64WithSamePlatform                 = "sha256:7fe80915b3cb9fb1d09dbd300a0682cafa8ab93947cd3ddc3e15a8250621bf24"
+	imageDigestWindowsAmd64OsVersion10017WithSamePlatform = "sha256:9f29ac8a257d17d1ba01cef54a7b7d0b8178617d5a954cf02bb75413ce567fcb"
+	imageDigestWindowsAmd64OsVersion10020WithSamePlatform = "sha256:0632629fb9a0ff7a5d11f37e907acec5d2f19755a195a29015a421d954275bf3"
+	imageDigestLinuxArm64WithSamePlatform                 = "sha256:857cc375c99c4e610df0b47c8935456ad6ef81cfbb4479dfe5edee837a34abe3"
+	imageDigestLinuxPpc64leWithSamePlatform               = "sha256:83361094048fe4c598fe2cea519fd351291e3e06c284f7bd0b0b059035582f9a"
+	imageDigestLinuxS390xWithSamePlatform                 = "sha256:9cd4a97e8a9d9d9563df722463061f9406917a822370b7b925229a2e03e378e0"
 
 	artifactRefHelmChart        = "ghcr.io/kubewarden/sbomscanner/test-assets/charts/kubewarden-controller:5.9.0"
 	artifactRefKubewardenPolicy = "ghcr.io/kubewarden/sbomscanner/test-assets/policies/echo:v0.1.15"
