@@ -57,6 +57,9 @@ To trigger a new scan, the user can set the `scanInterval` on the `NodeScanConfi
 or leave the `scanInterval` not set and apply a `NodeScanJob` manually 
 (with the `NodeScanConfiguration` already applied) as we already do for the `Registry`.
 
+Please, note that `NodeScanConfiguration` is a singleton resource, 
+meaning that there can be only one instance of it in the cluster.
+
 ## CRDs
 
 For this feature we are going to add the following CRDs:
