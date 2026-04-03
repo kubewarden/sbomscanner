@@ -3,7 +3,7 @@
 | Feature Name | Node Scan                       |
 | Start Date   | March 5th, 2026                 |
 | Category     | Architecture                    |
-| RFC PR       | [#]() |
+| RFC PR       | [#922](https://github.com/kubewarden/sbomscanner/pull/922) |
 | State        | **ACCEPTED**                    |
 
 # Summary
@@ -39,15 +39,19 @@ ensuring the safety of the infrastructure where workloads reside.
 Node scanning is implemented by deploying a `DaemonSet` that executes a worker 
 component on every node.
 
-The worker will be provided with a flag to operate between image scanning and node scanning 
-modes, allowing for significant code reuse across different scan targets.
-Setting the worker in node scanning mode will perform only node scanning for the 
-nodes of the cluster.
+The worker will be provided with these new flags:
+* `--mode` to operate between `registry` and `node` scanning
+* `--node-name` to specify the name of the node to be scanned (only used in `node` scanning mode)
+
+This approach will allow for significant code reuse across different scan targets.
+When `--mode=node` is set, the `--node-name` flag must be provided, 
+and the worker will subscribe to the NATS subject `sbomscanner.nodescan.{node-name}` 
+to receive scan jobs specific to that node.
 It will sit idle most of the time and perform the job only when requested to do it.
 
 This feature also allows nodes to be excluded from the scan (eg. if they don't have enough resources).
 This can be achieved with the `nodeSelector`, where only nodes matching the selector 
-are considered for scanning. If not specified, all the nodes are scanned.
+are considered for scanning. If not specified, all the nodes are going to be scanned.
 
 To trigger a new scan, the user can set the `scanInterval` on the `NodeScanConfiguration`,
 or leave the `scanInterval` not set and apply a `NodeScanJob` manually 
@@ -60,11 +64,12 @@ For this feature we are going to add the following CRDs:
 * `NodeScanConfiguration`: Defines the global scan settings.
   * `scanInterval`: Duration between automated scans.
     If not specified, the `NodeScanJob` doesn't start.
-  * `skip`: A list of file/directory paths to be ignored.
   * `nodeSelector`: Filter which nodes are scanned.
     If not specified, all the nodes are scanned.
+  * `skip`: A list of file/directory paths to be ignored.
 
 * `NodeScanJob`: Represents a single execution of a node scan.
+  * `nodeName`: The name of the node to be scanned.
 
 * `NodeSBOM`: Stores the Software Bill of Materials for a specific node.
 
@@ -80,12 +85,31 @@ information about the node.
 `NodeMetadata` will have the following attributes:
 
 * `Name` specifies the unique name of the node in the cluster.
-* `Platform` specifies the CPU architecture of the node. Example: amd64, arm64.
-* `OS` specifies the operating system of the node. Example: linux, windows.
+* `Platform` specifies the OS + CPU architecture of the node. Example: linux/amd64, linux/arm64.
+
+## Scan Workflow
+
+1. The user applies a `NodeScanConfiguration` with a defined `scanInterval` or applies a `NodeScanJob` manually.
+2. The controller creates a `NodeScanJob` for each node matching the `nodeSelector` (or all nodes if no selector is specified).
+3. Each worker subscribes to the NATS subject `sbomscanner.nodescan.{node-name}` and receives the scan job for its node.
+4. The worker executes the scan, generating a `NodeSBOM` and a `NodeVulnerabilityReport` for the node.
+5. The results are stored in the cluster and can be accessed by the user for review and remediation.
+
+To let users easily understand the flow, here's a simple diagram:
+
+![NodeScan Worflow](./assets/nodescan-wf.png)
+
+Without the `NodeScanConfiguration`, users can not run `NodeScanJob` independently,
+since the `NodeScanJob` needs the configurations defined in the `NodeScanConfiguration` to run (eg. the `skip` list).
+
+When a new `NodeScanJob` is created, it checks if another `NodeScanJob` is already in progress for the same node.
+If there is an active job, the new job will be marked as `Failed` with the reason `ScanAlreadyInProgress`.
+
+![NodeScanConfiguration and NodeScanJob relationship](./assets/nodescanconfig.png)
 
 ## Status Conditions
 
-Since we're defining new CRDs, we also need to define their status conditions.
+NodeScanJobs will have status conditions to provide visibility into the scan process.
 
 The `NodeScanJob` has status conditions very similar to [`ScanJob`](https://github.com/kubewarden/sbomscanner/blob/main/api/v1alpha1/scanjob_types.go#L36):
 
@@ -95,17 +119,23 @@ Status: `Scheduled` (The job is created but hasn't started doing actual work)
 
 Status: `InProgress` (The job is actively executing)
 * `InProgress`: Generic indicator that execution has started.
-* `FilesystemScan`: Currently iterating through the filesystem.
+* `NodeScanInProgress`: Currently scanning the node's filesystem and collecting data.
 * `SBOMGenerationInProgress`: Currently parsing dependencies and building the SBOM document.
 
 Status: `Complete` (The job finished successfully)
 * `Complete`: Generic success indicator.
-* `EntireFilesystemScanned`: Successfully scanned the target system.
-* `NoFilesystemToScan`: Finished quickly because the target directory/image was empty or missing.
+* `NodeScanned`: The node has been successfully scanned, and the SBOM and vulnerability report are generated.
 
 Status: `Failed` (The job encountered a terminal error)
 * `Failed`: Generic failure indicator (e.g., bad user input, invalid target).
 * `InternalError`: Failed due to an unexpected system crash, out-of-memory error, or infrastructure issue.
+* `ScanAlreadyInProgress`: Failed because another scan job is already running for the same node.
+
+As for the `WorkloadScan` status conditions, the mechanism works the same.
+When `Scheduled` is `true`, then all the other conditions are `false` and their reason is `Scheduled`. 
+When `Pending` is `true`, then all the other conditions are `false` and their reason is `Pending`.
+When `InProgress` is `true`, then all the other conditions are `false` and their reason is `InProgress`.
+When `Complete` is `true`, then all the other conditions are also `false` and their reason is `Complete`.
 
 # Drawbacks
 
