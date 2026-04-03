@@ -39,15 +39,15 @@ spec:
           nodeMetadata:
             description: NodeMetadata contains the metadata details of a node.
             properties:
-              machineID:
-                description: MachineID specifies the machine ID of the node.
+              name:
+                description: Name specifies the name of the node.
                 type: string
               platform:
                 description: Platform specifies the platform of the image. Example
                   "linux/amd64".
                 type: string
             required:
-            - machineID
+            - name
             - platform
             type: object
           spdx:

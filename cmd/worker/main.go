@@ -37,6 +37,7 @@ func main() {
 	var init bool
 	var logLevel string
 	var mode string
+	var nodeName string
 
 	flag.StringVar(&natsURL, "nats-url", "localhost:4222", "The URL of the NATS server.")
 	flag.StringVar(&natsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
@@ -49,6 +50,7 @@ func main() {
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.StringVar(&mode, "mode", "registry", "Mode of operation ('registry' or 'node').")
+	flag.StringVar(&nodeName, "node-name", "", "The name of the node (required if mode is 'node').")
 	flag.Parse()
 
 	slogLevel, err := cmdutil.ParseLogLevel(logLevel)
@@ -99,6 +101,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if mode == "node" && nodeName == "" {
+		logger.Error("Node name must be provided when mode is 'node'")
+		os.Exit(1)
+	}
+
 	nc, err := nats.Connect(natsURL,
 		natsOpts...,
 	)
@@ -145,8 +152,8 @@ func main() {
 		}
 	case "node":
 		scanMode = messaging.HandlerScan{
-			handlers.GenerateNodeSBOMSubject: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-			handlers.ScanNodeSBOMSubject:     handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
+			handlers.ScanNodeSBOMSubject:                      handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
 	default:
 		logger.Error("Invalid scanning mode", "mode", mode)

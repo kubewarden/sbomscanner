@@ -7,8 +7,8 @@ const (
 
 // NodeMetadata contains the metadata details of a node.
 type NodeMetadata struct {
-	// MachineID specifies the machine ID of the node.
-	MachineID string `json:"machineID" protobuf:"bytes,1,req,name=machineID"`
+	// Name specifies the name of the node.
+	Name string `json:"name" protobuf:"bytes,1,req,name=name"`
 	// Platform specifies the platform of the image. Example "linux/amd64".
 	Platform string `json:"platform" protobuf:"bytes,2,req,name=platform"`
 }

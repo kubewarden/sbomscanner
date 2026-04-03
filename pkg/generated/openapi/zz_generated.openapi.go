@@ -565,9 +565,9 @@ func schema_sbomscanner_api_storage_v1alpha1_NodeMetadata(ref common.ReferenceCa
 				Description: "NodeMetadata contains the metadata details of a node.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"machineID": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MachineID specifies the machine ID of the node.",
+							Description: "Name specifies the name of the node.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -582,7 +582,7 @@ func schema_sbomscanner_api_storage_v1alpha1_NodeMetadata(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"machineID", "platform"},
+				Required: []string{"name", "platform"},
 			},
 		},
 	}

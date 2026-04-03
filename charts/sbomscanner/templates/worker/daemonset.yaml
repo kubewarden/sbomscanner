@@ -38,6 +38,11 @@ spec:
       containers:
         - name: worker
           image: '{{ template "system_default_registry" . }}{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}'
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           securityContext:
             {{ include "sbomscanner.securityContext" . | nindent 12 }}
@@ -55,6 +60,7 @@ spec:
             - -log-level={{ .Values.worker.logLevel }}
             {{- end }}
             - -mode=node
+            - -node-name=$(NODE_NAME)
           {{- if and .Values.worker .Values.worker.resources }}
           resources:
 {{ toYaml .Values.worker.resources | indent 12 }}

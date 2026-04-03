@@ -118,30 +118,33 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
-	if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			h.logger.InfoContext(ctx, "node SBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
-		} else {
-			return fmt.Errorf("failed to create node SBOM: %w", err)
-		}
-	}
+	// TODO: to be removed
+	fmt.Println(nodeSbom)
 
-	scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.UID, generateNodeSBOMMessage.Node.Name)
-	scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
-		NodeBaseMessage: NodeBaseMessage{
-			NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
-		},
-		NodeSBOM: ObjectRef{
-			Name: generateNodeSBOMMessage.Node.Name,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("cannot marshal scan node SBOM message: %w", err)
-	}
+	//if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
+	//	if apierrors.IsAlreadyExists(err) {
+	//		h.logger.InfoContext(ctx, "node SBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
+	//	} else {
+	//		return fmt.Errorf("failed to create node SBOM: %w", err)
+	//	}
+	//}
 
-	if err = h.publisher.Publish(ctx, ScanNodeSBOMSubject, scanNodeSBOMMessageID, scanNodeSBOMMessage); err != nil {
-		return fmt.Errorf("failed to publish scan node SBOM message: %w", err)
-	}
+	//scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.UID, generateNodeSBOMMessage.Node.Name)
+	//scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
+	//	NodeBaseMessage: NodeBaseMessage{
+	//		NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
+	//	},
+	//	NodeSBOM: ObjectRef{
+	//		Name: generateNodeSBOMMessage.Node.Name,
+	//	},
+	//})
+	//if err != nil {
+	//	return fmt.Errorf("cannot marshal scan node SBOM message: %w", err)
+	//}
+
+	//if err = h.publisher.Publish(ctx, ScanNodeSBOMSubject, scanNodeSBOMMessageID, scanNodeSBOMMessage); err != nil {
+	//	return fmt.Errorf("failed to publish scan node SBOM message: %w", err)
+	//}
 
 	return nil
 }
@@ -174,6 +177,7 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 		api.LabelPartOfKey:    api.LabelPartOfValue,
 	}
 
+	nodePlatform := fmt.Sprintf("%s/%s", node.Status.NodeInfo.OperatingSystem, node.Status.NodeInfo.Architecture)
 	nodeSbom := &storagev1alpha1.NodeSBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.Node.Name,
@@ -181,8 +185,8 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 			Labels:    sbomLabels,
 		},
 		NodeMetadata: storagev1alpha1.NodeMetadata{
-			MachineID: node.Status.NodeInfo.MachineID,
-			Platform:  node.Status.NodeInfo.Architecture,
+			Name:     node.Name,
+			Platform: nodePlatform,
 		},
 		SPDX: runtime.RawExtension{Raw: spdxBytes},
 	}

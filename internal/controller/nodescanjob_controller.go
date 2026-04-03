@@ -82,14 +82,14 @@ func (r *NodeScanJobReconciler) reconcileNodeScanJob(ctx context.Context, nodeSc
 			},
 		},
 		Node: handlers.ObjectRef{
-			Name: "k3d-sbombastic-server-0",
+			Name: nodeScanJob.Spec.NodeName,
 		},
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to marshal GenerateNodeSBOM message: %w", err)
 	}
 
-	if err := r.Publisher.Publish(ctx, handlers.GenerateNodeSBOMSubject, messageID, message); err != nil {
+	if err := r.Publisher.Publish(ctx, handlers.GenerateNodeSBOMSubject+"."+nodeScanJob.Spec.NodeName, messageID, message); err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to publish GenerateNodeSBOM message: %w", err)
 	}
 

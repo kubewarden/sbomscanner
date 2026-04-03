@@ -23,13 +23,16 @@ const (
 )
 
 const (
-	ReasonFilesystemScan          = "FilesystemScan"
-	ReasonEntireFilesystemScanned = "EntireFilesystemScanned"
-	ReasonNoFilesystemToScan      = "NoFilesystemToScan"
+	NodeScanInProgress       = "NodeScanInProgress"
+	SBOMGenerationInProgress = "SBOMGenerationInProgress"
+	NodeScanned              = "NodeScanned"
+	ScanAlreadyInProgress    = "ScanAlreadyInProgress"
 )
 
 // NodeScanJobSpec defines the desired state of NodeScanJob.
 type NodeScanJobSpec struct {
+	// NodeName specifies the name of the node to be scanned.
+	NodeName string `json:"nodeName"`
 }
 
 // NodeScanJobStatus defines the observed state of NodeScanJob.

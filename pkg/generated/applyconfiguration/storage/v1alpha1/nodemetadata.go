@@ -7,8 +7,8 @@ package v1alpha1
 //
 // NodeMetadata contains the metadata details of a node.
 type NodeMetadataApplyConfiguration struct {
-	// MachineID specifies the machine ID of the node.
-	MachineID *string `json:"machineID,omitempty"`
+	// Name specifies the name of the node.
+	Name *string `json:"name,omitempty"`
 	// Platform specifies the platform of the image. Example "linux/amd64".
 	Platform *string `json:"platform,omitempty"`
 }
@@ -19,11 +19,11 @@ func NodeMetadata() *NodeMetadataApplyConfiguration {
 	return &NodeMetadataApplyConfiguration{}
 }
 
-// WithMachineID sets the MachineID field in the declarative configuration to the given value
+// WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the MachineID field is set to the value of the last call.
-func (b *NodeMetadataApplyConfiguration) WithMachineID(value string) *NodeMetadataApplyConfiguration {
-	b.MachineID = &value
+// If called multiple times, the Name field is set to the value of the last call.
+func (b *NodeMetadataApplyConfiguration) WithName(value string) *NodeMetadataApplyConfiguration {
+	b.Name = &value
 	return b
 }
 
