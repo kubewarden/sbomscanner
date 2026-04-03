@@ -75,6 +75,10 @@ For this feature we are going to add the following CRDs:
 
 * `NodeVulnerabilityReport`: Contains the results of the vulnerability analysis.
 
+Here's the overview of the resources landscape:
+
+![NodeScan CRDs](./assets/nodescan-resources.png)
+
 ### NodeMetadata Struct
 
 `NodeSBOM` and `NodeVulnerabilityReport` are equal to the [`SBOM`](https://github.com/kubewarden/sbomscanner/blob/main/api/storage/v1alpha1/sbom_types.go) and 
