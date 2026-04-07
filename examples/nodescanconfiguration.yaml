@@ -3,4 +3,8 @@ kind: NodeScanConfiguration
 metadata:
   name: default
 spec:
-  enabled: true
+  skip:
+    - /tmp
+    - /var/tmp
+    - /var/cache
+#  scanInterval: 24h

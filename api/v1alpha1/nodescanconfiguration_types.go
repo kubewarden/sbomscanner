@@ -11,9 +11,6 @@ const (
 
 // NodeScanConfigurationSpec defines the desired configuration for node scanning.
 type NodeScanConfigurationSpec struct {
-	// Enabled controls whether node scanning is active.
-	// +kubebuilder:default=true
-	Enabled bool `json:"enabled"`
 	// NodeSelector filters which nodes are scanned.
 	// If not specified, all the nodes are scanned.
 	// +optional
@@ -22,6 +19,10 @@ type NodeScanConfigurationSpec struct {
 	// ScanInterval is the interval at which nodes are scanned.
 	// +optional
 	ScanInterval *metav1.Duration `json:"scanInterval,omitempty"`
+
+	// Skip specifies which directories/files to skip during node scanning.
+	// +optional
+	Skip []string `json:"skip,omitempty"`
 }
 
 // +kubebuilder:object:root=true
