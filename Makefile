@@ -19,7 +19,7 @@ REPO ?= kubewarden/sbomscanner
 TAG ?= latest
 
 .PHONY: all
-all: controller storage worker
+all: controller storage worker mcp
 
 .PHONY: test
 test: vet ## Run tests.
@@ -84,11 +84,24 @@ WORKER_SRCS := $(GO_MOD_SRCS) $(WORKER_GO_SRCS)
 worker: $(WORKER_SRCS) vet
 	$(GO_BUILD_ENV) go build -o ./bin/worker ./cmd/worker
 
+MCP_SRC_DIRS := cmd/mcp api internal/mcp
+MCP_GO_SRCS := $(shell find $(MCP_SRC_DIRS) -type f -name '*.go')
+MCP_SRCS := $(GO_MOD_SRCS) $(MCP_GO_SRCS)
+.PHONY: mcp
+mcp: $(MCP_SRCS) vet
+	$(GO_BUILD_ENV) go build -o ./bin/mcp ./cmd/mcp
+
 .PHONY: worker-image
 worker-image:
 	docker build -f ./Dockerfile.worker \
 		-t "$(REGISTRY)/$(REPO)/worker:$(TAG)" .
 	@echo "Built $(REGISTRY)/$(REPO)/worker:$(TAG)"
+
+.PHONY: mcp-image
+mcp-image:
+	docker build -f ./Dockerfile.mcp \
+		-t "$(REGISTRY)/$(REPO)/mcp:$(TAG)" .
+	@echo "Built $(REGISTRY)/$(REPO)/mcp:$(TAG)"
 
 .PHONY: generate
 generate: generate-controller generate-storage generate-chart generate-mocks
@@ -138,7 +151,7 @@ $(LOCALBIN):
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
 ## Tool Versions
-GOLANGCI_LINT_VERSION ?= v2.9.0
+GOLANGCI_LINT_VERSION ?= v2.11.4
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
