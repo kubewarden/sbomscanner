@@ -70,10 +70,14 @@ helm_resource(
 load("ext://namespace", "namespace_create")
 namespace_create("sbomscanner")
 
+# Create MCP basic auth credentials for development
+k8s_yaml("./hack/mcp-credentials.yaml")
+
 registry = settings.get("registry")
 controller_image = settings.get("controller").get("image")
 storage_image = settings.get("storage").get("image")
 worker_image = settings.get("worker").get("image")
+mcp_image = settings.get("mcp", {}).get("image", "kubewarden/sbomscanner/mcp")
 
 yaml = helm(
     "./charts/sbomscanner",
@@ -84,13 +88,18 @@ yaml = helm(
         "controller.image.repository=" + controller_image,
         "storage.image.repository=" + storage_image,
         "worker.image.repository=" + worker_image,
+        "mcp.image.repository=" + mcp_image,
         "controller.replicas=1",
         "storage.replicas=1",
         "worker.replicas=1",
         "controller.logLevel=debug",
-        "storage.logLevel=debug", 
+        "storage.logLevel=debug",
         "worker.logLevel=debug",
         "controller.pprof=true",
+        "mcp.enabled=true",
+        "mcp.logLevel=debug",
+        "mcp.disableTLS=true",
+        "mcp.auth.secretName=sbomscanner-mcp-credentials",
     ],
 )
 
@@ -216,4 +225,37 @@ docker_build_with_restart(
     # We need to change the default restart file, since the /tmp directory is an emptyDir volumeMount in this Pod
     # and tilt doesn't seem to be able to work with it.
     restart_file="/.restart-proc",
+)
+
+local_resource(
+    "mcp_tilt",
+    "make mcp",
+    deps=[
+        "go.mod",
+        "go.sum",
+        "cmd/mcp",
+        "api",
+        "internal/mcp",
+    ],
+)
+
+entrypoint = ["/mcp"]
+dockerfile = "./hack/Dockerfile.mcp.tilt"
+
+docker_build_with_restart(
+    registry + "/" + mcp_image,
+    ".",
+    dockerfile=dockerfile,
+    entrypoint=entrypoint,
+    only=[
+        "./bin/mcp",
+    ],
+    live_update=[
+        sync("./bin/mcp", "/mcp"),
+    ],
+)
+
+k8s_resource(
+    "sbomscanner-mcp",
+    port_forwards="8222:8222",
 )

@@ -1,0 +1,5 @@
+FROM alpine
+WORKDIR /
+COPY ./bin/mcp /mcp
+
+ENTRYPOINT ["/mcp"]
