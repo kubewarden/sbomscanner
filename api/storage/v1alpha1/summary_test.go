@@ -10,18 +10,18 @@ func TestNewSummaryFromResults(t *testing.T) {
 	results := []Result{
 		{
 			Vulnerabilities: []Vulnerability{
-				{Severity: "CRITICAL", Suppressed: false},
-				{Severity: "HIGH", Suppressed: false},
-				{Severity: "MEDIUM", Suppressed: false},
-				{Severity: "LOW", Suppressed: false},
-				{Severity: "UNKNOWN", Suppressed: false},
-				{Severity: "HIGH", Suppressed: true}, // suppressed, shouldn't count in HIGH
+				{Severity: SeverityCritical, Suppressed: false},
+				{Severity: SeverityHigh, Suppressed: false},
+				{Severity: SeverityMedium, Suppressed: false},
+				{Severity: SeverityLow, Suppressed: false},
+				{Severity: SeverityUnknown, Suppressed: false},
+				{Severity: SeverityHigh, Suppressed: true}, // suppressed, shouldn't count in HIGH
 			},
 		},
 		{
 			Vulnerabilities: []Vulnerability{
-				{Severity: "CRITICAL", Suppressed: false},
-				{Severity: "MEDIUM", Suppressed: true}, // another suppressed
+				{Severity: SeverityCritical, Suppressed: false},
+				{Severity: SeverityMedium, Suppressed: true}, // another suppressed
 			},
 		},
 	}

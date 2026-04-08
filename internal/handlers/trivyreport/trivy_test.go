@@ -41,7 +41,7 @@ func TestNewResultsFromTrivyReport(t *testing.T) {
 							},
 							DiffID:      "sha256:d37a3e42d123ca619ceab4bbe3c1e9a96d0a837e5e0e3052b33dbd0e842c5661",
 							Description: "Lorem ipsum",
-							Severity:    "MEDIUM",
+							Severity:    storagev1alpha1.SeverityMedium,
 							References: []string{
 								"https://access.redhat.com/errata/RHSA-2025:3772",
 								"https://access.redhat.com/security/cve/CVE-2024-45336",
@@ -70,7 +70,7 @@ func TestNewResultsFromTrivyReport(t *testing.T) {
 							},
 							DiffID:      "sha256:d37a3e42d123ca619ceab4bbe3c1e9a96d0a837e5e0e3052b33dbd0e842c5661",
 							Description: "Lorem ipsum",
-							Severity:    "MEDIUM",
+							Severity:    storagev1alpha1.SeverityMedium,
 							References: []string{
 								"http://www.openwall.com/lists/oss-security/2025/03/07/2",
 								"https://access.redhat.com/security/cve/CVE-2025-22870",
@@ -123,7 +123,7 @@ func TestNewResultsFromTrivyReport(t *testing.T) {
 							},
 							DiffID:      "sha256:d37a3e42d123ca619ceab4bbe3c1e9a96d0a837e5e0e3052b33dbd0e842c5661",
 							Description: "Lorem ipsum",
-							Severity:    "MEDIUM",
+							Severity:    storagev1alpha1.SeverityMedium,
 							References: []string{
 								"https://access.redhat.com/errata/RHSA-2025:3772",
 								"https://access.redhat.com/security/cve/CVE-2024-45336",
@@ -161,7 +161,7 @@ func TestNewResultsFromTrivyReport(t *testing.T) {
 							},
 							DiffID:      "sha256:6d134d3d7e8aa630874f7c4e9db3db48d1895c60f3e5ce73272412404a9b723b",
 							Description: "Lorem ipsum",
-							Severity:    "MEDIUM",
+							Severity:    storagev1alpha1.SeverityMedium,
 							References: []string{
 								"https://access.redhat.com/errata/RHSA-2025:3772",
 								"https://access.redhat.com/security/cve/CVE-2024-45336",
@@ -192,7 +192,7 @@ func TestNewResultsFromTrivyReport(t *testing.T) {
 							},
 							DiffID:      "sha256:6d134d3d7e8aa630874f7c4e9db3db48d1895c60f3e5ce73272412404a9b723b",
 							Description: "Lorem ipsum",
-							Severity:    "MEDIUM",
+							Severity:    storagev1alpha1.SeverityMedium,
 							References: []string{
 								"https://access.redhat.com/errata/RHSA-2025:3772",
 								"https://access.redhat.com/security/cve/CVE-2024-45341",
