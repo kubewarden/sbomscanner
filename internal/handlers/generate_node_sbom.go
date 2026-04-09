@@ -81,8 +81,8 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 
 		return fmt.Errorf("cannot get NodeScanJob %s/%s: %w", generateNodeSBOMMessage.NodeScanJob.Name, generateNodeSBOMMessage.NodeScanJob.Namespace, err)
 	}
-	if string(nodeScanJob.GetUID()) != generateNodeSBOMMessage.NodeScanJob.UID {
-		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation (UID changed)", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name, "namespace", generateNodeSBOMMessage.NodeScanJob.Namespace,
+	if string(nodeScanJob.Name) != generateNodeSBOMMessage.NodeScanJob.Name {
+		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name, "namespace", generateNodeSBOMMessage.NodeScanJob.Namespace,
 			"uid", generateNodeSBOMMessage.NodeScanJob.UID)
 		return nil
 	}
@@ -159,9 +159,9 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 
 	var spdxBytes []byte
 	if existingSBOM != nil {
-		h.logger.InfoContext(ctx, "Found existing NodeSBOM with matching machine ID, reusing content",
+		h.logger.InfoContext(ctx, "Found existing NodeSBOM with matching node name, reusing content",
 			"sbom", existingSBOM.Name,
-			"machineID", node.Name,
+			"nodeName", node.Name,
 		)
 		spdxBytes = existingSBOM.SPDX.Raw
 	} else {
