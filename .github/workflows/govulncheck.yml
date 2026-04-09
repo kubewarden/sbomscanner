@@ -27,5 +27,7 @@ jobs:
           check-latest: true # Always check for the latest patch release
       - name: govulncheck
         uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+        env:
+          GOEXPERIMENT: jsonv2
         with:
           go-package: ./...
