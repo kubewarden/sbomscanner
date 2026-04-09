@@ -74,6 +74,9 @@ spec:
               path: /readyz
               port: 8081
           volumeMounts:
+            - name: host-root
+              mountPath: /host
+              readOnly: true
             - mountPath: /var/run/worker
               name: run-volume
             - mountPath: /tmp
@@ -82,6 +85,10 @@ spec:
               name: nats-tls
               readOnly: true
       volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
         - name: run-volume
           emptyDir: {}
         - name: tmp-dir

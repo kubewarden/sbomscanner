@@ -119,15 +119,19 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	}
 
 	// TODO: to be removed
-	fmt.Println(nodeSbom)
+	fmt.Println(nodeSbom.Kind)
+	fmt.Println(nodeSbom.NodeMetadata.Name)
+	fmt.Println(nodeSbom.NodeMetadata.Platform)
+	fmt.Println(nodeSbom.SPDX.String())
+	nodeSbom.Namespace = "default"
 
-	//if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
-	//	if apierrors.IsAlreadyExists(err) {
-	//		h.logger.InfoContext(ctx, "NodeSBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
-	//	} else {
-	//		return fmt.Errorf("failed to create NodeSBOM: %w", err)
-	//	}
-	//}
+	if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			h.logger.InfoContext(ctx, "NodeSBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
+		} else {
+			return fmt.Errorf("failed to create NodeSBOM: %w", err)
+		}
+	}
 
 	//scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.UID, generateNodeSBOMMessage.Node.Name)
 	//scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
