@@ -144,6 +144,18 @@ When `Pending` is `true`, then all the other conditions are `false` and their re
 When `InProgress` is `true`, then all the other conditions are `false` and their reason is `InProgress`.
 When `Complete` is `true`, then all the other conditions are also `false` and their reason is `Complete`.
 
+## Garbage Collection
+
+Garbage collection is crucial to prevent resource orphaning and to maintain a clean cluster state. 
+
+| When Deleting             | Also Delete                |
+|---------------------------|----------------------------|
+| `Node`                    | `NodeScanJob`, `NodeSBOM`, `NodeVulnerabilityReport` |
+| `NodeScanConfiguration`   | nothing |
+| `NodeScanJob`             | nothing |
+| `NodeSBOM`                | `NodeVulnerabilityReport` |
+| `NodeVulnerabilityReport` | nothing |
+
 # Drawbacks
 
 [drawbacks]: #drawbacks
