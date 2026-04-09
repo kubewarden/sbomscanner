@@ -10,7 +10,7 @@ require (
 	github.com/docker/cli v29.3.1+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/go-logr/logr v1.4.3
-	github.com/google/cel-go v0.27.0
+	github.com/google/cel-go v0.28.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.21.3
 	github.com/google/uuid v1.6.0
