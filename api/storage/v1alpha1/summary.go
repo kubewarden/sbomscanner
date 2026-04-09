@@ -1,5 +1,14 @@
 package v1alpha1
 
+// Severity level constants for vulnerability classification.
+const (
+	SeverityCritical = "CRITICAL"
+	SeverityHigh     = "HIGH"
+	SeverityMedium   = "MEDIUM"
+	SeverityLow      = "LOW"
+	SeverityUnknown  = "UNKNOWN"
+)
+
 // Summary provides a high-level overview of the vulnerabilities found.
 type Summary struct {
 	// Critical vulnerabilities count
@@ -39,14 +48,16 @@ func (s *Summary) Add(vulnerability Vulnerability) {
 	}
 
 	switch vulnerability.Severity {
-	case "CRITICAL":
+	case SeverityCritical:
 		s.Critical++
-	case "HIGH":
+	case SeverityHigh:
 		s.High++
-	case "MEDIUM":
+	case SeverityMedium:
 		s.Medium++
-	case "LOW":
+	case SeverityLow:
 		s.Low++
+	case SeverityUnknown:
+		s.Unknown++
 	default:
 		s.Unknown++
 	}

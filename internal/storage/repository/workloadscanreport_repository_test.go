@@ -158,19 +158,19 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet() {
 						Vulnerabilities: []storagev1alpha1.Vulnerability{
 							{
 								CVE:              "CVE-2024-0001",
-								Severity:         "HIGH",
+								Severity:         storagev1alpha1.SeverityHigh,
 								PackageName:      "openssl",
 								InstalledVersion: "1.1.1",
 							},
 							{
 								CVE:              "CVE-2024-0002",
-								Severity:         "HIGH",
+								Severity:         storagev1alpha1.SeverityHigh,
 								PackageName:      "libssl",
 								InstalledVersion: "1.1.1",
 							},
 							{
 								CVE:              "CVE-2024-0003",
-								Severity:         "LOW",
+								Severity:         storagev1alpha1.SeverityLow,
 								PackageName:      "bash",
 								InstalledVersion: "5.0",
 							},
@@ -456,7 +456,7 @@ func (suite *workloadScanReportRepositoryTestSuite) TestList() {
 				Results: []storagev1alpha1.Result{
 					{
 						Vulnerabilities: []storagev1alpha1.Vulnerability{
-							{CVE: "CVE-2024-0001", Severity: "CRITICAL", PackageName: "openssl", InstalledVersion: "1.0"},
+							{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityCritical, PackageName: "openssl", InstalledVersion: "1.0"},
 						},
 					},
 				},
@@ -650,11 +650,11 @@ func TestCalculateSummary(t *testing.T) {
 								Results: []storagev1alpha1.Result{
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
-											{CVE: "CVE-2024-0001", Severity: "CRITICAL", PackageName: "openssl", InstalledVersion: "1.0"},
-											{CVE: "CVE-2024-0002", Severity: "HIGH", PackageName: "libssl", InstalledVersion: "1.0"},
-											{CVE: "CVE-2024-0003", Severity: "MEDIUM", PackageName: "curl", InstalledVersion: "7.0"},
-											{CVE: "CVE-2024-0004", Severity: "LOW", PackageName: "bash", InstalledVersion: "5.0"},
-											{CVE: "CVE-2024-0005", Severity: "UNKNOWN", PackageName: "zlib", InstalledVersion: "1.2"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityCritical, PackageName: "openssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0002", Severity: storagev1alpha1.SeverityHigh, PackageName: "libssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0003", Severity: storagev1alpha1.SeverityMedium, PackageName: "curl", InstalledVersion: "7.0"},
+											{CVE: "CVE-2024-0004", Severity: storagev1alpha1.SeverityLow, PackageName: "bash", InstalledVersion: "5.0"},
+											{CVE: "CVE-2024-0005", Severity: storagev1alpha1.SeverityUnknown, PackageName: "zlib", InstalledVersion: "1.2"},
 										},
 									},
 								},
@@ -683,7 +683,7 @@ func TestCalculateSummary(t *testing.T) {
 								Results: []storagev1alpha1.Result{
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "openssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "openssl", InstalledVersion: "1.0"},
 										},
 									},
 								},
@@ -696,7 +696,7 @@ func TestCalculateSummary(t *testing.T) {
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
 											// Same CVE, same package, same version on different platform
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "openssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "openssl", InstalledVersion: "1.0"},
 										},
 									},
 								},
@@ -720,8 +720,8 @@ func TestCalculateSummary(t *testing.T) {
 								Results: []storagev1alpha1.Result{
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "openssl", InstalledVersion: "1.0"},
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "libssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "openssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "libssl", InstalledVersion: "1.0"},
 										},
 									},
 								},
@@ -745,8 +745,8 @@ func TestCalculateSummary(t *testing.T) {
 								Results: []storagev1alpha1.Result{
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "openssl", InstalledVersion: "1.0", Suppressed: false},
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "openssl", InstalledVersion: "1.0", Suppressed: true},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "openssl", InstalledVersion: "1.0", Suppressed: false},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "openssl", InstalledVersion: "1.0", Suppressed: true},
 										},
 									},
 								},
@@ -771,7 +771,7 @@ func TestCalculateSummary(t *testing.T) {
 								Results: []storagev1alpha1.Result{
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
-											{CVE: "CVE-2024-0001", Severity: "CRITICAL", PackageName: "openssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityCritical, PackageName: "openssl", InstalledVersion: "1.0"},
 										},
 									},
 								},
@@ -787,8 +787,8 @@ func TestCalculateSummary(t *testing.T) {
 								Results: []storagev1alpha1.Result{
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
-											{CVE: "CVE-2024-0002", Severity: "CRITICAL", PackageName: "libc", InstalledVersion: "2.0"},
-											{CVE: "CVE-2024-0003", Severity: "HIGH", PackageName: "curl", InstalledVersion: "7.0"},
+											{CVE: "CVE-2024-0002", Severity: storagev1alpha1.SeverityCritical, PackageName: "libc", InstalledVersion: "2.0"},
+											{CVE: "CVE-2024-0003", Severity: storagev1alpha1.SeverityHigh, PackageName: "curl", InstalledVersion: "7.0"},
 										},
 									},
 								},
@@ -813,7 +813,7 @@ func TestCalculateSummary(t *testing.T) {
 								Results: []storagev1alpha1.Result{
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "openssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "openssl", InstalledVersion: "1.0"},
 										},
 									},
 								},
@@ -830,7 +830,7 @@ func TestCalculateSummary(t *testing.T) {
 									{
 										Vulnerabilities: []storagev1alpha1.Vulnerability{
 											// Same CVE in different container
-											{CVE: "CVE-2024-0001", Severity: "HIGH", PackageName: "openssl", InstalledVersion: "1.0"},
+											{CVE: "CVE-2024-0001", Severity: storagev1alpha1.SeverityHigh, PackageName: "openssl", InstalledVersion: "1.0"},
 										},
 									},
 								},

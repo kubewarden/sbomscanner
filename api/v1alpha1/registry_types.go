@@ -73,15 +73,15 @@ type RegistryStatus struct {
 // Repository specifies an OCI repository and which image tags to scan.
 type Repository struct {
 	// Name is the repository name.
-	Name string `json:"name"`
+	Name string `json:"name" jsonschema:"repository path without the registry hostname (e.g. my-org/my-app)"`
 	// MatchConditions filters image tags using CEL expressions.
-	MatchConditions []MatchCondition `json:"matchConditions,omitempty"`
+	MatchConditions []MatchCondition `json:"matchConditions,omitempty" jsonschema:"CEL-based filters for which image tags to scan; each condition is a separate rule with a name and expression"`
 	// MatchOperator specifies how this condition is combined with other conditions.
 	// When set to "And" (default), all conditions must pass for the filter to match.
 	// When set to "Or", at least one condition must pass for the filter to match.
 	// +kubebuilder:default=And
 	// +optional
-	MatchOperator MatchOperator `json:"matchOperator,omitempty"`
+	MatchOperator MatchOperator `json:"matchOperator,omitempty" jsonschema:"how to combine multiple matchConditions: And (default, all must match) or Or (at least one must match)"`
 }
 
 // MatchCondition defines a CEL expression to filter image tags.
@@ -89,12 +89,12 @@ type MatchCondition struct {
 	// Name is an identifier for this match condition, used for strategic merging of MatchConditions,
 	// as well as providing an identifier for logging purposes.
 	// A good name should be descriptive of the associated expression.
-	Name string `json:"name"`
+	Name string `json:"name" jsonschema:"descriptive identifier for this condition (e.g. stable-only, exclude-dev)"`
 	// Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
 	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
-	Expression string `json:"expression"`
+	Expression string `json:"expression" jsonschema:"CEL expression evaluated against the tag variable; must return boolean (e.g. tag == 'latest', tag.matches('^v[0-9]+'), !tag.endsWith('-dev'))"`
 	// Labels are key-value pairs that can be used to organize and categorize match conditions.
-	Labels map[string]string `json:"labels,omitempty"`
+	Labels map[string]string `json:"labels,omitempty" jsonschema:"optional key-value metadata for organizing conditions"`
 }
 
 // Platform describes the platform which the image in the manifest runs on.

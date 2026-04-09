@@ -82,6 +82,15 @@ jobs:
                 'SBOMscanner-storage-attestation-amd64-sbom.json.bundle.sigstore',
                 'SBOMscanner-storage-attestation-arm64-sbom.json',
                 'SBOMscanner-storage-attestation-arm64-sbom.json.bundle.sigstore',
+
+                'SBOMscanner-mcp-attestation-amd64-provenance.intoto.jsonl',
+                'SBOMscanner-mcp-attestation-amd64-provenance.intoto.jsonl.bundle.sigstore',
+                'SBOMscanner-mcp-attestation-arm64-provenance.intoto.jsonl',
+                'SBOMscanner-mcp-attestation-arm64-provenance.intoto.jsonl.bundle.sigstore',
+                'SBOMscanner-mcp-attestation-amd64-sbom.json',
+                'SBOMscanner-mcp-attestation-amd64-sbom.json.bundle.sigstore',
+                'SBOMscanner-mcp-attestation-arm64-sbom.json',
+                'SBOMscanner-mcp-attestation-arm64-sbom.json.bundle.sigstore',
                 ]
             const {RELEASE_ID} = process.env
             for (const file of files) {
