@@ -60,6 +60,7 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
 	}
 
+	log.V(1).Info("Successfully reconciled NodeScanJob", "nodeScanJob", req.NamespacedName)
 	return reconcileResult, reconcileErr
 }
 
@@ -72,7 +73,7 @@ func (r *NodeScanJobReconciler) reconcileNodeScanJob(ctx context.Context, nodeSc
 	}
 
 	log.V(1).Info("Publishing GenerateNodeSBOM message for NodeScanJob", "nodescanJob", nodeScanJob.Name)
-	messageID := fmt.Sprintf("generateNodeSBOM/%s", nodeScanJob.GetUID())
+	messageID := fmt.Sprintf("generateNodeSBOM/%s", nodeScanJob.Spec.NodeName)
 	message, err := json.Marshal(&handlers.GenerateNodeSBOMMessage{
 		NodeBaseMessage: handlers.NodeBaseMessage{
 			NodeScanJob: handlers.ObjectRef{

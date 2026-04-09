@@ -2,7 +2,7 @@ package v1alpha1
 
 // IndexNodeMetadataDigest is the field index for the digest of a node.
 const (
-	IndexNodeMetadataMachineID = "nodeMetadata.machineID"
+	IndexNodeMetadataName = "nodeMetadata.name"
 )
 
 // NodeMetadata contains the metadata details of a node.
