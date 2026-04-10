@@ -11,8 +11,8 @@ spec:
   type: {{ .Values.mcp.service.type }}
   ports:
   - name: {{ if .Values.mcp.disableTLS }}http{{ else }}https{{ end }}
-    port: 8222
-    targetPort: 8222
+    port: {{ .Values.mcp.service.port }}
+    targetPort: {{ .Values.mcp.service.port }}
     protocol: TCP
     {{- if eq .Values.mcp.service.type "NodePort" }}
     nodePort: {{ .Values.mcp.service.nodePort }}
