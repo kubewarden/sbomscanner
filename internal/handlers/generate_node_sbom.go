@@ -118,11 +118,6 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
-	// TODO: to be removed
-	fmt.Println(nodeSbom.Kind)
-	fmt.Println(nodeSbom.NodeMetadata.Name)
-	fmt.Println(nodeSbom.NodeMetadata.Platform)
-	fmt.Println(nodeSbom.SPDX.String())
 	nodeSbom.Namespace = "default"
 
 	if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
@@ -169,7 +164,7 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 		)
 		spdxBytes = existingSBOM.SPDX.Raw
 	} else {
-		h.logger.InfoContext(ctx, "No existing NodeSBOM found, generating new one", "machineID", node.Status.NodeInfo.MachineID)
+		h.logger.InfoContext(ctx, "No existing NodeSBOM found, generating new one", "node name", node.Name)
 		spdxBytes, err = h.generateSPDX(ctx, node)
 		if err != nil {
 			return nil, err
@@ -248,11 +243,13 @@ func (h *GenerateNodeSBOMHandler) generateSPDX(ctx context.Context, node *corev1
 		// See: https://github.com/aquasecurity/trivy/discussions/9666
 		"--java-db-repository", h.trivyJavaDBRepository,
 		"--output", sbomFile.Name(),
-		"/", // Scan the entire filesystem of the node
+		"/host", // Scan the entire filesystem of the node
 	}
 
 	app := trivyCommands.NewApp()
 	app.SetArgs(args)
+
+	h.logger.DebugContext(ctx, "Executing Trivy to generate SPDX SBOM", "args", args)
 
 	if err = app.ExecuteContext(ctx); err != nil {
 		return nil, fmt.Errorf("failed to execute trivy: %w", err)
