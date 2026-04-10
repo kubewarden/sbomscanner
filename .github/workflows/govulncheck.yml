@@ -25,5 +25,8 @@ jobs:
         env:
           GOEXPERIMENT: jsonv2
         with:
+          # required to override the default value that is 'stable'
+          # in this way `go-version-file` is going to be taken into account
+          go-version-input: ""
           go-version-file: "go.mod"
           go-package: ./...
