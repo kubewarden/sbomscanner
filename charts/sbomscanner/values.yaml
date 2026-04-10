@@ -106,6 +106,10 @@ mcp:
       memory: 128Mi
   readOnly: false
   disableTLS: false
+  service:
+    type: ClusterIP
+    port: 8222
+    nodePort: 32222
   auth:
     # Name of an existing Secret containing `username` and `password` keys.
     # Required when mcp.enabled is true.

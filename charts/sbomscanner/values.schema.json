@@ -144,7 +144,20 @@
                             }
                         }
                     }
-                }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "port": {
+                            "type": "integer"
+                        },
+                        "nodePort": {
+                            "type": "integer"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
             }
         },
         "nats": {

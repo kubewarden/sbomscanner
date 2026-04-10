@@ -8,11 +8,15 @@ metadata:
     {{- include "sbomscanner.labels" . | nindent 4 }}
     app.kubernetes.io/component: mcp
 spec:
+  type: {{ .Values.mcp.service.type }}
   ports:
   - name: {{ if .Values.mcp.disableTLS }}http{{ else }}https{{ end }}
     port: 8222
     targetPort: 8222
     protocol: TCP
+    {{- if eq .Values.mcp.service.type "NodePort" }}
+    nodePort: {{ .Values.mcp.service.nodePort }}
+    {{- end }}
   selector:
     {{- include "sbomscanner.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: mcp
