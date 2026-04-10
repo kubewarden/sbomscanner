@@ -71,20 +71,19 @@ You should see the MCP pod running and a Service exposing port 8222.
 
 All MCP-related Helm values are under the `mcp` key:
 
-| Value                           | Default                      | Description                                                             |
-| ------------------------------- | ---------------------------- | ----------------------------------------------------------------------- |
-| `mcp.enabled`                   | `false`                      | Enable the MCP server deployment                                        |
-| `mcp.readOnly`                  | `false`                      | Restrict to read-only tools (no create/update/delete)                   |
-| `mcp.disableTLS`                | `false`                      | Disable TLS (serve plain HTTP)                                          |
-| `mcp.logLevel`                  | `"info"`                     | Log level (`debug`, `info`, `warn`, `error`)                            |
-| `mcp.replicas`                  | `1`                          | Number of MCP server replicas                                           |
-| `mcp.auth.secretName`           | `""`                         | Name of the Secret containing `username` and `password` keys (required) |
-| `mcp.resources.limits.cpu`      | `250m`                       | CPU limit                                                               |
-| `mcp.resources.limits.memory`   | `512Mi`                      | Memory limit                                                            |
-| `mcp.resources.requests.cpu`    | `100m`                       | CPU request                                                             |
-| `mcp.resources.requests.memory` | `128Mi`                      | Memory request                                                          |
-| `mcp.image.repository`          | `kubewarden/sbomscanner/mcp` | Container image repository                                              |
-| `mcp.image.tag`                 | `v0.10.4`                    | Container image tag                                                     |
+| Value                           | Default  | Description                                                             |
+| ------------------------------- | -------- | ----------------------------------------------------------------------- |
+| `mcp.enabled`                   | `false`  | Enable the MCP server deployment                                        |
+| `mcp.readOnly`                  | `false`  | Restrict to read-only tools (no create/update/delete)                   |
+| `mcp.disableTLS`                | `false`  | Disable TLS (serve plain HTTP)                                          |
+| `mcp.logLevel`                  | `"info"` | Log level (`debug`, `info`, `warn`, `error`)                            |
+| `mcp.replicas`                  | `1`      | Number of MCP server replicas                                           |
+| `mcp.auth.secretName`           | `""`     | Name of the Secret containing `username` and `password` keys (required) |
+| `mcp.resources.limits.cpu`      | `250m`   | CPU limit                                                               |
+| `mcp.resources.limits.memory`   | `512Mi`  | Memory limit                                                            |
+| `mcp.resources.requests.cpu`    | `100m`   | CPU request                                                             |
+| `mcp.resources.requests.memory` | `128Mi`  | Memory request                                                          |
+|  |
 
 Example `values.yaml` snippet:
 
