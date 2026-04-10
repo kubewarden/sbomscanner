@@ -118,8 +118,6 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
-	nodeSbom.Namespace = "default"
-
 	if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			h.logger.InfoContext(ctx, "NodeSBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
@@ -171,6 +169,20 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 		}
 	}
 
+	// Get the NodeScanConfiguration to determine where to create the NodeSBOM.
+	nodescanconfig := &v1alpha1.NodeScanConfiguration{}
+	err = h.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      v1alpha1.NodeScanConfigurationName,
+	}, nodescanconfig)
+	if err != nil {
+		// Stop processing if the scanjob is not found, since it might have been deleted.
+		if apierrors.IsNotFound(err) {
+			h.logger.InfoContext(ctx, "NodeScanConfiguration not found, stopping NodeSBOM generation", "node name", node.Name)
+			return nil, fmt.Errorf("NodeScanConfiguration %s not found: %w", v1alpha1.NodeScanConfigurationName, err) 
+		}
+		return nil, fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
+	}
+
 	sbomLabels := map[string]string{
 		api.LabelManagedByKey: api.LabelManagedByValue,
 		api.LabelPartOfKey:    api.LabelPartOfValue,
@@ -180,7 +192,7 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 	nodeSbom := &storagev1alpha1.NodeSBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.Node.Name,
-			Namespace: message.Node.Namespace,
+			Namespace: nodescanconfig.Spec.ArtifactsNamespace,
 			Labels:    sbomLabels,
 		},
 		NodeMetadata: storagev1alpha1.NodeMetadata{

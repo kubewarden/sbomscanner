@@ -43,6 +43,12 @@ spec:
             description: NodeScanConfigurationSpec defines the desired configuration
               for node scanning.
             properties:
+              artifactsNamespace:
+                default: default
+                description: |-
+                  ArtifactsNamespace is the namespace where scan artifacts (NodeSBOM, NodeVulnerabilityReport) are created.
+                  When empty, artifacts are created in the "default" namespace.
+                type: string
               nodeSelector:
                 description: |-
                   NodeSelector filters which nodes are scanned.

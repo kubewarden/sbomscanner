@@ -21,6 +21,7 @@ rules:
       - scanjobs
       - scanjobs/status
       - nodescanjobs
+      - nodescanconfigurations
     verbs:
       - get
       - list
