@@ -109,7 +109,21 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return nil
 	}
 
-	nodeSbom, err := h.getOrGenerateNodeSBOM(ctx, node, generateNodeSBOMMessage)
+	// Get the NodeScanConfiguration to determine where to create the NodeSBOM.
+	nodescanconfig := &v1alpha1.NodeScanConfiguration{}
+	err = h.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      v1alpha1.NodeScanConfigurationName,
+	}, nodescanconfig)
+	if err != nil {
+		// Stop processing if the scanjob is not found, since it might have been deleted.
+		if apierrors.IsNotFound(err) {
+			h.logger.InfoContext(ctx, "NodeScanConfiguration not found, stopping NodeSBOM generation", "node name", node.Name)
+			return fmt.Errorf("NodeScanConfiguration %s not found: %w", v1alpha1.NodeScanConfigurationName, err) 
+		}
+		return fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
+	}
+
+	nodeSbom, err := h.getOrGenerateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodescanconfig)
 	if err != nil {
 		return fmt.Errorf("failed to get or generate NodeSBOM: %w", err)
 	}
@@ -126,28 +140,29 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		}
 	}
 
-	//scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.UID, generateNodeSBOMMessage.Node.Name)
-	//scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
-	//	NodeBaseMessage: NodeBaseMessage{
-	//		NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
-	//	},
-	//	NodeSBOM: ObjectRef{
-	//		Name: generateNodeSBOMMessage.Node.Name,
-	//	},
-	//})
-	//if err != nil {
-	//	return fmt.Errorf("cannot marshal scan NodeSBOM message: %w", err)
-	//}
+	scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.Name, generateNodeSBOMMessage.Node.Name)
+	scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
+		NodeBaseMessage: NodeBaseMessage{
+			NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
+		},
+		NodeSBOM: ObjectRef{
+			Name: generateNodeSBOMMessage.Node.Name,
+			Namespace: nodescanconfig.Spec.ArtifactsNamespace,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("cannot marshal scan NodeSBOM message: %w", err)
+	}
 
-	//if err = h.publisher.Publish(ctx, ScanNodeSBOMSubject, scanNodeSBOMMessageID, scanNodeSBOMMessage); err != nil {
-	//	return fmt.Errorf("failed to publish scan NodeSBOM message: %w", err)
-	//}
+	if err = h.publisher.Publish(ctx, ScanNodeSBOMSubject+"."+nodeScanJob.Spec.NodeName, scanNodeSBOMMessageID, scanNodeSBOMMessage); err != nil {
+		return fmt.Errorf("failed to publish scan NodeSBOM message: %w", err)
+	}
 
 	return nil
 }
 
 // getOrGenerateNodeSBOM checks if an SBOM with the same node name exists and reuses it, or generates a new one.
-func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, node *corev1.Node, message *GenerateNodeSBOMMessage) (*storagev1alpha1.NodeSBOM, error) {
+func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, node *corev1.Node, message *GenerateNodeSBOMMessage, config *v1alpha1.NodeScanConfiguration) (*storagev1alpha1.NodeSBOM, error) {
 	// Check if an SBOM with the same machine ID already exists
 	existingSBOM, err := h.findSBOMByNodeName(ctx, node.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -169,20 +184,6 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 		}
 	}
 
-	// Get the NodeScanConfiguration to determine where to create the NodeSBOM.
-	nodescanconfig := &v1alpha1.NodeScanConfiguration{}
-	err = h.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      v1alpha1.NodeScanConfigurationName,
-	}, nodescanconfig)
-	if err != nil {
-		// Stop processing if the scanjob is not found, since it might have been deleted.
-		if apierrors.IsNotFound(err) {
-			h.logger.InfoContext(ctx, "NodeScanConfiguration not found, stopping NodeSBOM generation", "node name", node.Name)
-			return nil, fmt.Errorf("NodeScanConfiguration %s not found: %w", v1alpha1.NodeScanConfigurationName, err) 
-		}
-		return nil, fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
-	}
-
 	sbomLabels := map[string]string{
 		api.LabelManagedByKey: api.LabelManagedByValue,
 		api.LabelPartOfKey:    api.LabelPartOfValue,
@@ -192,7 +193,7 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 	nodeSbom := &storagev1alpha1.NodeSBOM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.Node.Name,
-			Namespace: nodescanconfig.Spec.ArtifactsNamespace,
+			Namespace: config.Spec.ArtifactsNamespace,
 			Labels:    sbomLabels,
 		},
 		NodeMetadata: storagev1alpha1.NodeMetadata{

@@ -361,7 +361,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 			return nil
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create or update vulnerability report: %w", err)
+			return fmt.Errorf("failed to create or update nodevulnerability report: %w", err)
 		}
 	} else {
 		vulnerabilityReport := &storagev1alpha1.VulnerabilityReport{

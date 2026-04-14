@@ -43,6 +43,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 
 		&v1alpha1.NodeSBOM{},
 		&v1alpha1.NodeSBOMList{},
+
+		&v1alpha1.NodeVulnerabilityReport{},
+		&v1alpha1.NodeVulnerabilityReportList{},
 	)
 	return nil
 }

@@ -153,7 +153,7 @@ func main() {
 	case "node":
 		scanMode = messaging.HandlerScan{
 			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-			handlers.ScanNodeSBOMSubject:                      handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
 	default:
 		logger.Error("Invalid scanning mode", "mode", mode)

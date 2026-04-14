@@ -191,12 +191,24 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 		return nil, fmt.Errorf("error creating NodeSBOM store: %w", err)
 	}
 
+	nodeVulnerabilityReportStore, nodeVulnerabilityReportWatchers, err := storage.NewNodeVulnerabilityReportStore(
+		Scheme,
+		serverConfig.RESTOptionsGetter,
+		db,
+		nc,
+		logger,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating NodeSBOM store: %w", err)
+	}
+
 	v1alpha1storage := map[string]rest.Storage{
-		"images":               imageStore,
-		"sboms":                sbomStore,
-		"vulnerabilityreports": vulnerabilityReportStore,
-		"workloadscanreports":  workloadScanReportStore,
-		"nodesboms":            nodeSBOMStore,
+		"images":                   imageStore,
+		"sboms":                    sbomStore,
+		"vulnerabilityreports":     vulnerabilityReportStore,
+		"workloadscanreports":      workloadScanReportStore,
+		"nodesboms":                nodeSBOMStore,
+		"nodevulnerabilityreports": nodeVulnerabilityReportStore,
 	}
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1storage
 
@@ -206,7 +218,7 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 
 	return &StorageAPIServer{
 		db:                        db,
-		watchers:                  slices.Concat(imageWatchers, sbomWatchers, vulnerabilityReportWatchers, workloadScanReportWatchers, nodeSBOMWatchers),
+		watchers:                  slices.Concat(imageWatchers, sbomWatchers, vulnerabilityReportWatchers, workloadScanReportWatchers, nodeSBOMWatchers, nodeVulnerabilityReportWatchers),
 		logger:                    logger,
 		server:                    genericServer,
 		dynamicCertKeyPairContent: dynamicCertKeyPairContent,

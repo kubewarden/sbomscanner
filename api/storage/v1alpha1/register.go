@@ -44,6 +44,8 @@ func AddKnownTypes(scheme *runtime.Scheme) error {
 		&WorkloadScanReportList{},
 		&NodeSBOM{},
 		&NodeSBOMList{},
+		&NodeVulnerabilityReport{},
+		&NodeVulnerabilityReportList{},
 		&metav1.GetOptions{},
 		&metav1.CreateOptions{},
 		&metav1.UpdateOptions{},
@@ -82,6 +84,14 @@ func AddKnownTypes(scheme *runtime.Scheme) error {
 	)
 	if err != nil {
 		return fmt.Errorf("unable to add field selector conversion function to NodeSBOM: %w", err)
+	}
+
+	err = scheme.AddFieldLabelConversionFunc(
+		SchemeGroupVersion.WithKind("NodeVulnerabilityReport"),
+		nodeMetadataFieldSelectorConversion,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to add field selector conversion function to NodeVulnerabilityReport: %w", err)
 	}
 
 	return nil
