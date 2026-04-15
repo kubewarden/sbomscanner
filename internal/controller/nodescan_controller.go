@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kubewarden/sbomscanner/api"
 
 	v1alpha1 "github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
@@ -36,9 +37,9 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 	if err := r.Get(ctx, types.NamespacedName{Name: v1alpha1.NodeScanConfigurationName}, &config); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.V(1).Info("NodeScanConfiguration not found, cleaning up managed DaemonSet")
-			//if err := r.cleanupAllManagedResources(ctx); err != nil {
-			//	return ctrl.Result{}, fmt.Errorf("failed to cleanup managed resources: %w", err)
-			//}
+			if err := r.cleanupAllManagedResources(ctx); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to cleanup managed resources: %w", err)
+			}
 			return ctrl.Result{}, nil
 		}
 
@@ -60,6 +61,10 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("nodescanjob-%s", node.Name),
 				Namespace: "default",
+				Labels: map[string]string{
+					api.LabelManagedByKey: api.LabelManagedByValue,
+					api.LabelNodeScanKey:  api.LabelNodeScanValue,
+				},
 			},
 			Spec: v1alpha1.NodeScanJobSpec{
 				NodeName: node.Name,
@@ -69,6 +74,53 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 
 	return ctrl.Result{}, nil
 }
+
+// cleanupAllManagedResources deletes all NodeScanJob resources
+// managed by the node scan controller across all namespaces.
+func (r *NodeScanReconciler) cleanupAllManagedResources(ctx context.Context) error {
+	logger := log.FromContext(ctx)
+
+	var nodescanjobs v1alpha1.NodeScanJobList
+	if err := r.List(ctx, &nodescanjobs,
+		client.MatchingLabels{
+			api.LabelManagedByKey: api.LabelManagedByValue,
+			api.LabelNodeScanKey:  api.LabelNodeScanValue,
+		},
+	); err != nil {
+		return fmt.Errorf("failed to list managed nodescanjobs: %w", err)
+	}
+
+	for i := range nodescanjobs.Items {
+		nodescanjob := &nodescanjobs.Items[i]
+		logger.Info("Deleting managed nodescanjobs", "nodescanjob", nodescanjob.Name, "namespace", nodescanjob.Namespace)
+		if err := r.Delete(ctx, nodescanjob); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete nodescanjob %s/%s: %w", nodescanjob.Namespace, nodescanjob.Name, err)
+		}
+	}
+
+	// TODO: remove also NodeSBOM, NodeVulnerabilityReport and
+	// NodeScanReport resources when they are implemented.
+
+	//var reports storagev1alpha1.NodeScanReportList
+	//if err := r.List(ctx, &reports,
+	//	client.MatchingLabels{
+	//		api.LabelManagedByKey: api.LabelManagedByValue,
+	//	},
+	//); err != nil {
+	//	return fmt.Errorf("failed to list managed WorkloadScanReports: %w", err)
+	//}
+
+	//for i := range reports.Items {
+	//	report := &reports.Items[i]
+	//	logger.Info("Deleting managed WorkloadScanReport", "report", report.Name, "namespace", report.Namespace)
+	//	if err := r.Delete(ctx, report); err != nil && !apierrors.IsNotFound(err) {
+	//		return fmt.Errorf("failed to delete WorkloadScanReport %s/%s: %w", report.Namespace, report.Name, err)
+	//	}
+	//}
+
+	return nil
+}
+
 
 // mapNodeScanConfigToSingleton enqueues reconciliation for the singleton
 // NodeScanConfiguration regardless of the incoming event object.
