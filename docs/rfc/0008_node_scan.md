@@ -151,10 +151,12 @@ Garbage collection is crucial to prevent resource orphaning and to maintain a cl
 | When Deleting             | Also Delete                |
 |---------------------------|----------------------------|
 | `Node`                    | `NodeScanJob`, `NodeSBOM`, `NodeVulnerabilityReport` |
-| `NodeScanConfiguration`   | nothing |
+| `NodeScanConfiguration`   | `NodeScanJob`, `NodeSBOM`, `NodeVulnerabilityReport` |
 | `NodeScanJob`             | nothing |
 | `NodeSBOM`                | `NodeVulnerabilityReport` |
 | `NodeVulnerabilityReport` | nothing |
+
+![Garbage Collection](./assets/nodescan-gc.png)
 
 # Drawbacks
 
