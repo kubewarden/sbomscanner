@@ -342,11 +342,12 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 				Namespace: sbomNamespace,
 			},
 		}
-		if err = controllerutil.SetControllerReference(owner, nodeVulnerabilityReport, h.scheme); err != nil {
-			return fmt.Errorf("failed to set owner reference: %w", err)
-		}
 
 		_, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, nodeVulnerabilityReport, func() error {
+			if err = controllerutil.SetControllerReference(owner, nodeVulnerabilityReport, h.scheme); err != nil {
+				return fmt.Errorf("failed to set owner reference: %w", err)
+			}
+
 			nodeVulnerabilityReport.Labels = map[string]string{
 				v1alpha1.LabelScanJobUIDKey: string(scanJobUID),
 				api.LabelManagedByKey:       api.LabelManagedByValue,

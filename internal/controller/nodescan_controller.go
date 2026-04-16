@@ -11,10 +11,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"github.com/kubewarden/sbomscanner/api"
 
+	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	v1alpha1 "github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
@@ -55,9 +57,11 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
-	for _, node := range nodes.Items {
+	for i := range nodes.Items {
+		node := &nodes.Items[i]
 		logger.Info("Node found", "nodeName", node.Name)
-		r.Client.Create(ctx, &v1alpha1.NodeScanJob{
+
+		nodeScanJob := &v1alpha1.NodeScanJob{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("nodescanjob-%s", node.Name),
 				Namespace: "default",
@@ -69,7 +73,13 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 			Spec: v1alpha1.NodeScanJobSpec{
 				NodeName: node.Name,
 			},
-		}, &client.CreateOptions{})
+		}
+
+		if err := controllerutil.SetControllerReference(node, nodeScanJob, r.Scheme); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set owner reference on NodeScanJob: %w", err)
+		}
+
+		r.Client.Create(ctx, nodeScanJob, &client.CreateOptions{})
 	}
 
 	return ctrl.Result{}, nil
@@ -98,25 +108,22 @@ func (r *NodeScanReconciler) cleanupAllManagedResources(ctx context.Context) err
 		}
 	}
 
-	// TODO: remove also NodeSBOM, NodeVulnerabilityReport and
-	// NodeScanReport resources when they are implemented.
+	var nodesboms storagev1alpha1.NodeSBOMList
+	if err := r.List(ctx, &nodesboms,
+		client.MatchingLabels{
+			api.LabelManagedByKey: api.LabelManagedByValue,
+		},
+	); err != nil {
+		return fmt.Errorf("failed to list managed nodesboms: %w", err)
+	}
 
-	//var reports storagev1alpha1.NodeScanReportList
-	//if err := r.List(ctx, &reports,
-	//	client.MatchingLabels{
-	//		api.LabelManagedByKey: api.LabelManagedByValue,
-	//	},
-	//); err != nil {
-	//	return fmt.Errorf("failed to list managed WorkloadScanReports: %w", err)
-	//}
-
-	//for i := range reports.Items {
-	//	report := &reports.Items[i]
-	//	logger.Info("Deleting managed WorkloadScanReport", "report", report.Name, "namespace", report.Namespace)
-	//	if err := r.Delete(ctx, report); err != nil && !apierrors.IsNotFound(err) {
-	//		return fmt.Errorf("failed to delete WorkloadScanReport %s/%s: %w", report.Namespace, report.Name, err)
-	//	}
-	//}
+	for i := range nodesboms.Items {
+		nodesbom := &nodesboms.Items[i]
+		logger.Info("Deleting managed nodesboms", "nodesbom", nodesbom.Name, "namespace", nodesbom.Namespace)
+		if err := r.Delete(ctx, nodesbom); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete nodesbom %s/%s: %w", nodesbom.Namespace, nodesbom.Name, err)
+		}
+	}
 
 	return nil
 }
