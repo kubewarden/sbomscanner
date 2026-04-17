@@ -13,7 +13,7 @@ spec:
     listKind: NodeScanJobList
     plural: nodescanjobs
     singular: nodescanjob
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - description: Current status
