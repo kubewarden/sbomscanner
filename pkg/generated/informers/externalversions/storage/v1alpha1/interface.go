@@ -40,12 +40,12 @@ func (v *version) Images() ImageInformer {
 
 // NodeSBOMs returns a NodeSBOMInformer.
 func (v *version) NodeSBOMs() NodeSBOMInformer {
-	return &nodeSBOMInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &nodeSBOMInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // NodeVulnerabilityReports returns a NodeVulnerabilityReportInformer.
 func (v *version) NodeVulnerabilityReports() NodeVulnerabilityReportInformer {
-	return &nodeVulnerabilityReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &nodeVulnerabilityReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // SBOMs returns a SBOMInformer.

@@ -23,10 +23,9 @@ type NodeSBOMApplyConfiguration struct {
 
 // NodeSBOM constructs a declarative configuration of the NodeSBOM type for use with
 // apply.
-func NodeSBOM(name, namespace string) *NodeSBOMApplyConfiguration {
+func NodeSBOM(name string) *NodeSBOMApplyConfiguration {
 	b := &NodeSBOMApplyConfiguration{}
 	b.WithName(name)
-	b.WithNamespace(namespace)
 	b.WithKind("NodeSBOM")
 	b.WithAPIVersion("storage.sbomscanner.kubewarden.io/v1alpha1")
 	return b

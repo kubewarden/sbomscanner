@@ -15,11 +15,11 @@ type fakeNodeSBOMs struct {
 	Fake *FakeStorageV1alpha1
 }
 
-func newFakeNodeSBOMs(fake *FakeStorageV1alpha1, namespace string) typedstoragev1alpha1.NodeSBOMInterface {
+func newFakeNodeSBOMs(fake *FakeStorageV1alpha1) typedstoragev1alpha1.NodeSBOMInterface {
 	return &fakeNodeSBOMs{
 		gentype.NewFakeClientWithListAndApply[*v1alpha1.NodeSBOM, *v1alpha1.NodeSBOMList, *storagev1alpha1.NodeSBOMApplyConfiguration](
 			fake.Fake,
-			namespace,
+			"",
 			v1alpha1.SchemeGroupVersion.WithResource("nodesboms"),
 			v1alpha1.SchemeGroupVersion.WithKind("NodeSBOM"),
 			func() *v1alpha1.NodeSBOM { return &v1alpha1.NodeSBOM{} },

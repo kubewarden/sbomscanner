@@ -16,12 +16,12 @@ func (c *FakeStorageV1alpha1) Images(namespace string) v1alpha1.ImageInterface {
 	return newFakeImages(c, namespace)
 }
 
-func (c *FakeStorageV1alpha1) NodeSBOMs(namespace string) v1alpha1.NodeSBOMInterface {
-	return newFakeNodeSBOMs(c, namespace)
+func (c *FakeStorageV1alpha1) NodeSBOMs() v1alpha1.NodeSBOMInterface {
+	return newFakeNodeSBOMs(c)
 }
 
-func (c *FakeStorageV1alpha1) NodeVulnerabilityReports(namespace string) v1alpha1.NodeVulnerabilityReportInterface {
-	return newFakeNodeVulnerabilityReports(c, namespace)
+func (c *FakeStorageV1alpha1) NodeVulnerabilityReports() v1alpha1.NodeVulnerabilityReportInterface {
+	return newFakeNodeVulnerabilityReports(c)
 }
 
 func (c *FakeStorageV1alpha1) SBOMs(namespace string) v1alpha1.SBOMInterface {

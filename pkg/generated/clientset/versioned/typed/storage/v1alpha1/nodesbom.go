@@ -17,7 +17,7 @@ import (
 // NodeSBOMsGetter has a method to return a NodeSBOMInterface.
 // A group's client should implement this interface.
 type NodeSBOMsGetter interface {
-	NodeSBOMs(namespace string) NodeSBOMInterface
+	NodeSBOMs() NodeSBOMInterface
 }
 
 // NodeSBOMInterface has methods to work with NodeSBOM resources.
@@ -40,13 +40,13 @@ type nodeSBOMs struct {
 }
 
 // newNodeSBOMs returns a NodeSBOMs
-func newNodeSBOMs(c *StorageV1alpha1Client, namespace string) *nodeSBOMs {
+func newNodeSBOMs(c *StorageV1alpha1Client) *nodeSBOMs {
 	return &nodeSBOMs{
 		gentype.NewClientWithListAndApply[*storagev1alpha1.NodeSBOM, *storagev1alpha1.NodeSBOMList, *applyconfigurationstoragev1alpha1.NodeSBOMApplyConfiguration](
 			"nodesboms",
 			c.RESTClient(),
 			scheme.ParameterCodec,
-			namespace,
+			"",
 			func() *storagev1alpha1.NodeSBOM { return &storagev1alpha1.NodeSBOM{} },
 			func() *storagev1alpha1.NodeSBOMList { return &storagev1alpha1.NodeSBOMList{} },
 		),

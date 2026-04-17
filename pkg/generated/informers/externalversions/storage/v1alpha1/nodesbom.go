@@ -26,45 +26,44 @@ type NodeSBOMInformer interface {
 type nodeSBOMInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
-	namespace        string
 }
 
 // NewNodeSBOMInformer constructs a new informer for NodeSBOM type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewNodeSBOMInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredNodeSBOMInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewNodeSBOMInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredNodeSBOMInformer(client, resyncPeriod, indexers, nil)
 }
 
 // NewFilteredNodeSBOMInformer constructs a new informer for NodeSBOM type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredNodeSBOMInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredNodeSBOMInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1alpha1().NodeSBOMs(namespace).List(context.Background(), options)
+				return client.StorageV1alpha1().NodeSBOMs().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1alpha1().NodeSBOMs(namespace).Watch(context.Background(), options)
+				return client.StorageV1alpha1().NodeSBOMs().Watch(context.Background(), options)
 			},
 			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1alpha1().NodeSBOMs(namespace).List(ctx, options)
+				return client.StorageV1alpha1().NodeSBOMs().List(ctx, options)
 			},
 			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1alpha1().NodeSBOMs(namespace).Watch(ctx, options)
+				return client.StorageV1alpha1().NodeSBOMs().Watch(ctx, options)
 			},
 		}, client),
 		&apistoragev1alpha1.NodeSBOM{},
@@ -74,7 +73,7 @@ func NewFilteredNodeSBOMInformer(client versioned.Interface, namespace string, r
 }
 
 func (f *nodeSBOMInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredNodeSBOMInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewFilteredNodeSBOMInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
 func (f *nodeSBOMInformer) Informer() cache.SharedIndexInformer {

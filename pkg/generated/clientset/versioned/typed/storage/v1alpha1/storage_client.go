@@ -29,12 +29,12 @@ func (c *StorageV1alpha1Client) Images(namespace string) ImageInterface {
 	return newImages(c, namespace)
 }
 
-func (c *StorageV1alpha1Client) NodeSBOMs(namespace string) NodeSBOMInterface {
-	return newNodeSBOMs(c, namespace)
+func (c *StorageV1alpha1Client) NodeSBOMs() NodeSBOMInterface {
+	return newNodeSBOMs(c)
 }
 
-func (c *StorageV1alpha1Client) NodeVulnerabilityReports(namespace string) NodeVulnerabilityReportInterface {
-	return newNodeVulnerabilityReports(c, namespace)
+func (c *StorageV1alpha1Client) NodeVulnerabilityReports() NodeVulnerabilityReportInterface {
+	return newNodeVulnerabilityReports(c)
 }
 
 func (c *StorageV1alpha1Client) SBOMs(namespace string) SBOMInterface {
