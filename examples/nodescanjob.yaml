@@ -2,5 +2,4 @@ apiVersion: sbomscanner.kubewarden.io/v1alpha1
 kind: NodeScanJob
 metadata:
   name: node-scan-1
-  namespace: default
 spec:
