@@ -338,8 +338,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	if h.isNodeMode {
 		nodeVulnerabilityReport := &storagev1alpha1.NodeVulnerabilityReport{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      sbomName,
-				Namespace: sbomNamespace,
+				Name: sbomName,
 			},
 		}
 

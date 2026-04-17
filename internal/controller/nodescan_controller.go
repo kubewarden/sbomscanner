@@ -63,8 +63,7 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 
 		nodeScanJob := &v1alpha1.NodeScanJob{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("nodescanjob-%s", node.Name),
-				Namespace: "default",
+				Name: fmt.Sprintf("nodescanjob-%s", node.Name),
 				Labels: map[string]string{
 					api.LabelManagedByKey: api.LabelManagedByValue,
 					api.LabelNodeScanKey:  api.LabelNodeScanValue,
@@ -102,9 +101,9 @@ func (r *NodeScanReconciler) cleanupAllManagedResources(ctx context.Context) err
 
 	for i := range nodescanjobs.Items {
 		nodescanjob := &nodescanjobs.Items[i]
-		logger.Info("Deleting managed nodescanjobs", "nodescanjob", nodescanjob.Name, "namespace", nodescanjob.Namespace)
+		logger.Info("Deleting managed nodescanjobs", "nodescanjob", nodescanjob.Name)
 		if err := r.Delete(ctx, nodescanjob); err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete nodescanjob %s/%s: %w", nodescanjob.Namespace, nodescanjob.Name, err)
+			return fmt.Errorf("failed to delete nodescanjob %s: %w", nodescanjob.Name, err)
 		}
 	}
 
@@ -119,9 +118,9 @@ func (r *NodeScanReconciler) cleanupAllManagedResources(ctx context.Context) err
 
 	for i := range nodesboms.Items {
 		nodesbom := &nodesboms.Items[i]
-		logger.Info("Deleting managed nodesboms", "nodesbom", nodesbom.Name, "namespace", nodesbom.Namespace)
+		logger.Info("Deleting managed nodesboms", "nodesbom", nodesbom.Name)
 		if err := r.Delete(ctx, nodesbom); err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete nodesbom %s/%s: %w", nodesbom.Namespace, nodesbom.Name, err)
+			return fmt.Errorf("failed to delete nodesbom %s: %w", nodesbom.Name, err)
 		}
 	}
 

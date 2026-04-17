@@ -31,9 +31,8 @@ const (
 const createNodeSBOMTableSQL = `
 CREATE TABLE IF NOT EXISTS nodesboms (
     name VARCHAR(253) NOT NULL,
-    namespace VARCHAR(253) NOT NULL,
     object JSONB NOT NULL,
-    PRIMARY KEY (name, namespace)
+    PRIMARY KEY (name)
 );
 
 ALTER TABLE nodesboms ADD COLUMN IF NOT EXISTS id BIGSERIAL;
@@ -55,15 +54,16 @@ func NewNodeSBOMStore(
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, nodeSBOMResourcePluralName, watchBroadcaster, TransformStripNodeSBOM, logger)
 
-	repo := repository.NewGenericObjectRepository(nodeSBOMResourcePluralName, newFunc)
+	repo := repository.NewClusterScopedObjectRepository(nodeSBOMResourcePluralName, newFunc)
 
 	store := &store{
-		db:          db,
-		repository:  repo,
-		broadcaster: natsBroadcaster,
-		newFunc:     newFunc,
-		newListFunc: newListFunc,
-		logger:      logger.With("store", nodeSBOMResourceSingularName),
+		db:            db,
+		repository:    repo,
+		broadcaster:   natsBroadcaster,
+		newFunc:       newFunc,
+		newListFunc:   newListFunc,
+		logger:        logger.With("store", nodeSBOMResourceSingularName),
+		clusterScoped: true,
 	}
 
 	natsWatcher := newNatsWatcher(nc, nodeSBOMResourcePluralName, watchBroadcaster, store, logger)
@@ -113,8 +113,7 @@ func getNodeSBOMAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	}
 
 	selectableMetadata := fields.Set{
-		"metadata.name":      objMeta.GetName(),
-		"metadata.namespace": objMeta.GetNamespace(),
+		"metadata.name": objMeta.GetName(),
 	}
 
 	selectableFields := fields.Set{

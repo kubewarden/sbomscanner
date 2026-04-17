@@ -19,7 +19,7 @@ type nodeSBOMStrategy struct {
 }
 
 func (nodeSBOMStrategy) NamespaceScoped() bool {
-	return true
+	return false
 }
 
 func (nodeSBOMStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {

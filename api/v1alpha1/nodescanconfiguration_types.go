@@ -20,12 +20,6 @@ type NodeScanConfigurationSpec struct {
 	// +optional
 	ScanInterval *metav1.Duration `json:"scanInterval,omitempty"`
 
-	// ArtifactsNamespace is the namespace where scan artifacts (NodeSBOM, NodeVulnerabilityReport) are created.
-	// When empty, artifacts are created in the "default" namespace.
-	// +kubebuilder:default="default"
-	// +optional
-	ArtifactsNamespace string `json:"artifactsNamespace,omitempty"`
-
 	// Skip specifies which directories/files to skip during node scanning.
 	// +optional
 	Skip []string `json:"skip,omitempty"`

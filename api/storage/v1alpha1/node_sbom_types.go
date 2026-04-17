@@ -15,6 +15,7 @@ type NodeSBOMList struct {
 }
 
 // +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:selectablefield:JSONPath=`.nodeMetadata.machineID`
 // +kubebuilder:selectablefield:JSONPath=`.nodeMetadata.platform`

@@ -52,6 +52,7 @@ type NodeScanJobStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.status=='True')].type",description="Current status"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.status=='True')].reason",description="Status reason"
 // +kubebuilder:printcolumn:name="Scanned",type="integer",JSONPath=".status.scannedImagesCount"

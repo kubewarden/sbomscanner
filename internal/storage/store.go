@@ -28,12 +28,13 @@ import (
 var _ storage.Interface = &store{}
 
 type store struct {
-	db          *pgxpool.Pool
-	repository  repository.Repository
-	broadcaster *natsBroadcaster
-	newFunc     func() runtime.Object
-	newListFunc func() runtime.Object
-	logger      *slog.Logger
+	db            *pgxpool.Pool
+	repository    repository.Repository
+	broadcaster   *natsBroadcaster
+	newFunc       func() runtime.Object
+	newListFunc   func() runtime.Object
+	logger        *slog.Logger
+	clusterScoped bool
 }
 
 // Versioner returns API object versioner associated with this interface.
@@ -138,8 +139,8 @@ func (s *store) Delete(
 ) error {
 	s.logger.DebugContext(ctx, "Deleting object", "key", key)
 
-	name, namespace := extractNameAndNamespace(key)
-	if name == "" || namespace == "" {
+	name, namespace := s.extractKeyNameAndNamespace(key)
+	if name == "" {
 		return storage.NewInternalError(fmt.Errorf("invalid key: %s", key))
 	}
 
@@ -342,8 +343,8 @@ func (s *store) Get(ctx context.Context, key string, opts storage.GetOptions, ob
 		opts.ResourceVersion,
 	)
 
-	name, namespace := extractNameAndNamespace(key)
-	if name == "" || namespace == "" {
+	name, namespace := s.extractKeyNameAndNamespace(key)
+	if name == "" {
 		return storage.NewInternalError(fmt.Errorf("invalid key: %s", key))
 	}
 
@@ -391,7 +392,7 @@ func (s *store) GetList(ctx context.Context, key string, opts storage.ListOption
 		return apierrors.NewBadRequest(fmt.Sprintf("invalid resource version: %v", err))
 	}
 
-	namespace := extractNamespace(key)
+	namespace := s.extractKeyNamespace(key)
 	items, continueToken, err := s.repository.List(ctx, s.db, namespace, opts)
 	if err != nil {
 		return storage.NewInternalError(err)
@@ -473,8 +474,8 @@ func (s *store) GuaranteedUpdate(
 ) error {
 	s.logger.DebugContext(ctx, "Guaranteed update", "key", key)
 
-	name, namespace := extractNameAndNamespace(key)
-	if name == "" || namespace == "" {
+	name, namespace := s.extractKeyNameAndNamespace(key)
+	if name == "" {
 		return storage.NewInternalError(fmt.Errorf("invalid key: %s", key))
 	}
 
@@ -557,7 +558,7 @@ func (s *store) GuaranteedUpdate(
 func (s *store) Count(key string) (int64, error) {
 	s.logger.Debug("Counting objects", "key", key)
 
-	namespace := extractNamespace(key)
+	namespace := s.extractKeyNamespace(key)
 
 	count, err := s.repository.Count(context.Background(), s.db, namespace)
 	if err != nil {
@@ -619,23 +620,38 @@ func (s *store) EnableResourceSizeEstimation(_ storage.KeysFunc) error {
 	return nil
 }
 
-// extractNameAndNamespace extracts the name and namespace from the key.
-// Used for single object operations.
-// Key format: /storage.sbomscanner.kubewarden.io/<resource>/<namespace>/<name>
-func extractNameAndNamespace(key string) (string, string) {
+// extractKeyNameAndNamespace extracts the name and namespace from the key,
+// handling both namespaced and cluster-scoped key formats.
+//
+// Namespaced key format: /storage.sbomscanner.kubewarden.io/<resource>/<namespace>/<name>
+// Cluster-scoped key format: /storage.sbomscanner.kubewarden.io/<resource>/<name>
+func (s *store) extractKeyNameAndNamespace(key string) (string, string) {
 	key = strings.TrimPrefix(key, "/")
 	parts := strings.Split(key, "/")
+
+	if s.clusterScoped {
+		if len(parts) == 3 {
+			return parts[2], ""
+		}
+		return "", ""
+	}
+
 	if len(parts) == 4 {
 		return parts[3], parts[2]
 	}
-
 	return "", ""
 }
 
-// extractNamespace extracts the namespace from the key.
-// Used for list operations.
-// Key format: /storage.sbomscanner.kubewarden.io/<resource>/<namespace>
-func extractNamespace(key string) string {
+// extractKeyNamespace extracts the namespace from the key.
+// For cluster-scoped resources, always returns empty string.
+//
+// Namespaced key format: /storage.sbomscanner.kubewarden.io/<resource>/<namespace>
+// Cluster-scoped key format: /storage.sbomscanner.kubewarden.io/<resource>
+func (s *store) extractKeyNamespace(key string) string {
+	if s.clusterScoped {
+		return ""
+	}
+
 	key = strings.TrimPrefix(key, "/")
 	parts := strings.Split(key, "/")
 	if len(parts) == 3 {

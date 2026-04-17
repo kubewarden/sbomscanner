@@ -104,11 +104,8 @@ func (r *NodeScanJobReconciler) cleanupOldNodeScanJobs(ctx context.Context, curr
 	log := logf.FromContext(ctx)
 
 	scanJobList := &v1alpha1.NodeScanJobList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(currentNodeScanJob.Namespace),
-	}
 
-	if err := r.List(ctx, scanJobList, listOpts...); err != nil {
+	if err := r.List(ctx, scanJobList); err != nil {
 		return fmt.Errorf("failed to list NodeScanJobs: %w", err)
 	}
 

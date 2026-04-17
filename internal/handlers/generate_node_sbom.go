@@ -69,20 +69,19 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 
 	nodeScanJob := &v1alpha1.NodeScanJob{}
 	err := h.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      generateNodeSBOMMessage.NodeScanJob.Name,
-		Namespace: generateNodeSBOMMessage.NodeScanJob.Namespace,
+		Name: generateNodeSBOMMessage.NodeScanJob.Name,
 	}, nodeScanJob)
 	if err != nil {
 		// Stop processing if the scanjob is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
-			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name, "namespace", generateNodeSBOMMessage.NodeScanJob.Namespace)
+			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name)
 			return nil
 		}
 
-		return fmt.Errorf("cannot get NodeScanJob %s/%s: %w", generateNodeSBOMMessage.NodeScanJob.Name, generateNodeSBOMMessage.NodeScanJob.Namespace, err)
+		return fmt.Errorf("cannot get NodeScanJob %s: %w", generateNodeSBOMMessage.NodeScanJob.Name, err)
 	}
 	if string(nodeScanJob.Name) != generateNodeSBOMMessage.NodeScanJob.Name {
-		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name, "namespace", generateNodeSBOMMessage.NodeScanJob.Namespace,
+		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name,
 			"uid", generateNodeSBOMMessage.NodeScanJob.UID)
 		return nil
 	}
@@ -105,7 +104,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	h.logger.DebugContext(ctx, "Node found", "node", node)
 
 	if nodeScanJob.IsFailed() {
-		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping NodeSBOM generation", "nodescanjob", nodeScanJob.Name, "namespace", nodeScanJob.Namespace)
+		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping NodeSBOM generation", "nodescanjob", nodeScanJob.Name)
 		return nil
 	}
 
@@ -147,7 +146,6 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		},
 		NodeSBOM: ObjectRef{
 			Name: generateNodeSBOMMessage.Node.Name,
-			Namespace: nodescanconfig.Spec.ArtifactsNamespace,
 		},
 	})
 	if err != nil {
@@ -192,9 +190,8 @@ func (h *GenerateNodeSBOMHandler) getOrGenerateNodeSBOM(ctx context.Context, nod
 	nodePlatform := fmt.Sprintf("%s/%s", node.Status.NodeInfo.OperatingSystem, node.Status.NodeInfo.Architecture)
 	nodeSbom := &storagev1alpha1.NodeSBOM{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.Node.Name,
-			Namespace: config.Spec.ArtifactsNamespace,
-			Labels:    sbomLabels,
+			Name:   message.Node.Name,
+			Labels: sbomLabels,
 		},
 		NodeMetadata: storagev1alpha1.NodeMetadata{
 			Name:     node.Name,
