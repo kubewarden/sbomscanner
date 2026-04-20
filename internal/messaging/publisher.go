@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	streamName        = "SBOMBASTIC"
-	sbombasticSubject = "sbomscanner.>"
+	streamName        = "SBOMSCANNER"
+	sbomscannerSubject = "sbomscanner.>"
 )
 
 type Publisher interface {
@@ -41,13 +41,13 @@ func NewNatsPublisher(ctx context.Context, nc *nats.Conn, logger *slog.Logger) (
 	_, err = js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:      streamName,
 		Retention: jetstream.WorkQueuePolicy,
-		Subjects:  []string{sbombasticSubject},
+		Subjects:  []string{sbomscannerSubject},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create JetStream stream: %w", err)
 	}
 
-	logger.DebugContext(ctx, "Stream created", "stream", streamName, "subjects", sbombasticSubject)
+	logger.DebugContext(ctx, "Stream created", "stream", streamName, "subjects", sbomscannerSubject)
 
 	publisher := &NatsPublisher{
 		js:     js,
