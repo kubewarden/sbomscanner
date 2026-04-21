@@ -420,7 +420,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 
 			mockPublisher := messagingMocks.NewMockPublisher(t)
 			for _, expectedImage := range test.expectedImages {
-				messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.UID, expectedImage.Name)
+				messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.GetUID(), expectedImage.Name)
 				expectedMessage, err := json.Marshal(&GenerateSBOMMessage{
 					BaseMessage: BaseMessage{
 						ScanJob: ObjectRef{

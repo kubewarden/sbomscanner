@@ -73,7 +73,7 @@ func (r *NodeScanJobReconciler) reconcileNodeScanJob(ctx context.Context, nodeSc
 	}
 
 	log.V(1).Info("Publishing GenerateNodeSBOM message for NodeScanJob", "nodescanJob", nodeScanJob.Name)
-	messageID := fmt.Sprintf("generateNodeSBOM/%s", nodeScanJob.Spec.NodeName)
+	messageID := fmt.Sprintf("generateNodeSBOM/%s", nodeScanJob.GetUID())
 	message, err := json.Marshal(&handlers.GenerateNodeSBOMMessage{
 		NodeBaseMessage: handlers.NodeBaseMessage{
 			NodeScanJob: handlers.ObjectRef{

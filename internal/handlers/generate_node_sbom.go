@@ -139,7 +139,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		}
 	}
 
-	scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.UID, generateNodeSBOMMessage.Node.Name)
+	scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.GetUID(), generateNodeSBOMMessage.Node.Name)
 	scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
 		NodeBaseMessage: NodeBaseMessage{
 			NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
