@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -16,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1167,7 +1170,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				Expect(registry.Annotations).To(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
+				Expect(rescanAnnotationRequest(registry.Annotations)).To(Equal(&v1alpha1.RescanRequest{}))
 			})
 
 			It("should set rescan annotation when a new tag condition is added", func(ctx context.Context) {
@@ -1198,10 +1201,14 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				Expect(registry.Annotations).To(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
+				Expect(rescanAnnotationRequest(registry.Annotations)).To(Equal(&v1alpha1.RescanRequest{}))
 
 				By("Removing the rescan annotation to simulate it being processed")
-				delete(registry.Annotations, v1alpha1.AnnotationRescanRequestedKey)
+				for key := range registry.Annotations {
+					if strings.HasPrefix(key, v1alpha1.AnnotationRescanRequestedKeyPrefix) {
+						delete(registry.Annotations, key)
+					}
+				}
 				Expect(k8sClient.Update(ctx, &registry)).To(Succeed())
 
 				By("Verifying annotation was removed")
@@ -1209,7 +1216,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				Expect(registry.Annotations).NotTo(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
+				Expect(rescanAnnotationRequest(registry.Annotations)).To(BeNil())
 
 				By("Adding a new pod with v2 tag")
 				pod2 := &corev1.Pod{
@@ -1237,7 +1244,11 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				Expect(registry.Annotations).To(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
+				Expect(rescanAnnotationRequest(registry.Annotations)).To(Equal(&v1alpha1.RescanRequest{
+					Repositories: []v1alpha1.ScanJobRepository{
+						{Name: "test/app", MatchConditions: []string{"tag-v2"}},
+					},
+				}))
 			})
 
 			It("should not set rescan annotation when a tag condition is removed", func(ctx context.Context) {
@@ -1282,7 +1293,11 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				delete(registry.Annotations, v1alpha1.AnnotationRescanRequestedKey)
+				for key := range registry.Annotations {
+					if strings.HasPrefix(key, v1alpha1.AnnotationRescanRequestedKeyPrefix) {
+						delete(registry.Annotations, key)
+					}
+				}
 				Expect(k8sClient.Update(ctx, &registry)).To(Succeed())
 
 				By("Deleting one pod to remove a tag condition")
@@ -1299,7 +1314,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				Expect(registry.Annotations).NotTo(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
+				Expect(rescanAnnotationRequest(registry.Annotations)).To(BeNil())
 			})
 
 			It("should not set rescan annotation when conditions are unchanged", func(ctx context.Context) {
@@ -1330,7 +1345,11 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				delete(registry.Annotations, v1alpha1.AnnotationRescanRequestedKey)
+				for key := range registry.Annotations {
+					if strings.HasPrefix(key, v1alpha1.AnnotationRescanRequestedKeyPrefix) {
+						delete(registry.Annotations, key)
+					}
+				}
 				Expect(k8sClient.Update(ctx, &registry)).To(Succeed())
 
 				By("Reconciling the namespace again without changes")
@@ -1344,7 +1363,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 					Name:      computeRegistryName("ghcr.io"),
 					Namespace: namespace.Name,
 				}, &registry)).To(Succeed())
-				Expect(registry.Annotations).NotTo(HaveKey(v1alpha1.AnnotationRescanRequestedKey))
+				Expect(rescanAnnotationRequest(registry.Annotations)).To(BeNil())
 			})
 		})
 	})
@@ -1625,6 +1644,66 @@ func TestResolveWorkloadOwner(t *testing.T) {
 			assert.Equal(t, test.expectedKind, ownerRef.Kind)
 			assert.Equal(t, test.expectedName, ownerRef.Name)
 			assert.Equal(t, test.expectedUID, ownerRef.UID)
+		})
+	}
+}
+
+// rescanAnnotationRequest finds the first rescan-requested annotation and returns its parsed value.
+// Returns nil if no such annotation exists.
+func rescanAnnotationRequest(annotations map[string]string) *v1alpha1.RescanRequest {
+	GinkgoHelper()
+	for key, value := range annotations {
+		if strings.HasPrefix(key, v1alpha1.AnnotationRescanRequestedKeyPrefix) {
+			var req v1alpha1.RescanRequest
+			Expect(json.Unmarshal([]byte(value), &req)).To(Succeed())
+			return &req
+		}
+	}
+	return nil
+}
+
+func TestBuildRescanRequest(t *testing.T) {
+	tests := []struct {
+		name            string
+		matchConditions sets.Set[matchConditionKey]
+		want            v1alpha1.RescanRequest
+	}{
+		{
+			name:            "empty set",
+			matchConditions: sets.New[matchConditionKey](),
+			want:            v1alpha1.RescanRequest{Repositories: []v1alpha1.ScanJobRepository{}},
+		},
+		{
+			name: "single repo, single condition",
+			matchConditions: sets.New(matchConditionKey{
+				repository: "org/alpha", name: "tag-v1", expression: `tag == "v1"`,
+			}),
+			want: v1alpha1.RescanRequest{
+				Repositories: []v1alpha1.ScanJobRepository{
+					{Name: "org/alpha", MatchConditions: []string{"tag-v1"}},
+				},
+			},
+		},
+		{
+			name: "multiple repos and conditions are sorted deterministically",
+			matchConditions: sets.New(
+				matchConditionKey{repository: "org/beta", name: "tag-v2", expression: `tag == "v2"`},
+				matchConditionKey{repository: "org/beta", name: "tag-v1", expression: `tag == "v1"`},
+				matchConditionKey{repository: "org/alpha", name: "tag-latest", expression: `tag == "latest"`},
+				matchConditionKey{repository: "org/alpha", name: "tag-v1", expression: `tag == "v1"`},
+			),
+			want: v1alpha1.RescanRequest{
+				Repositories: []v1alpha1.ScanJobRepository{
+					{Name: "org/alpha", MatchConditions: []string{"tag-latest", "tag-v1"}},
+					{Name: "org/beta", MatchConditions: []string{"tag-v1", "tag-v2"}},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, buildRescanRequest(test.matchConditions))
 		})
 	}
 }
