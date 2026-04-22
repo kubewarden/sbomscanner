@@ -212,41 +212,70 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 }
 
 func TestScanJobCustomValidator_ValidateUpdate(t *testing.T) {
-	oldObj := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scan-job",
-			Namespace: "default",
+	tests := []struct {
+		name           string
+		oldSpec        v1alpha1.ScanJobSpec
+		newSpec        v1alpha1.ScanJobSpec
+		expectedFields []string
+	}{
+		{
+			name:           "registry changed is rejected",
+			oldSpec:        v1alpha1.ScanJobSpec{Registry: "registry.example.com"},
+			newSpec:        v1alpha1.ScanJobSpec{Registry: "new-registry.example.com"},
+			expectedFields: []string{"spec.registry"},
 		},
-		Spec: v1alpha1.ScanJobSpec{
-			Registry: "registry.example.com",
+		{
+			name: "repositories changed is rejected",
+			oldSpec: v1alpha1.ScanJobSpec{
+				Registry:     "registry.example.com",
+				Repositories: []v1alpha1.ScanJobRepository{{Name: "foo/bar"}},
+			},
+			newSpec: v1alpha1.ScanJobSpec{
+				Registry:     "registry.example.com",
+				Repositories: []v1alpha1.ScanJobRepository{{Name: "foo/baz"}},
+			},
+			expectedFields: []string{"spec.repositories"},
 		},
-	}
-
-	newObj := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scan-job",
-			Namespace: "default",
-		},
-		Spec: v1alpha1.ScanJobSpec{
-			Registry: "new-registry.example.com",
+		{
+			name:    "no changes is admitted",
+			oldSpec: v1alpha1.ScanJobSpec{Registry: "registry.example.com"},
+			newSpec: v1alpha1.ScanJobSpec{Registry: "registry.example.com"},
 		},
 	}
 
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
-	validator := ScanJobCustomValidator{client: client}
+	validator := ScanJobCustomValidator{client: fake.NewClientBuilder().WithScheme(scheme).Build()}
 
-	warnings, err := validator.ValidateUpdate(t.Context(), oldObj, newObj)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			oldObj := &v1alpha1.ScanJob{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-scan-job", Namespace: "default"},
+				Spec:       test.oldSpec,
+			}
+			newObj := &v1alpha1.ScanJob{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-scan-job", Namespace: "default"},
+				Spec:       test.newSpec,
+			}
 
-	require.Error(t, err)
-	statusErr, ok := err.(interface{ Status() metav1.Status })
-	require.True(t, ok)
-	details := statusErr.Status().Details
-	require.NotNil(t, details)
-	require.Len(t, details.Causes, 1)
-	assert.Equal(t, "spec.registry", details.Causes[0].Field)
-	assert.Contains(t, details.Causes[0].Message, "immutable")
+			warnings, err := validator.ValidateUpdate(t.Context(), oldObj, newObj)
+			assert.Empty(t, warnings)
 
-	assert.Empty(t, warnings)
+			if len(test.expectedFields) == 0 {
+				require.NoError(t, err)
+				return
+			}
+
+			require.Error(t, err)
+			statusErr, ok := err.(interface{ Status() metav1.Status })
+			require.True(t, ok)
+			details := statusErr.Status().Details
+			require.NotNil(t, details)
+			require.Len(t, details.Causes, len(test.expectedFields))
+			for i, field := range test.expectedFields {
+				assert.Equal(t, field, details.Causes[i].Field)
+				assert.Contains(t, details.Causes[i].Message, "immutable")
+			}
+		})
+	}
 }
