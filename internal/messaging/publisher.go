@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	streamName        = "SBOMSCANNER"
+	streamName         = "SBOMSCANNER"
 	sbomscannerSubject = "sbomscanner.>"
 )
 
