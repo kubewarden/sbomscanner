@@ -68,11 +68,12 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 	defer testPrivateRegistry.Terminate(t.Context())
 
 	tests := []struct {
-		name           string
-		registry       *v1alpha1.Registry
-		authSecret     *corev1.Secret
-		existingImages []*storagev1alpha1.Image
-		expectedImages []*storagev1alpha1.Image
+		name                string
+		registry            *v1alpha1.Registry
+		scanJobRepositories []v1alpha1.ScanJobRepository
+		authSecret          *corev1.Secret
+		existingImages      []*storagev1alpha1.Image
+		expectedImages      []*storagev1alpha1.Image
 	}{
 		{
 			name: "catalog all images",
@@ -331,6 +332,116 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			expectedImages: []*storagev1alpha1.Image{},
 		},
 		{
+			name: "ScanJob targets a subset of the Registry: obsolete-image cleanup is skipped",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "match-tag", Expression: fmt.Sprintf("tag == %q", singleArchRef.Identifier())},
+							},
+							MatchOperator: v1alpha1.MatchOperatorOr,
+						},
+					},
+					Platforms: []v1alpha1.Platform{
+						{OS: "linux", Architecture: "amd64"},
+					},
+				},
+			},
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: singleArchRef.Context().RepositoryStr(), MatchConditions: []string{"match-tag"}},
+			},
+			existingImages: []*storagev1alpha1.Image{
+				// stale image inside the targeted repo: must STILL survive because cleanup is skipped
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", "sha256:0badf00d0badf00d0badf00d0badf00d0badf00d0badf00d0badf00d0badf00d", ""),
+			},
+			expectedImages: []*storagev1alpha1.Image{
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
+			},
+		},
+		{
+			name: "ScanJob targets one repo out of multiple: only targeted repo is scanned",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "match-tag", Expression: fmt.Sprintf("tag == %q", singleArchRef.Identifier())},
+							},
+							MatchOperator: v1alpha1.MatchOperatorOr,
+						},
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "match-tag", Expression: fmt.Sprintf("tag == %q", multiArchRef.Identifier())},
+							},
+							MatchOperator: v1alpha1.MatchOperatorOr,
+						},
+					},
+					Platforms: []v1alpha1.Platform{
+						{OS: "linux", Architecture: "amd64"},
+					},
+				},
+			},
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: singleArchRef.Context().RepositoryStr(), MatchConditions: []string{"match-tag"}},
+			},
+			expectedImages: []*storagev1alpha1.Image{
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
+			},
+		},
+		{
+			name: "ScanJob targets multiple repos: images from all targeted repos are discovered",
+			registry: &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-registry",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "match-tag", Expression: fmt.Sprintf("tag == %q", singleArchRef.Identifier())},
+							},
+							MatchOperator: v1alpha1.MatchOperatorOr,
+						},
+						{
+							Name: multiArchRef.Context().RepositoryStr(),
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "match-tag", Expression: fmt.Sprintf("tag == %q", multiArchRef.Identifier())},
+							},
+							MatchOperator: v1alpha1.MatchOperatorOr,
+						},
+					},
+					Platforms: []v1alpha1.Platform{
+						{OS: "linux", Architecture: "amd64"},
+					},
+				},
+			},
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: singleArchRef.Context().RepositoryStr(), MatchConditions: []string{"match-tag"}},
+				{Name: multiArchRef.Context().RepositoryStr(), MatchConditions: []string{"match-tag"}},
+			},
+			expectedImages: []*storagev1alpha1.Image{
+				imageFactory(testRegistry.RegistryName, singleArchRef.Context().RepositoryStr(), singleArchRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
+				imageFactory(testRegistry.RegistryName, multiArchRef.Context().RepositoryStr(), multiArchRef.Identifier(), "linux/amd64", imageDigestLinuxAmd64MultiArch, imageIndexDigestMultiArch),
+			},
+		},
+		{
 			name: "private registry",
 			registry: &v1alpha1.Registry{
 				ObjectMeta: metav1.ObjectMeta{
@@ -381,7 +492,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 					},
 				},
 				Spec: v1alpha1.ScanJobSpec{
-					Registry: test.registry.Name,
+					Registry:     test.registry.Name,
+					Repositories: test.scanJobRepositories,
 				},
 			}
 
@@ -455,11 +567,22 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			err = handler.Handle(context.Background(), &testMessage{data: message})
 			require.NoError(t, err)
 
-			// Verify images match expected
+			// Verify images match expected (discovered + preserved existing when targeting is set)
 			imageList := &storagev1alpha1.ImageList{}
 			err = k8sClient.List(context.Background(), imageList)
 			require.NoError(t, err)
-			require.Len(t, imageList.Items, len(test.expectedImages))
+			cleanupSkipped := len(test.scanJobRepositories) > 0
+			expectedTotal := len(test.expectedImages)
+			if cleanupSkipped {
+				for _, existing := range test.existingImages {
+					if !slices.ContainsFunc(test.expectedImages, func(e *storagev1alpha1.Image) bool {
+						return e.Name == existing.Name
+					}) {
+						expectedTotal++
+					}
+				}
+			}
+			require.Len(t, imageList.Items, expectedTotal)
 
 			// Verify all expected images exist in actual results
 			for _, expected := range test.expectedImages {
@@ -468,16 +591,19 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				}), "Expected image not found: %+v %+v", expected.ImageMetadata, imageList.Items)
 			}
 
-			// Verify obsolete images were deleted
-			for _, obsoleteImg := range test.existingImages {
+			// Verify obsolete images were deleted (unless cleanup was skipped due to ScanJob targeting)
+			for _, obsoleteImage := range test.existingImages {
 				err = k8sClient.Get(context.Background(), client.ObjectKey{
-					Name:      obsoleteImg.Name,
-					Namespace: obsoleteImg.Namespace,
+					Name:      obsoleteImage.Name,
+					Namespace: obsoleteImage.Namespace,
 				}, &storagev1alpha1.Image{})
-				if !slices.ContainsFunc(test.expectedImages, func(expected *storagev1alpha1.Image) bool {
-					return expected.ImageMetadata.Digest == obsoleteImg.ImageMetadata.Digest
-				}) {
-					assert.True(t, apierrors.IsNotFound(err), "Obsolete image %s should be deleted", obsoleteImg.Name)
+				inExpected := slices.ContainsFunc(test.expectedImages, func(expected *storagev1alpha1.Image) bool {
+					return expected.ImageMetadata.Digest == obsoleteImage.ImageMetadata.Digest
+				})
+				if inExpected || cleanupSkipped {
+					require.NoError(t, err, "Image %s should still exist", obsoleteImage.Name)
+				} else {
+					assert.True(t, apierrors.IsNotFound(err), "Obsolete image %s should be deleted", obsoleteImage.Name)
 				}
 			}
 
@@ -833,4 +959,119 @@ func fakeDigestAndDiffID(layerIndex int) (cranev1.Hash, cranev1.Hash, error) {
 	}
 
 	return digest, diffID, nil
+}
+
+func TestApplyTargetsToRegistry(t *testing.T) {
+	tests := []struct {
+		name                string
+		scanJobRepositories []v1alpha1.ScanJobRepository
+		wantRepositories    []v1alpha1.Repository
+		wantErr             string
+	}{
+		{
+			name:                "no targets: registry unchanged",
+			scanJobRepositories: nil,
+			wantRepositories: []v1alpha1.Repository{
+				{Name: "org/alpha", MatchConditions: []v1alpha1.MatchCondition{
+					{Name: "tag-v1", Expression: `tag == "v1"`},
+					{Name: "tag-v2", Expression: `tag == "v2"`},
+				}},
+				{Name: "org/beta", MatchConditions: []v1alpha1.MatchCondition{
+					{Name: "tag-latest", Expression: `tag == "latest"`},
+				}},
+			},
+		},
+		{
+			name: "single repo with no match conditions in target: all conditions kept",
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: "org/alpha"},
+			},
+			wantRepositories: []v1alpha1.Repository{
+				{Name: "org/alpha", MatchConditions: []v1alpha1.MatchCondition{
+					{Name: "tag-v1", Expression: `tag == "v1"`},
+					{Name: "tag-v2", Expression: `tag == "v2"`},
+				}},
+			},
+		},
+		{
+			name: "single repo with specific match condition",
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: "org/alpha", MatchConditions: []string{"tag-v1"}},
+			},
+			wantRepositories: []v1alpha1.Repository{
+				{Name: "org/alpha", MatchConditions: []v1alpha1.MatchCondition{
+					{Name: "tag-v1", Expression: `tag == "v1"`},
+				}},
+			},
+		},
+		{
+			name: "multiple repos each with one match condition",
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: "org/alpha", MatchConditions: []string{"tag-v2"}},
+				{Name: "org/beta", MatchConditions: []string{"tag-latest"}},
+			},
+			wantRepositories: []v1alpha1.Repository{
+				{Name: "org/alpha", MatchConditions: []v1alpha1.MatchCondition{
+					{Name: "tag-v2", Expression: `tag == "v2"`},
+				}},
+				{Name: "org/beta", MatchConditions: []v1alpha1.MatchCondition{
+					{Name: "tag-latest", Expression: `tag == "latest"`},
+				}},
+			},
+		},
+		{
+			name: "error: unknown repository",
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: "org/missing"},
+			},
+			wantErr: `repository "org/missing" not declared on registry "test-registry"`,
+		},
+		{
+			name: "error: unknown match condition",
+			scanJobRepositories: []v1alpha1.ScanJobRepository{
+				{Name: "org/alpha", MatchConditions: []string{"tag-v1", "tag-does-not-exist"}},
+			},
+			wantErr: `one or more MatchConditions of target repository "org/alpha" not found on registry "test-registry"`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := &v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-registry"},
+				Spec: v1alpha1.RegistrySpec{
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: "org/alpha",
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "tag-v1", Expression: `tag == "v1"`},
+								{Name: "tag-v2", Expression: `tag == "v2"`},
+							},
+						},
+						{
+							Name: "org/beta",
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "tag-latest", Expression: `tag == "latest"`},
+							},
+						},
+					},
+				},
+			}
+			scanJob := &v1alpha1.ScanJob{
+				Spec: v1alpha1.ScanJobSpec{
+					Registry:     registry.Name,
+					Repositories: test.scanJobRepositories,
+				},
+			}
+
+			err := applyTargetsToRegistry(registry, scanJob)
+
+			if test.wantErr != "" {
+				require.EqualError(t, err, test.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.wantRepositories, registry.Spec.Repositories)
+		})
+	}
 }
