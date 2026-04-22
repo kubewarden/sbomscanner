@@ -5,14 +5,22 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	// AnnotationRescanRequestedKey is set on a Registry to request a rescan.
-	// The value is the timestamp when the rescan was requested.
-	AnnotationRescanRequestedKey = "sbomscanner.kubewarden.io/rescan-requested"
+	// AnnotationRescanRequestedKeyPrefix is the prefix used for annotations that request a rescan of a Registry.
+	// Each rescan request uses a unique key built by appending a UUID to this prefix.
+	// The value is a JSON encoded RescanRequest.
+	// Using a per-request key avoids concurrent writers overwriting each other.
+	AnnotationRescanRequestedKeyPrefix = "sbomscanner.kubewarden.io/rescan-requested-"
 )
+
+// NewRescanRequestedAnnotationKey returns a unique rescan-request annotation key built from the prefix and a UUID.
+func NewRescanRequestedAnnotationKey() string {
+	return AnnotationRescanRequestedKeyPrefix + uuid.New().String()
+}
 
 const (
 	// CatalogTypeNoCatalog is used for registries that don't
@@ -156,6 +164,15 @@ type Registry struct {
 // IsPrivate returns true when the registry requires authentication.
 func (r *Registry) IsPrivate() bool {
 	return r.Spec.AuthSecret != ""
+}
+
+// RescanRequest is the JSON payload of a rescan-requested annotation on a Registry.
+// The annotation key carries the request timestamp (as unix nanos); the value carries only the targeting information.
+type RescanRequest struct {
+	// Repositories optionally narrows the rescan to a subset of the Registry repositories.
+	// When empty, the whole Registry is rescanned.
+	// +optional
+	Repositories []ScanJobRepository `json:"repositories,omitempty"`
 }
 
 // +kubebuilder:object:root=true
