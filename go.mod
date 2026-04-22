@@ -3,10 +3,10 @@ module github.com/kubewarden/sbomscanner
 go 1.26.2
 
 require (
-	github.com/aquasecurity/trivy v0.69.3
+	github.com/aquasecurity/trivy v0.70.0
 	github.com/aquasecurity/trivy-db v0.0.0-20260318025153-32625aa31027
 	github.com/avast/retry-go/v4 v4.7.0
-	github.com/aws/smithy-go v1.24.3
+	github.com/aws/smithy-go v1.25.0
 	github.com/docker/cli v29.4.1+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/go-logr/logr v1.4.3
@@ -17,7 +17,7 @@ require (
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/nats-io/nats-server/v2 v2.12.7
-	github.com/nats-io/nats.go v1.50.0
+	github.com/nats-io/nats.go v1.51.0
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/spdx/tools-golang v0.5.7
@@ -41,7 +41,7 @@ require (
 	modernc.org/sqlite v1.49.1
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/e2e-framework v0.7.0
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.2
+	sigs.k8s.io/structured-merge-diff/v6 v6.4.0
 )
 
 require (
