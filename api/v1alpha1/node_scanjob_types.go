@@ -12,6 +12,8 @@ const LabelNodeScanJobUIDKey = "sbomscanner.kubewarden.io/nodescanjob-uid"
 const (
 	// IndexNodeScanJobMetadataUID is the field index for the UID of a NodeScanJob.
 	IndexNodeScanJobMetadataUID = "metadata.uid"
+	// IndexNodeScanJobSpecNodeName is the field index for the node name of a NodeScanJob.
+	IndexNodeScanJobSpecNodeName = "spec.nodeName"
 )
 
 // RegistryAnnotation stores a snapshot of the Registry targeted by the NodeScanJob.
@@ -23,10 +25,9 @@ const (
 )
 
 const (
-	NodeScanInProgress       = "NodeScanInProgress"
-	SBOMGenerationInProgress = "SBOMGenerationInProgress"
-	NodeScanned              = "NodeScanned"
-	ScanAlreadyInProgress    = "ScanAlreadyInProgress"
+	ReasonNodeScanInProgress       = "NodeScanInProgress"
+	ReasonNodeScanned              = "NodeScanned"
+	ReasonScanAlreadyInProgress    = "ScanAlreadyInProgress"
 )
 
 // NodeScanJobSpec defines the desired state of NodeScanJob.

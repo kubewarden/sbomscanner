@@ -352,6 +352,13 @@ func main() {
 	}
 
 	if cfg.NodeScan {
+		if err := (&controller.NodeScanRunner{
+			Client: mgr.GetClient(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create runner", "runner", "NodeScanRunner")
+			os.Exit(1)
+		}
+
 		if err := (&controller.NodeScanReconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
