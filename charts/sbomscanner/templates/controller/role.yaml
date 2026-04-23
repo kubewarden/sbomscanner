@@ -107,3 +107,10 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - storage.sbomscanner.kubewarden.io
+  resources:
+  - nodesboms
+  verbs:
+  - list
+  - watch
