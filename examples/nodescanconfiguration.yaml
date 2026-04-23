@@ -7,4 +7,4 @@ spec:
     - /tmp
     - /var/tmp
     - /var/cache
-#  scanInterval: 24h
+  scanInterval: 2m
