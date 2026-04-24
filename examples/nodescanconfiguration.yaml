@@ -8,3 +8,9 @@ spec:
     - /var/tmp
     - /var/cache
   scanInterval: 2m
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/os
+        operator: In
+        values:
+          - linux
