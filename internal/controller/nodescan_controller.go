@@ -52,10 +52,19 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 
 	// get the list of nodes in the cluster
 	nodes := &corev1.NodeList{}
-	err := r.Client.List(ctx, nodes, &client.ListOptions{})
+	selector, err := metav1.LabelSelectorAsSelector(config.Spec.NodeSelector)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to parse node selector: %w", err)
+	}
+	err = r.Client.List(ctx, nodes, &client.ListOptions{
+		LabelSelector: selector,
+	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list nodes: %w", err)
 	}
+	logger.Info("Found nodes matching selector", "selector", selector.String())
+	logger.Info("Found nodes matching selector", "count", len(nodes.Items))
+	logger.Info("Found nodes matching selector", "count", nodes.Items)
 
 	for i := range nodes.Items {
 		node := &nodes.Items[i]
