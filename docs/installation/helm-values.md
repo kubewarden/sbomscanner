@@ -87,6 +87,7 @@ storage:
     cnpg:
       enabled: true
       instances: 3
+      imageName: ""
       storage:
         size: 1Gi
         resizeInUseVolumes: true
@@ -96,6 +97,7 @@ storage:
 
 **Configuration options:**
 - `instances`: Number of PostgreSQL replicas (default: 3)
+- `imageName`: Full image reference for the PostgreSQL container (e.g. `my-registry.example.com/postgresql:18.1`). Useful for air-gapped environments where the default CNPG operand image is not reachable. If empty, CNPG uses its default operand image.
 - `storage.size`: Size of the persistent volume. You can increase this value later, and changes will be automatically applied to existing PVCs. Size cannot be decreased. See the [CNPG documentation](https://cloudnative-pg.io/documentation/current/storage/#volume-expansion) for more details.
 - `storage.resizeInUseVolumes`: Automatically resize PVCs (default: true)
 - `storage.storageClass`: Specify a storage class. If empty, uses the cluster's default storage class.

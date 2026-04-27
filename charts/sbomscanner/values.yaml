@@ -57,6 +57,11 @@ storage:
     cnpg:
       enabled: true
       instances: 3
+      # Override the PostgreSQL container image used by the CNPG Cluster.
+      # Useful for air-gapped environments where the default image is not reachable.
+      # Must be a full image reference (e.g. `my-registry.example.com/postgresql:18.1`).
+      # If empty, CNPG uses its default operand image.
+      imageName: ""
       storage:
         # Size of the storage. Required if not already specified in the PVC template.
         # Changes to this field are automatically reapplied to the created PVCs.

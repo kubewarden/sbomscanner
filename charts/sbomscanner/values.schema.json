@@ -369,6 +369,9 @@
                                 "enabled": {
                                     "type": "boolean"
                                 },
+                                "imageName": {
+                                    "type": "string"
+                                },
                                 "instances": {
                                     "type": "integer"
                                 },
