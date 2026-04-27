@@ -143,7 +143,7 @@ stringData:
 The URI format follows the [PostgreSQL connection URI specification](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING-URIS).
 
 > **Note:** Any `sslmode` or other `ssl*` parameters in the URI are ignored.  
-> SBOMScanner always enforces CA verification when connecting to the database,  
+> SBOMscanner always enforces CA verification when connecting to the database,  
 > using the CA certificate specified in the `caSecretName` secret.
 
 2. Create a `Secret` with the CA certificate used to verify the PostgreSQL server certificate:
