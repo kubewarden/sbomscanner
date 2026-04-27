@@ -115,7 +115,7 @@ sbomscanner           sbomscanner-worker-d9d68c5c-tlpgm             1/1     Runn
 
 ### Summary
 
-At this point, your SBOMScanner deployment is up and running successfully. You're now ready to begin scanning images and generating reports!
+At this point, your SBOMscanner deployment is up and running successfully. You're now ready to begin scanning images and generating reports!
 
 ---
 
