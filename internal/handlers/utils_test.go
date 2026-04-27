@@ -49,7 +49,7 @@ const (
 	imageDigestLinuxPpc64leMultiArch = "sha256:216cb428a7a53a75ef7806ed1120c409253e3e65bddc6ae0c21f5cd2faf92324"
 	imageDigestLinuxS390xMultiArch   = "sha256:f2475c61ab276da0882a9637b83b2a5710b289d6d80f3daedb71d4a8eaeb1686"
 
-	imageRefMultiArchWithUnknownPlatform              = "ghcr.io/kubewarden/sbombscanner/test-assets/udash-front:v0.11.0"
+	imageRefMultiArchWithUnknownPlatform              = "ghcr.io/kubewarden/sbomscanner/test-assets/udash-front:v0.11.0"
 	imageIndexDigestMultiArchWithUnknownPlatform      = "sha256:906b299349d8a28432228e0aff6b0c3796cec9300a51e5e5161bf8e5e56e07cb"
 	imageDigestLinuxAmd64MultiArchWithUnknownPlatform = "sha256:d2fabf8aca7ade7f2bcb63d0ef7966b697bed9482197d9906cf2578202d7f789"
 	imageDigestLinuxArm64MultiArchWithUnknownPlatform = "sha256:6c8913ca09035b8730212b9a5b2f2ce451fe37a36b4e591e3d5af77b2eb60971"

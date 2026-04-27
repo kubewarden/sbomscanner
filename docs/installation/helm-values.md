@@ -5,11 +5,13 @@ This document describes the available configuration options for the SBOMscanner 
 You can customize these values in two ways:
 
 1. Create a custom values file (e.g., `my-values.yaml`) with your overrides and pass it to Helm:
+
 ```bash
 helm install sbomscanner ./chart -f my-values.yaml
 ```
 
 2. Use `--set` flags to override specific values directly:
+
 ```bash
 helm install sbomscanner ./chart --set controller.replicas=5 --set storage.postgres.cnpg.instances=5
 ```
@@ -17,6 +19,7 @@ helm install sbomscanner ./chart --set controller.replicas=5 --set storage.postg
 For more details on customizing Helm charts, see the [Helm documentation](https://helm.sh/docs/intro/using_helm/#customizing-the-chart-before-installing).
 
 ## Log Levels
+
 You can configure the log level for each SBOMscanner component to control the verbosity of the logs.
 
 ```yaml
@@ -33,9 +36,11 @@ worker:
 Available log levels are: `debug`, `info`, `warn`, `error`.
 
 ## Resource Limits and Requests
+
 Each component has default resource limits and requests that you can customize based on your cluster's capacity and workload requirements.
 
 ### Controller
+
 ```yaml
 controller:
   resources:
@@ -48,6 +53,7 @@ controller:
 ```
 
 ### Storage
+
 ```yaml
 storage:
   resources:
@@ -60,6 +66,7 @@ storage:
 ```
 
 ### Worker
+
 ```yaml
 worker:
   resources:
@@ -76,9 +83,11 @@ Adjust these values based on your workload. The storage component typically need
 For more information on resource management, see the [Kubernetes documentation on resource requests and limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
 
 ## PostgreSQL Configuration
+
 SBOMscanner requires a PostgreSQL database to store SBOM data. You have two options: use the built-in [CloudNativePG (CNPG) operator](https://cloudnative-pg.io/) or connect to an external PostgreSQL instance.
 
 ### Using CloudNativePG (Default)
+
 By default, SBOMscanner deploys a PostgreSQL cluster using the CloudNativePG operator. This is the easiest way to get started.
 
 ```yaml
@@ -95,6 +104,7 @@ storage:
 ```
 
 **Configuration options:**
+
 - `instances`: Number of PostgreSQL replicas (default: 3)
 - `storage.size`: Size of the persistent volume. You can increase this value later, and changes will be automatically applied to existing PVCs. Size cannot be decreased. See the [CNPG documentation](https://cloudnative-pg.io/documentation/current/storage/#volume-expansion) for more details.
 - `storage.resizeInUseVolumes`: Automatically resize PVCs (default: true)
@@ -104,6 +114,7 @@ storage:
 For more configuration options, refer to the [CloudNativePG Cluster configuration documentation](https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-ClusterSpec).
 
 ### Using an External PostgreSQL Instance
+
 If you already have a PostgreSQL instance or prefer to manage it separately, disable CNPG and provide connection details.
 
 ```yaml
@@ -118,6 +129,7 @@ storage:
 **Steps to configure external PostgreSQL:**
 
 1. Create a `Secret` with the PostgreSQL connection URI:
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -128,13 +140,14 @@ stringData:
   uri: "postgresql://user:password@postgres.example.com:5432/sbomscanner?sslmode=require"
 ```
 
-The URI format follows the [PostgreSQL connection URI specification](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING-URIS). 
+The URI format follows the [PostgreSQL connection URI specification](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING-URIS).
 
 > **Note:** Any `sslmode` or other `ssl*` parameters in the URI are ignored.  
-> SBOMBastic always enforces CA verification when connecting to the database,  
+> SBOMScanner always enforces CA verification when connecting to the database,  
 > using the CA certificate specified in the `caSecretName` secret.
 
 2. Create a `Secret` with the CA certificate used to verify the PostgreSQL server certificate:
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -149,6 +162,7 @@ stringData:
 ```
 
 3. Reference the secrets in your Helm values:
+
 ```yaml
 storage:
   postgres:
