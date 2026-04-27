@@ -46,7 +46,7 @@ storage:
     # Ignored if CNPG is enabled.
     #
     # Note: Any `sslmode` or other `ssl*` parameters in the URI are ignored.
-    # SBOMBastic always enforces CA verification when connecting to the database,
+    # SBOMscanner always enforces CA verification when connecting to the database,
     # using the CA certificate specified in the `caSecretName` secret.
     authSecretName: ""
     # Name of secret containing the CA certificate used to verify the Postgres server certificate.
