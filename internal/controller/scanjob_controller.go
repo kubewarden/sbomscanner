@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -91,6 +92,12 @@ func (r *ScanJobReconciler) reconcileScanJob(ctx context.Context, scanJob *v1alp
 		}
 
 		return ctrl.Result{}, fmt.Errorf("unable to get Registry %s: %w", scanJob.Spec.Registry, err)
+	}
+
+	if reason, err := validateScanJobTargets(scanJob, registry); err != nil {
+		log.Info("ScanJob targets do not match Registry", "scanJob", scanJob.Name, "reason", reason, "message", err.Error())
+		scanJob.MarkFailed(reason, err.Error())
+		return ctrl.Result{}, nil
 	}
 
 	// Only patch if we haven't already set the registry annotation
@@ -187,6 +194,27 @@ func (r *ScanJobReconciler) cleanupOldScanJobs(ctx context.Context, currentScanJ
 	}
 
 	return nil
+}
+
+// validateScanJobTargets returns an error if the ScanJob references a Registry repository or MatchCondition that does not exist.
+// The first return value is the reason code; both are empty/nil when all targets are valid.
+func validateScanJobTargets(scanJob *v1alpha1.ScanJob, registry *v1alpha1.Registry) (string, error) {
+	for _, target := range scanJob.Spec.Repositories {
+		repository := registry.GetRepository(target.Name)
+		if repository == nil {
+			return v1alpha1.ReasonRepositoryNotFound,
+				fmt.Errorf("repository %q is not declared on registry %q", target.Name, registry.Name)
+		}
+		for _, conditionName := range target.MatchConditions {
+			if !slices.ContainsFunc(repository.MatchConditions, func(mc v1alpha1.MatchCondition) bool {
+				return mc.Name == conditionName
+			}) {
+				return v1alpha1.ReasonMatchConditionNotFound,
+					fmt.Errorf("match condition %q is not declared on repository %q of registry %q", conditionName, target.Name, registry.Name)
+			}
+		}
+	}
+	return "", nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -119,6 +120,15 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 		return fmt.Errorf("cannot unmarshal registry data from scan job %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
 	}
 	h.logger.DebugContext(ctx, "Registry found", "registry", registry.Name, "namespace", registry.Namespace)
+
+	if err := applyTargetsToRegistry(registry, scanJob); err != nil {
+		return err
+	}
+	if len(scanJob.Spec.Repositories) > 0 {
+		h.logger.DebugContext(ctx, "Applied ScanJob targets to registry",
+			"registry", registry.Name, "namespace", registry.Namespace,
+			"scanjob", scanJob.Name, "repositories", len(registry.Spec.Repositories))
+	}
 
 	transport, err := h.transportFromRegistry(registry)
 	if err != nil {
@@ -251,8 +261,13 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	for _, image := range discoveredImages {
 		discoveredImageNames.Insert(image.Name)
 	}
-	if err = h.deleteObsoleteImages(ctx, existingImageNames, discoveredImageNames, registry.Namespace, message); err != nil {
-		return fmt.Errorf("cannot delete obsolete images in registry %s: %w", registry.Name, err)
+	if len(scanJob.Spec.Repositories) == 0 {
+		if err = h.deleteObsoleteImages(ctx, existingImageNames, discoveredImageNames, registry.Namespace, message); err != nil {
+			return fmt.Errorf("cannot delete obsolete images in registry %s: %w", registry.Name, err)
+		}
+	} else {
+		h.logger.InfoContext(ctx, "Skipping obsolete image cleanup: ScanJob targets a subset of the Registry",
+			"scanjob", scanJob.Name, "namespace", scanJob.Namespace)
 	}
 
 	// It is possible that the controller is slow to set the status condition "Scheduled" to true,
@@ -489,6 +504,39 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 	}
 
 	return images, nil
+}
+
+// applyTargetsToRegistry restricts registry.Spec.Repositories to the subset described by the ScanJob targets.
+// Returns an error if a referenced repository or match condition is not declared on the registry.
+func applyTargetsToRegistry(registry *v1alpha1.Registry, scanJob *v1alpha1.ScanJob) error {
+	if len(scanJob.Spec.Repositories) == 0 {
+		return nil
+	}
+
+	targetRepositories := make([]v1alpha1.Repository, 0, len(scanJob.Spec.Repositories))
+
+	for _, target := range scanJob.Spec.Repositories {
+		repository := registry.GetRepository(target.Name)
+		if repository == nil {
+			return fmt.Errorf("repository %q not declared on registry %q", target.Name, registry.Name)
+		}
+		targetRepository := *repository
+		if len(target.MatchConditions) > 0 {
+			targetMatchConditions := sets.New(target.MatchConditions...)
+			filteredConditions := slices.DeleteFunc(slices.Clone(targetRepository.MatchConditions), func(mc v1alpha1.MatchCondition) bool {
+				return !targetMatchConditions.Has(mc.Name)
+			})
+			if len(filteredConditions) != targetMatchConditions.Len() {
+				return fmt.Errorf("one or more MatchConditions of target repository %q not found on registry %q", target.Name, registry.Name)
+			}
+			targetRepository.MatchConditions = filteredConditions
+		}
+		targetRepositories = append(targetRepositories, targetRepository)
+	}
+
+	registry.Spec.Repositories = targetRepositories
+
+	return nil
 }
 
 // transportFromRegistry creates a new http.RoundTripper from the options specified in the Registry spec.

@@ -31,6 +31,22 @@ type ScanJobSpec struct {
 	// Registry is the registry in the same namespace to scan.
 	// +kubebuilder:validation:Required
 	Registry string `json:"registry"`
+	// Repositories optionally narrows the scan to a subset of the repositories configured on the targeted Registry.
+	// When empty, all repositories of the Registry are scanned.
+	// +optional
+	Repositories []ScanJobRepository `json:"repositories,omitempty"`
+}
+
+// ScanJobRepository selects a Registry repository (and optionally a subset of its match conditions) for a targeted ScanJob.
+type ScanJobRepository struct {
+	// Name is the name of a repository declared on the Registry.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+	// MatchConditions optionally narrows the scan to a subset of the MatchConditions declared on the targeted repository.
+	// Each entry must reference an existing MatchCondition by name.
+	// When empty, all MatchConditions of the repository apply.
+	// +optional
+	MatchConditions []string `json:"matchConditions,omitempty"`
 }
 
 const (
@@ -52,6 +68,8 @@ const (
 	ReasonNoImagesToScan            = "NoImagesToScan"
 	ReasonAllImagesScanned          = "AllImagesScanned"
 	ReasonRegistryNotFound          = "RegistryNotFound"
+	ReasonRepositoryNotFound        = "RepositoryNotFound"
+	ReasonMatchConditionNotFound    = "MatchConditionNotFound"
 	ReasonInternalError             = "InternalError"
 )
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -103,6 +104,11 @@ func (v *ScanJobCustomValidator) ValidateUpdate(_ context.Context, oldJob, newJo
 	if oldJob.Spec.Registry != newJob.Spec.Registry {
 		fieldPath := field.NewPath("spec").Child("registry")
 		allErrs = append(allErrs, field.Invalid(fieldPath, newJob.Spec.Registry, "field is immutable"))
+	}
+
+	if !equality.Semantic.DeepEqual(oldJob.Spec.Repositories, newJob.Spec.Repositories) {
+		fieldPath := field.NewPath("spec").Child("repositories")
+		allErrs = append(allErrs, field.Invalid(fieldPath, newJob.Spec.Repositories, "field is immutable"))
 	}
 
 	if len(allErrs) > 0 {

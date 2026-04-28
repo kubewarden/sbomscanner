@@ -2,13 +2,16 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,7 +77,8 @@ func (r *RegistryScanRunner) scanRegistries(ctx context.Context) error {
 func (r *RegistryScanRunner) checkRegistryForScan(ctx context.Context, registry *v1alpha1.Registry) error {
 	log := log.FromContext(ctx)
 
-	rescanRequested := registry.Annotations[v1alpha1.AnnotationRescanRequestedKey]
+	rescanRequests, mergedTargets, scanEverything := collectRescanRequests(ctx, registry)
+	hasRescanRequest := len(rescanRequests) > 0
 
 	lastScanJob, err := r.getLastScanJob(ctx, registry)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -87,33 +91,130 @@ func (r *RegistryScanRunner) checkRegistryForScan(ctx context.Context, registry 
 		return nil
 	}
 
-	if !r.shouldCreateScanJob(ctx, registry, lastScanJob, rescanRequested) {
+	if !r.shouldCreateScanJob(ctx, registry, lastScanJob, hasRescanRequest) {
 		return nil
 	}
 
-	if err := r.createScanJob(ctx, registry); err != nil {
+	var targets []v1alpha1.ScanJobRepository
+	if hasRescanRequest && !scanEverything {
+		targets = mergedTargets
+	}
+
+	if err := r.createScanJob(ctx, registry, targets); err != nil {
 		return fmt.Errorf("failed to create scan job for registry %s: %w", registry.Name, err)
 	}
 
 	log.Info("Created scan job for registry", "registry", registry.Name, "namespace", registry.Namespace)
 
-	if rescanRequested != "" {
-		if err := r.removeRescanAnnotation(ctx, registry, rescanRequested); err != nil {
-			return fmt.Errorf("failed to remove rescan annotation for registry %s: %w", registry.Name, err)
+	if hasRescanRequest {
+		if err := r.removeRescanAnnotations(ctx, registry, rescanRequests); err != nil {
+			return fmt.Errorf("failed to remove rescan annotations for registry %s: %w", registry.Name, err)
 		}
 	}
 
 	return nil
 }
 
+// collectRescanRequests gathers every rescan-requested annotation on the Registry and merges their targeting payloads.
+// Returns the annotation keys that were observed, the union of repositories/match conditions across all parsed payloads,
+// and a flag indicating that at least one payload requested a full-registry scan (no targeting).
+// Malformed annotations are logged and skipped.
+func collectRescanRequests(ctx context.Context, registry *v1alpha1.Registry) ([]string, []v1alpha1.ScanJobRepository, bool) {
+	log := log.FromContext(ctx)
+
+	rescanRequests := make([]string, 0)
+	for key := range registry.Annotations {
+		if strings.HasPrefix(key, v1alpha1.AnnotationRescanRequestedKeyPrefix) {
+			rescanRequests = append(rescanRequests, key)
+		}
+	}
+	if len(rescanRequests) == 0 {
+		return nil, nil, false
+	}
+
+	scanEverything := false
+	wildcardRepos := sets.New[string]()
+	condsByRepo := map[string]sets.Set[string]{}
+
+	for _, rescanRequest := range rescanRequests {
+		raw := registry.Annotations[rescanRequest]
+		var req v1alpha1.RescanRequest
+		if raw != "" {
+			if err := json.Unmarshal([]byte(raw), &req); err != nil {
+				log.Error(err, "Ignoring malformed rescan annotation",
+					"registry", registry.Name, "key", rescanRequest, "value", raw)
+				continue
+			}
+		}
+
+		if mergeRescanRequest(req, wildcardRepos, condsByRepo) {
+			scanEverything = true
+		}
+	}
+
+	if scanEverything {
+		return rescanRequests, nil, true
+	}
+
+	return rescanRequests, buildMergedTargets(wildcardRepos, condsByRepo), false
+}
+
+// mergeRescanRequest merges a single RescanRequest into the tracking sets.
+// Returns true if the request targets the entire registry (no repository filtering).
+func mergeRescanRequest(req v1alpha1.RescanRequest, wildcardRepos sets.Set[string], condsByRepo map[string]sets.Set[string]) bool {
+	if len(req.Repositories) == 0 {
+		return true
+	}
+	for _, repo := range req.Repositories {
+		if wildcardRepos.Has(repo.Name) {
+			continue // already wildcarded; narrower entries have no effect
+		}
+		if len(repo.MatchConditions) == 0 {
+			wildcardRepos.Insert(repo.Name)
+			delete(condsByRepo, repo.Name) // wildcard subsumes any specific conditions
+			continue
+		}
+		if condsByRepo[repo.Name] == nil {
+			condsByRepo[repo.Name] = sets.New[string]()
+		}
+		condsByRepo[repo.Name].Insert(repo.MatchConditions...)
+	}
+	return false
+}
+
+// buildMergedTargets produces a sorted list of ScanJobRepositories from the merged tracking sets.
+func buildMergedTargets(wildcardRepos sets.Set[string], condsByRepo map[string]sets.Set[string]) []v1alpha1.ScanJobRepository {
+	repoNamesSet := wildcardRepos.Clone()
+	for name := range condsByRepo {
+		repoNamesSet.Insert(name)
+	}
+
+	repoNames := repoNamesSet.UnsortedList()
+	sort.Strings(repoNames)
+
+	mergedTargets := make([]v1alpha1.ScanJobRepository, 0, len(repoNames))
+	for _, name := range repoNames {
+		var condNames []string
+		if conds := condsByRepo[name]; conds != nil {
+			condNames = conds.UnsortedList()
+			sort.Strings(condNames)
+		}
+		mergedTargets = append(mergedTargets, v1alpha1.ScanJobRepository{
+			Name:            name,
+			MatchConditions: condNames,
+		})
+	}
+	return mergedTargets
+}
+
 // shouldCreateScanJob determines if a scan job should be created.
-func (r *RegistryScanRunner) shouldCreateScanJob(ctx context.Context, registry *v1alpha1.Registry, lastScanJob *v1alpha1.ScanJob, rescanRequested string) bool {
+func (r *RegistryScanRunner) shouldCreateScanJob(ctx context.Context, registry *v1alpha1.Registry, lastScanJob *v1alpha1.ScanJob, hasRescanRequest bool) bool {
 	log := log.FromContext(ctx)
 
 	// If rescan was requested, always create a new scan job
-	if rescanRequested != "" {
+	if hasRescanRequest {
 		if lastScanJob != nil {
-			log.Info("Rescan requested for registry", "registry", registry.Name, "namespace", registry.Namespace, "requestedAt", rescanRequested)
+			log.Info("Rescan requested for registry", "registry", registry.Name, "namespace", registry.Namespace)
 		}
 		return true
 	}
@@ -143,9 +244,12 @@ func (r *RegistryScanRunner) shouldCreateScanJob(ctx context.Context, registry *
 	return true
 }
 
-// removeRescanAnnotation removes the rescan annotation if it matches the expected value.
-func (r *RegistryScanRunner) removeRescanAnnotation(ctx context.Context, registry *v1alpha1.Registry, expectedValue string) error {
-	log := log.FromContext(ctx)
+// removeRescanAnnotations removes the given rescan annotation keys from the Registry.
+// Keys added concurrently after we observed the registry are preserved and will be picked up in the next cycle.
+func (r *RegistryScanRunner) removeRescanAnnotations(ctx context.Context, registry *v1alpha1.Registry, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var current v1alpha1.Registry
@@ -156,21 +260,16 @@ func (r *RegistryScanRunner) removeRescanAnnotation(ctx context.Context, registr
 			return fmt.Errorf("failed to get current registry: %w", err)
 		}
 
-		currentAnnotation := current.Annotations[v1alpha1.AnnotationRescanRequestedKey]
-
-		// Only remove the annotation if it's the same one we processed.
-		// If the annotation changed (newer timestamp), another rescan was requested
-		// and we should leave it for the next cycle.
-		if currentAnnotation != expectedValue {
-			log.V(1).Info("Rescan annotation changed, not removing",
-				"registry", registry.Name,
-				"processed", expectedValue,
-				"current", currentAnnotation)
-
+		changed := false
+		for _, key := range keys {
+			if _, ok := current.Annotations[key]; ok {
+				delete(current.Annotations, key)
+				changed = true
+			}
+		}
+		if !changed {
 			return nil
 		}
-
-		delete(current.Annotations, v1alpha1.AnnotationRescanRequestedKey)
 
 		if err := r.Update(ctx, &current); err != nil {
 			return fmt.Errorf("failed to update registry: %w", err)
@@ -178,7 +277,7 @@ func (r *RegistryScanRunner) removeRescanAnnotation(ctx context.Context, registr
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to remove rescan annotation: %w", err)
+		return fmt.Errorf("failed to remove rescan annotations: %w", err)
 	}
 
 	return nil
@@ -212,7 +311,8 @@ func (r *RegistryScanRunner) getLastScanJob(ctx context.Context, registry *v1alp
 }
 
 // createScanJob creates a new ScanJob for the given registry.
-func (r *RegistryScanRunner) createScanJob(ctx context.Context, registry *v1alpha1.Registry) error {
+// When repositories is non-empty, the ScanJob targets only that subset.
+func (r *RegistryScanRunner) createScanJob(ctx context.Context, registry *v1alpha1.Registry, repositories []v1alpha1.ScanJobRepository) error {
 	scanJob := &v1alpha1.ScanJob{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", registry.Name),
@@ -222,7 +322,8 @@ func (r *RegistryScanRunner) createScanJob(ctx context.Context, registry *v1alph
 			},
 		},
 		Spec: v1alpha1.ScanJobSpec{
-			Registry: registry.Name,
+			Registry:     registry.Name,
+			Repositories: repositories,
 		},
 	}
 

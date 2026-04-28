@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kubewarden/sbomscanner/api"
@@ -130,14 +130,23 @@ func (r *WorkloadScanReconciler) updateRegistry(
 	registry.Spec.Platforms = config.Spec.Platforms
 
 	currentMatchConditions := extractMatchConditionsFromRegistry(registry)
-	hasNewMatchConditions := currentMatchConditions.Difference(oldMatchConditions).Len() > 0
+	addedMatchConditions := currentMatchConditions.Difference(oldMatchConditions)
 
-	if config.Spec.ScanOnChange && hasNewMatchConditions {
+	if config.Spec.ScanOnChange && addedMatchConditions.Len() > 0 {
 		if registry.Annotations == nil {
 			registry.Annotations = make(map[string]string)
 		}
-		registry.Annotations[v1alpha1.AnnotationRescanRequestedKey] = time.Now().UTC().Format(time.RFC3339)
-		logger.V(1).Info("Match conditions changed, marking registry for rescan", "registry", registry.Name)
+
+		rescanRequest := buildRescanRequest(addedMatchConditions)
+		rescanRequestJSON, err := json.Marshal(rescanRequest)
+		if err != nil {
+			return false, fmt.Errorf("failed to marshal rescan annotation: %w", err)
+		}
+		rescanKey := v1alpha1.NewRescanRequestedAnnotationKey()
+		registry.Annotations[rescanKey] = string(rescanRequestJSON)
+		logger.V(1).Info("Match conditions changed, marking registry for rescan",
+			"registry", registry.Name,
+			"newMatchConditions", addedMatchConditions.Len())
 	}
 
 	if err := r.Update(ctx, registry); err != nil {
@@ -150,6 +159,37 @@ func (r *WorkloadScanReconciler) updateRegistry(
 		"repositories", len(updatedRepositories))
 
 	return false, nil
+}
+
+// buildRescanRequest builds a deterministic (sorted) RescanRequest targeting the repositories and match conditions in the given set.
+func buildRescanRequest(matchConditions sets.Set[matchConditionKey]) v1alpha1.RescanRequest {
+	byRepo := map[string]sets.Set[string]{}
+	for key := range matchConditions {
+		conditions, ok := byRepo[key.repository]
+		if !ok {
+			conditions = sets.New[string]()
+			byRepo[key.repository] = conditions
+		}
+		conditions.Insert(key.name)
+	}
+
+	repoNames := make([]string, 0, len(byRepo))
+	for name := range byRepo {
+		repoNames = append(repoNames, name)
+	}
+	slices.Sort(repoNames)
+
+	repositories := make([]v1alpha1.ScanJobRepository, 0, len(repoNames))
+	for _, name := range repoNames {
+		condNames := byRepo[name].UnsortedList()
+		slices.Sort(condNames)
+		repositories = append(repositories, v1alpha1.ScanJobRepository{
+			Name:            name,
+			MatchConditions: condNames,
+		})
+	}
+
+	return v1alpha1.RescanRequest{Repositories: repositories}
 }
 
 // buildNeededMatchConditions builds the set of match conditions this namespace needs from the repositories.
@@ -318,8 +358,13 @@ func (r *WorkloadScanReconciler) createRegistry(
 
 	// Set rescan annotation on creation if ScanOnChange is enabled
 	if config.Spec.ScanOnChange {
+		rescanValue, err := json.Marshal(v1alpha1.RescanRequest{})
+		if err != nil {
+			return fmt.Errorf("failed to build rescan annotation: %w", err)
+		}
+		rescanKey := v1alpha1.NewRescanRequestedAnnotationKey()
 		registry.Annotations = map[string]string{
-			v1alpha1.AnnotationRescanRequestedKey: time.Now().UTC().Format(time.RFC3339),
+			rescanKey: string(rescanValue),
 		}
 	}
 

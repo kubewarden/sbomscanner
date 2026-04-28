@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -174,6 +175,90 @@ var _ = Describe("ScanJob Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updatedScanJob.IsFailed()).To(BeTrue())
 		})
+	})
+
+	When("A ScanJob has Repositories that do not match the Registry", func() {
+		var reconciler ScanJobReconciler
+		var registry v1alpha1.Registry
+		var mockPublisher *messagingMocks.MockPublisher
+
+		BeforeEach(func(ctx context.Context) {
+			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
+			reconciler = ScanJobReconciler{
+				Client:    k8sClient,
+				Publisher: mockPublisher,
+				Scheme:    k8sClient.Scheme(),
+			}
+
+			By("Creating a Registry with known repositories and match conditions")
+			registry = v1alpha1.Registry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.New().String(),
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI: "https://registry.example.com",
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: "foo/bar",
+							MatchConditions: []v1alpha1.MatchCondition{
+								{Name: "tag-v1", Expression: `tag == "v1"`},
+								{Name: "tag-v2", Expression: `tag == "v2"`},
+							},
+						},
+						{
+							Name: "foo/baz",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, &registry)).To(Succeed())
+		})
+
+		DescribeTable("should mark the ScanJob as failed with the expected reason",
+			func(ctx context.Context, repositories []v1alpha1.ScanJobRepository, expectedReason string) {
+				By("Creating a ScanJob with invalid targets")
+				scanJob := v1alpha1.ScanJob{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.New().String(),
+						Namespace: "default",
+					},
+					Spec: v1alpha1.ScanJobSpec{
+						Registry:     registry.Name,
+						Repositories: repositories,
+					},
+				}
+				Expect(k8sClient.Create(ctx, &scanJob)).To(Succeed())
+
+				By("Reconciling the ScanJob")
+				_, err := reconciler.Reconcile(ctx, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      scanJob.Name,
+						Namespace: scanJob.Namespace,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verifying the ScanJob is marked as failed with the expected reason")
+				updated := &v1alpha1.ScanJob{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{
+					Name:      scanJob.Name,
+					Namespace: scanJob.Namespace,
+				}, updated)).To(Succeed())
+				Expect(updated.IsFailed()).To(BeTrue())
+				cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ConditionTypeFailed)
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Reason).To(Equal(expectedReason))
+			},
+			Entry("unknown repository => RepositoryNotFound",
+				[]v1alpha1.ScanJobRepository{{Name: "missing/repo"}},
+				v1alpha1.ReasonRepositoryNotFound,
+			),
+			Entry("unknown matchCondition => MatchConditionNotFound",
+				[]v1alpha1.ScanJobRepository{{Name: "foo/bar", MatchConditions: []string{"tag-missing"}}},
+				v1alpha1.ReasonMatchConditionNotFound,
+			),
+		)
 	})
 
 	When("A ScanJob is already completed", func() {
