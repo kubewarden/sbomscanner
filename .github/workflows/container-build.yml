@@ -72,10 +72,12 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${{ steps.build-image.outputs.digest }}
 
       - name: Verify container image signature
+        env:
+          GH_REF: ${{ github.ref }}
         run: |
           cosign verify \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            --certificate-identity="https://github.com/${{github.repository_owner}}/sbomscanner/.github/workflows/container-build.yml@${{ github.ref }}" \
+            --certificate-identity="https://github.com/${{github.repository_owner}}/sbomscanner/.github/workflows/container-build.yml@${GH_REF}" \
             ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${{ steps.build-image.outputs.digest }}
 
       - name: Export digest
@@ -127,8 +129,10 @@ jobs:
 
       - name: Retrieve tag name (release)
         if: ${{ !startsWith(github.ref, 'refs/heads/main') }}
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          echo TAG_NAME=${{ inputs.version }} >> $GITHUB_ENV
+          echo "TAG_NAME=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Create and push multi-arch manifest for ${{ matrix.component }}
         id: create-manifest
@@ -182,10 +186,12 @@ jobs:
           echo "MULTI_ARCH_MANIFEST_DIGEST=$multi_arch_manifest_digest" >> $GITHUB_ENV
 
       - name: Verify multi-arch manifest signature
+        env:
+          GH_REF: ${{ github.ref }}
         run: |
           cosign verify \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            --certificate-identity="https://github.com/${{github.repository_owner}}/sbomscanner/.github/workflows/container-build.yml@${{ github.ref }}" \
+            --certificate-identity="https://github.com/${{github.repository_owner}}/sbomscanner/.github/workflows/container-build.yml@${GH_REF}" \
             ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${{ env.MULTI_ARCH_MANIFEST_DIGEST}}
 
   attest:
