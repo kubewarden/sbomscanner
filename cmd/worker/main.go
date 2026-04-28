@@ -143,6 +143,7 @@ func main() {
 	}
 
 	var scanMode messaging.HandlerScan
+	var durableName string
 	switch mode {
 	case "registry":
 		scanMode = messaging.HandlerScan{
@@ -150,11 +151,13 @@ func main() {
 			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
 			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
+		durableName = "worker-registry"
 	case "node":
 		scanMode = messaging.HandlerScan{
 			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
 			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
+		durableName = "worker-node-" + nodeName
 	default:
 		logger.Error("Invalid scanning mode", "mode", mode)
 		os.Exit(1)
@@ -167,7 +170,7 @@ func main() {
 		MaxAttempts: 5,
 	}
 
-	subscriber, err := messaging.NewNatsSubscriber(ctx, nc, "worker", scanMode, failureHandler, retryConfig, logger)
+	subscriber, err := messaging.NewNatsSubscriber(ctx, nc, durableName, scanMode, failureHandler, retryConfig, logger)
 	if err != nil {
 		logger.Error("Error creating NATS subscriber", "error", err)
 		os.Exit(1)

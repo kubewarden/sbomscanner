@@ -62,9 +62,6 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to list nodes: %w", err)
 	}
-	logger.Info("Found nodes matching selector", "selector", selector.String())
-	logger.Info("Found nodes matching selector", "count", len(nodes.Items))
-	logger.Info("Found nodes matching selector", "count", nodes.Items)
 
 	for i := range nodes.Items {
 		node := &nodes.Items[i]
