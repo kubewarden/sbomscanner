@@ -1,0 +1,16 @@
+apiVersion: sbomscanner.kubewarden.io/v1alpha1
+kind: NodeScanConfiguration
+metadata:
+  name: default
+spec:
+  skip:
+    - /tmp
+    - /var/tmp
+    - /var/cache
+  scanInterval: 2m
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/os
+        operator: In
+        values:
+          - linux

@@ -34,6 +34,19 @@ func TransformStripSBOM(obj interface{}) (interface{}, error) {
 	return cache.TransformStripManagedFields()(sbom)
 }
 
+// TransformStripNodeSBOM strips the NodeSBOM object of its SPDX field and managed fields.
+// This is useful for caching scenarios where the SPDX data is not needed, reducing memory usage.
+func TransformStripNodeSBOM(obj interface{}) (interface{}, error) {
+	nodeSBOM, ok := obj.(*storagev1alpha1.NodeSBOM)
+	if !ok {
+		return nil, fmt.Errorf("expected NodeSBOM object, got %T", obj)
+	}
+
+	nodeSBOM.SPDX = runtime.RawExtension{}
+
+	return cache.TransformStripManagedFields()(nodeSBOM)
+}
+
 // TransformStripVulnerabilityReport strips the VulnerabilityReport object of its Results field and managed fields.
 // This is useful for caching scenarios where the Results data is not needed, reducing memory usage.
 func TransformStripVulnerabilityReport(obj interface{}) (interface{}, error) {
@@ -45,6 +58,19 @@ func TransformStripVulnerabilityReport(obj interface{}) (interface{}, error) {
 	vulnerabilityReport.Report.Results = nil
 
 	return cache.TransformStripManagedFields()(vulnerabilityReport)
+}
+
+// TransformStripNodeVulnerabilityReport strips the NodeVulnerabilityReport object of its Results field and managed fields.
+// This is useful for caching scenarios where the Results data is not needed, reducing memory usage.
+func TransformStripNodeVulnerabilityReport(obj interface{}) (interface{}, error) {
+	nodeVulnerabilityReport, ok := obj.(*storagev1alpha1.NodeVulnerabilityReport)
+	if !ok {
+		return obj, fmt.Errorf("expected NodeVulnerabilityReport object, got %T", obj)
+	}
+
+	nodeVulnerabilityReport.Report.Results = nil
+
+	return cache.TransformStripManagedFields()(nodeVulnerabilityReport)
 }
 
 // TransformStripWorkloadScanReport strips the WorkloadScanReport object of its status.

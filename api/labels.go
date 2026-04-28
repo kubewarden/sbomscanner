@@ -9,4 +9,6 @@ const (
 	LabelPartOfValue       = "sbomscanner"
 	LabelWorkloadScanKey   = "sbomscanner.kubewarden.io/workloadscan"
 	LabelWorkloadScanValue = "true"
+	LabelNodeScanKey       = "sbomscanner.kubewarden.io/nodescan"
+	LabelNodeScanValue     = "true"
 )

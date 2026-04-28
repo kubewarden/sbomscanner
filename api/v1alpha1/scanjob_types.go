@@ -26,13 +26,6 @@ const (
 	AnnotationScanJobTriggerKey = "sbomscanner.kubewarden.io/trigger"
 )
 
-// ScanJobSpec defines the desired state of ScanJob.
-type ScanJobSpec struct {
-	// Registry is the registry in the same namespace to scan.
-	// +kubebuilder:validation:Required
-	Registry string `json:"registry"`
-}
-
 const (
 	ConditionTypeScheduled  = "Scheduled"
 	ConditionTypeInProgress = "InProgress"
@@ -62,6 +55,13 @@ const (
 	messageCompleted  = "ScanJob completed successfully"
 	messageFailed     = "ScanJob failed"
 )
+
+// ScanJobSpec defines the desired state of ScanJob.
+type ScanJobSpec struct {
+	// Registry is the registry in the same namespace to scan.
+	// +kubebuilder:validation:Required
+	Registry string `json:"registry"`
+}
 
 // ScanJobStatus defines the observed state of ScanJob.
 type ScanJobStatus struct {

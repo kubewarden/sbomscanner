@@ -296,7 +296,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	for _, image := range discoveredImages {
 		h.logger.DebugContext(ctx, "Sending generate SBOM message", "image", image.Name, "namespace", image.Namespace)
 
-		messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.UID, image.Name)
+		messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.GetUID(), image.Name)
 		message, err := json.Marshal(&GenerateSBOMMessage{
 			BaseMessage: BaseMessage{
 				ScanJob: createCatalogMessage.ScanJob,

@@ -20,6 +20,9 @@ rules:
     resources:
       - scanjobs
       - scanjobs/status
+      - nodescanjobs
+      - nodescanjobs/status
+      - nodescanconfigurations
     verbs:
       - get
       - list
@@ -32,6 +35,8 @@ rules:
       - images
       - sboms
       - vulnerabilityreports
+      - nodesboms
+      - nodevulnerabilityreports
     verbs:
       - create
       - delete
@@ -44,5 +49,6 @@ rules:
       - ""
     resources:
       - secrets
+      - nodes
     verbs:
       - get
