@@ -36,6 +36,16 @@ Change the `repository_url` (if any) within the VEX files, to point to the inter
 
 All you need to do is to setup an HTTP server to provide the needed files for VEX.
 
+By default, SBOMscanner seeds two `VEXHub` resources pointing to the public
+`github.com/rancher/vexhub` and `github.com/aquasecurity/vexhub` repositories,
+which are unreachable in an air-gapped environment. Disable this seeding at
+install time by setting `controller.defaultVEXHubResources` to `false`:
+
+```shell
+helm install sbomscanner ./chart \
+    --set controller.defaultVEXHubResources=false
+```
+
 To configure a VEX Hub in SBOMscanner, create a `VEXHub` resource with your local repository URL and apply it:
 
 ```yaml
