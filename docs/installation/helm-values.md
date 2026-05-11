@@ -173,3 +173,21 @@ storage:
 ```
 
 **Please note:** When using an external PostgreSQL instance, make sure the database is already created and accessible from your Kubernetes cluster.
+
+## Default VEXHub Resources
+
+On chart install, SBOMscanner seeds two `VEXHub` resources pointing to the
+public `github.com/rancher/vexhub` and `github.com/aquasecurity/vexhub`
+repositories. They are created via a `post-install` hook and are not tracked
+by the Helm release, so you can freely modify, disable, or delete them
+afterwards without Helm reverting your changes on subsequent upgrades.
+
+```yaml
+controller:
+  defaultVEXHubResources: true
+```
+
+Set this to `false` to skip seeding the defaults — for example in air-gapped
+environments where the public repositories are not reachable. See
+[Air Gap Support](../user-guide/airgap-support.md#self-hosting-vex-hub) for
+details on configuring a self-hosted VEX Hub.
