@@ -5,6 +5,9 @@
         "controller": {
             "type": "object",
             "properties": {
+                "defaultVEXHubResources": {
+                    "type": "boolean"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
@@ -62,9 +65,6 @@
                             "type": "boolean"
                         }
                     }
-                },
-                "defaultVEXHubResources": {
-                    "type": "boolean"
                 }
             }
         },
