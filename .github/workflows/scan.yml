@@ -70,17 +70,29 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Install Trivy
         env:
           # renovate: datasource=github-releases depName=aquasecurity/trivy
           TRIVY_VERSION: "0.70.0"
         run: |
           set -euo pipefail
-          curl -fsSL -o trivy.tar.gz \
-            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          tar -xzf trivy.tar.gz trivy
+          tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          curl -fsSL -o "${tarball}"               "${base}/${tarball}"
+          curl -fsSL -o "${tarball}.sigstore.json" "${base}/${tarball}.sigstore.json"
+          # Verify the tarball was signed by Trivy's release workflow on GitHub
+          # via Sigstore keyless signing. This binds the artifact to the
+          # specific upstream tag's release workflow identity.
+          cosign verify-blob \
+            --bundle "${tarball}.sigstore.json" \
+            --certificate-identity-regexp "^https://github\.com/aquasecurity/trivy/\.github/workflows/.+@refs/tags/v${TRIVY_VERSION}\$" \
+            --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+            "${tarball}"
+          tar -xzf "${tarball}" trivy
           sudo install -m 0755 trivy /usr/local/bin/trivy
-          rm -f trivy trivy.tar.gz
+          rm -f trivy "${tarball}" "${tarball}.sigstore.json"
           trivy --version
       - name: Run Trivy filesystem scan
         # Exit 0 so findings are surfaced via the SARIF upload below rather
