@@ -970,6 +970,10 @@ so we have to restore it. + |  |
 | *`diffID`* __string__ | DiffID of the image layer where the vulnerability was introduced + |  | 
 | *`description`* __string__ | Description of the vulnerability + |  | 
 | *`severity`* __string__ | Severity rating (e.g., "HIGH", "MEDIUM") + |  | 
+| *`severitySource`* __string__ | SeveritySource identifies the vendor that produced the Severity +
+(e.g. "nvd", "ghsa", "redhat", "alpine"). +
+Consumers can use this key to look up the matching entry in the CVSS map to display alongside Severity. +
+May be empty when the source vendor is not known. + |  | 
 | *`references`* __string array__ | References contains URLs for more information + |  | 
 | *`cvss`* __object (keys:string, values:xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-cvss[$$CVSS$$])__ | CVSS scoring details + |  | 
 | *`cwes`* __string array__ | CWEs with which the CVE is classified + |  | 
