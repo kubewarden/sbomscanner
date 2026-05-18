@@ -68,9 +68,10 @@ func TestNewResultsFromTrivyReport(t *testing.T) {
 							FixedVersions: []string{
 								"0.36.0",
 							},
-							DiffID:      "sha256:d37a3e42d123ca619ceab4bbe3c1e9a96d0a837e5e0e3052b33dbd0e842c5661",
-							Description: "Lorem ipsum",
-							Severity:    storagev1alpha1.SeverityMedium,
+							DiffID:         "sha256:d37a3e42d123ca619ceab4bbe3c1e9a96d0a837e5e0e3052b33dbd0e842c5661",
+							Description:    "Lorem ipsum",
+							Severity:       storagev1alpha1.SeverityMedium,
+							SeveritySource: "ghsa",
 							References: []string{
 								"http://www.openwall.com/lists/oss-security/2025/03/07/2",
 								"https://access.redhat.com/security/cve/CVE-2025-22870",
