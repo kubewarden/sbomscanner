@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/aquasecurity/trivy v0.70.0
-	github.com/aquasecurity/trivy-db v0.0.0-20260429080452-bd11dd425d21
+	github.com/aquasecurity/trivy-db v0.0.0-20260512084903-2034dd8c7e69
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/avast/retry-go/v5 v5.0.0
 	github.com/aws/smithy-go v1.25.1
