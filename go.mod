@@ -19,7 +19,7 @@ require (
 	github.com/nats-io/nats-server/v2 v2.14.0
 	github.com/nats-io/nats.go v1.52.0
 	github.com/onsi/ginkgo/v2 v2.29.0
-	github.com/onsi/gomega v1.40.0
+	github.com/onsi/gomega v1.41.0
 	github.com/spdx/tools-golang v0.5.7
 	github.com/stephenafamo/bob v0.43.0
 	github.com/stretchr/testify v1.11.1
