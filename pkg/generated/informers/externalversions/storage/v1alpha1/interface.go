@@ -10,6 +10,10 @@ import (
 type Interface interface {
 	// Images returns a ImageInformer.
 	Images() ImageInformer
+	// NodeSBOMs returns a NodeSBOMInformer.
+	NodeSBOMs() NodeSBOMInformer
+	// NodeVulnerabilityReports returns a NodeVulnerabilityReportInformer.
+	NodeVulnerabilityReports() NodeVulnerabilityReportInformer
 	// SBOMs returns a SBOMInformer.
 	SBOMs() SBOMInformer
 	// VulnerabilityReports returns a VulnerabilityReportInformer.
@@ -32,6 +36,16 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // Images returns a ImageInformer.
 func (v *version) Images() ImageInformer {
 	return &imageInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// NodeSBOMs returns a NodeSBOMInformer.
+func (v *version) NodeSBOMs() NodeSBOMInformer {
+	return &nodeSBOMInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// NodeVulnerabilityReports returns a NodeVulnerabilityReportInformer.
+func (v *version) NodeVulnerabilityReports() NodeVulnerabilityReportInformer {
+	return &nodeVulnerabilityReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // SBOMs returns a SBOMInformer.

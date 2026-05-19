@@ -61,6 +61,31 @@ func (in ImageWorkloadScanReports) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeMetadata) OpenAPIModelName() string {
+	return "storage.sbomscanner.kubewarden.io.v1alpha1.NodeMetadata"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeSBOM) OpenAPIModelName() string {
+	return "storage.sbomscanner.kubewarden.io.v1alpha1.NodeSBOM"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeSBOMList) OpenAPIModelName() string {
+	return "storage.sbomscanner.kubewarden.io.v1alpha1.NodeSBOMList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeVulnerabilityReport) OpenAPIModelName() string {
+	return "storage.sbomscanner.kubewarden.io.v1alpha1.NodeVulnerabilityReport"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeVulnerabilityReportList) OpenAPIModelName() string {
+	return "storage.sbomscanner.kubewarden.io.v1alpha1.NodeVulnerabilityReportList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Report) OpenAPIModelName() string {
 	return "storage.sbomscanner.kubewarden.io.v1alpha1.Report"
 }
