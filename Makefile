@@ -77,7 +77,7 @@ storage-image:
 		-t "$(REGISTRY)/$(REPO)/storage:$(TAG)" .
 	@echo "Built $(REGISTRY)/$(REPO)/storage:$(TAG)"
 
-WORKER_SRC_DIRS := cmd/worker api internal/messaging internal/handlers
+WORKER_SRC_DIRS := cmd/worker api internal/messaging internal/handlers internal/skippatterns
 WORKER_GO_SRCS := $(shell find $(WORKER_SRC_DIRS) -type f -name '*.go')
 WORKER_SRCS := $(GO_MOD_SRCS) $(WORKER_GO_SRCS)
 .PHONY: worker

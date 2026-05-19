@@ -110,7 +110,7 @@ var _ = Describe("RegistryScanRunner", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, completedJob)).To(Succeed())
-				completedJob.MarkComplete(v1alpha1.ReasonComplete, "Done")
+				completedJob.MarkComplete(v1alpha1.ReasonScanJobComplete, "Done")
 				completedJob.Status.CompletionTime = &metav1.Time{Time: time.Now().Add(-2 * time.Hour)}
 				Expect(k8sClient.Status().Update(ctx, completedJob)).To(Succeed())
 
@@ -140,7 +140,7 @@ var _ = Describe("RegistryScanRunner", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, recentJob)).To(Succeed())
-				recentJob.MarkComplete(v1alpha1.ReasonComplete, "Done")
+				recentJob.MarkComplete(v1alpha1.ReasonScanJobComplete, "Done")
 				recentJob.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 				Expect(k8sClient.Status().Update(ctx, recentJob)).To(Succeed())
 
@@ -277,7 +277,7 @@ var _ = Describe("RegistryScanRunner", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, completedJob)).To(Succeed())
-				completedJob.MarkComplete(v1alpha1.ReasonComplete, "Done")
+				completedJob.MarkComplete(v1alpha1.ReasonScanJobComplete, "Done")
 				completedJob.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 				Expect(k8sClient.Status().Update(ctx, completedJob)).To(Succeed())
 
@@ -314,7 +314,7 @@ var _ = Describe("RegistryScanRunner", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, completedJob)).To(Succeed())
-				completedJob.MarkComplete(v1alpha1.ReasonComplete, "Done")
+				completedJob.MarkComplete(v1alpha1.ReasonScanJobComplete, "Done")
 				completedJob.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 				Expect(k8sClient.Status().Update(ctx, completedJob)).To(Succeed())
 

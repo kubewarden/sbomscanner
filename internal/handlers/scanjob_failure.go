@@ -55,7 +55,7 @@ func (h *ScanJobFailureHandler) HandleFailure(ctx context.Context, message messa
 			return fmt.Errorf("cannot get scanjob %s/%s: %w", baseMessage.ScanJob.Namespace, baseMessage.ScanJob.Name, err)
 		}
 
-		scanJob.MarkFailed(sbombasticv1alpha1.ReasonInternalError, errorMessage)
+		scanJob.MarkFailed(sbombasticv1alpha1.ReasonScanJobInternalError, errorMessage)
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
 	if err != nil {

@@ -98,7 +98,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			)
 		}
 
-		scanJob.MarkInProgress(v1alpha1.ReasonCatalogCreationInProgress, "Catalog creation in progress")
+		scanJob.MarkInProgress(v1alpha1.ReasonScanJobCatalogCreationInProgress, "Catalog creation in progress")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
 	if err != nil {
@@ -289,10 +289,10 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 
 		if len(discoveredImages) == 0 {
 			h.logger.InfoContext(ctx, "No images to process", "scanjob", scanJob.Name, "namespace", scanJob.Namespace)
-			scanJob.MarkComplete(v1alpha1.ReasonNoImagesToScan, "No images to process")
+			scanJob.MarkComplete(v1alpha1.ReasonScanJobNoImagesToScan, "No images to process")
 		} else {
 			h.logger.InfoContext(ctx, "Images to process", "count", len(discoveredImages))
-			scanJob.MarkInProgress(v1alpha1.ReasonSBOMGenerationInProgress, "SBOM generation in progress")
+			scanJob.MarkInProgress(v1alpha1.ReasonScanJobSBOMGenerationInProgress, "SBOM generation in progress")
 			scanJob.Status.ImagesCount = len(discoveredImages)
 			scanJob.Status.ScannedImagesCount = 0
 		}
@@ -311,7 +311,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	for _, image := range discoveredImages {
 		h.logger.DebugContext(ctx, "Sending generate SBOM message", "image", image.Name, "namespace", image.Namespace)
 
-		messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.UID, image.Name)
+		messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.GetUID(), image.Name)
 		message, err := json.Marshal(&GenerateSBOMMessage{
 			BaseMessage: BaseMessage{
 				ScanJob: createCatalogMessage.ScanJob,

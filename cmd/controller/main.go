@@ -74,6 +74,7 @@ type Config struct {
 	Init                    bool
 	LogLevel                string
 	WorkloadScan            bool
+	NodeScan                bool
 }
 
 func parseFlags() Config {
@@ -99,6 +100,7 @@ func parseFlags() Config {
 	flag.BoolVar(&cfg.Init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level")
 	flag.BoolVar(&cfg.WorkloadScan, "workloadscan", true, "Enable workload scan controllers.")
+	flag.BoolVar(&cfg.NodeScan, "nodescan", true, "Enable node scan controllers.")
 
 	flag.Parse()
 	return cfg
@@ -342,6 +344,43 @@ func main() {
 			Client: mgr.GetClient(),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ImageWorkloadScan")
+			os.Exit(1)
+		}
+	}
+
+	//nolint: nestif // The node scan controllers and webhook are related and should be grouped together
+	if cfg.NodeScan {
+		if err = (&controller.NodeScanRunner{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create runner", "runner", "NodeScanRunner")
+			os.Exit(1)
+		}
+
+		if err = (&controller.NodeScanReconciler{
+			Client: mgr.GetClient(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "NodeScan")
+			os.Exit(1)
+		}
+
+		if err = (&controller.NodeScanJobReconciler{
+			Client:    mgr.GetClient(),
+			Scheme:    mgr.GetScheme(),
+			Publisher: publisher,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "NodeScanJob")
+			os.Exit(1)
+		}
+
+		if err = webhookv1alpha1.SetupNodeScanConfigurationWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanConfiguration")
+			os.Exit(1)
+		}
+
+		if err = webhookv1alpha1.SetupNodeScanJobWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanJob")
 			os.Exit(1)
 		}
 	}

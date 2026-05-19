@@ -246,17 +246,17 @@ var _ = Describe("ScanJob Controller", func() {
 					Namespace: scanJob.Namespace,
 				}, updated)).To(Succeed())
 				Expect(updated.IsFailed()).To(BeTrue())
-				cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ConditionTypeFailed)
+				cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ConditionScanJobTypeFailed)
 				Expect(cond).NotTo(BeNil())
 				Expect(cond.Reason).To(Equal(expectedReason))
 			},
 			Entry("unknown repository => RepositoryNotFound",
 				[]v1alpha1.ScanJobRepository{{Name: "missing/repo"}},
-				v1alpha1.ReasonRepositoryNotFound,
+				v1alpha1.ReasonScanJobRepositoryNotFound,
 			),
 			Entry("unknown matchCondition => MatchConditionNotFound",
 				[]v1alpha1.ScanJobRepository{{Name: "foo/bar", MatchConditions: []string{"tag-missing"}}},
-				v1alpha1.ReasonMatchConditionNotFound,
+				v1alpha1.ReasonScanJobMatchConditionNotFound,
 			),
 		)
 	})
@@ -288,7 +288,7 @@ var _ = Describe("ScanJob Controller", func() {
 			Expect(k8sClient.Create(ctx, &scanJob)).To(Succeed())
 
 			By("Marking the ScanJob as completed")
-			scanJob.MarkComplete(v1alpha1.ReasonAllImagesScanned, "Scan completed successfully")
+			scanJob.MarkComplete(v1alpha1.ReasonScanJobAllImagesScanned, "Scan completed successfully")
 			Expect(k8sClient.Status().Update(ctx, &scanJob)).To(Succeed())
 		})
 
