@@ -110,7 +110,7 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				}
 				job.InitializeConditions()
-				job.MarkInProgress(v1alpha1.ReasonImageScanInProgress, "Image scan in progress")
+				job.MarkInProgress(v1alpha1.ReasonScanJobImageScanInProgress, "Image scan in progress")
 				return job
 			}(),
 			existingRegistry: defaultRegistry,
@@ -139,7 +139,7 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				}
 				job.InitializeConditions()
-				job.MarkComplete(v1alpha1.ReasonAllImagesScanned, "Done")
+				job.MarkComplete(v1alpha1.ReasonScanJobAllImagesScanned, "Done")
 				return job
 			}(),
 			existingRegistry: defaultRegistry,
@@ -166,7 +166,7 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 					},
 				}
 				job.InitializeConditions()
-				job.MarkFailed(v1alpha1.ReasonInternalError, "Failed")
+				job.MarkFailed(v1alpha1.ReasonScanJobInternalError, "Failed")
 				return job
 			}(),
 			existingRegistry: defaultRegistry,
