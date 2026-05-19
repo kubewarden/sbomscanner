@@ -36,7 +36,7 @@ func (d *databaseChecker) Check(req *http.Request) error {
 	defer cancel()
 
 	if err := d.db.Ping(ctx); err != nil {
-		d.logger.Debug("database ping failed", "error", err)
+		d.logger.DebugContext(req.Context(), "database ping failed", "error", err)
 		return fmt.Errorf("database not reachable: %w", err)
 	}
 

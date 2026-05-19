@@ -33,6 +33,7 @@ const keyPrefix = "/storage.sbomscanner.kubewarden.io/sboms"
 
 type storeTestSuite struct {
 	suite.Suite
+
 	store       *store
 	db          *pgxpool.Pool
 	broadcaster *watch.Broadcaster
@@ -345,7 +346,7 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 	go suite.watcher.Start(suite.T().Context())
 
 	tryUpdate := func(input runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
-		return input, ptr.To(uint64(0)), nil
+		return input, new(uint64(0)), nil
 	}
 	updatedSBOM := &storagev1alpha1.SBOM{}
 	err = suite.store.GuaranteedUpdate(
@@ -434,7 +435,7 @@ func (suite *storeTestSuite) TestWatchList() {
 	predicate.AllowWatchBookmarks = true
 
 	opts := k8sstorage.ListOptions{
-		SendInitialEvents: ptr.To(true),
+		SendInitialEvents: new(true),
 		Predicate:         predicate,
 		Recursive:         true,
 	}
@@ -913,12 +914,12 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 			tryUpdate: func(input runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 				sbom, ok := input.(*storagev1alpha1.SBOM)
 				if !ok {
-					return nil, ptr.To(uint64(0)), errors.New("input is not of type *v1alpha1.SBOM")
+					return nil, new(uint64(0)), errors.New("input is not of type *v1alpha1.SBOM")
 				}
 
 				sbom.SPDX.Raw = []byte(`{"foo": "bar"}`)
 
-				return input, ptr.To(uint64(0)), nil
+				return input, new(uint64(0)), nil
 			},
 			sbom: &storagev1alpha1.SBOM{
 				ObjectMeta: metav1.ObjectMeta{

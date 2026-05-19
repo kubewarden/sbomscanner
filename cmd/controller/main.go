@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -223,7 +222,7 @@ func main() {
 			},
 		}: {
 			// Read-only
-			UnsafeDisableDeepCopy: ptr.To(true),
+			UnsafeDisableDeepCopy: new(true),
 		},
 		&metav1.PartialObjectMetadata{
 			TypeMeta: metav1.TypeMeta{
@@ -232,7 +231,7 @@ func main() {
 			},
 		}: {
 			// Read-only
-			UnsafeDisableDeepCopy: ptr.To(true),
+			UnsafeDisableDeepCopy: new(true),
 		},
 	}
 
@@ -247,7 +246,7 @@ func main() {
 		cacheByObject[&corev1.Pod{}] = cache.ByObject{
 			Transform: controller.TransformStripPod,
 			// Read-only
-			UnsafeDisableDeepCopy: ptr.To(true),
+			UnsafeDisableDeepCopy: new(true),
 		}
 		cacheByObject[&metav1.PartialObjectMetadata{
 			TypeMeta: metav1.TypeMeta{
@@ -256,7 +255,7 @@ func main() {
 			},
 		}] = cache.ByObject{
 			// Read-only
-			UnsafeDisableDeepCopy: ptr.To(true),
+			UnsafeDisableDeepCopy: new(true),
 		}
 		cacheByObject[&metav1.PartialObjectMetadata{
 			TypeMeta: metav1.TypeMeta{
@@ -265,7 +264,7 @@ func main() {
 			},
 		}] = cache.ByObject{
 			// Read-only
-			UnsafeDisableDeepCopy: ptr.To(true),
+			UnsafeDisableDeepCopy: new(true),
 		}
 	}
 

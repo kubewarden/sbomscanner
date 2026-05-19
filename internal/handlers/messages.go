@@ -28,11 +28,13 @@ type CreateCatalogMessage struct {
 // GenerateSBOMMessage represents the request message for generating a SBOM.
 type GenerateSBOMMessage struct {
 	BaseMessage
+
 	Image ObjectRef `json:"image"`
 }
 
 // ScanSBOMMessage represents the request message for scanning a SBOM.
 type ScanSBOMMessage struct {
 	BaseMessage
+
 	SBOM ObjectRef `json:"sbom"`
 }

@@ -43,7 +43,8 @@ type VEXHub struct {
 type VEXHubList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VEXHub `json:"items"`
+
+	Items []VEXHub `json:"items"`
 }
 
 func init() {

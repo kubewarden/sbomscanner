@@ -33,6 +33,8 @@ const (
 	scanTimeout            = 10 * time.Minute
 )
 
+// e2e tests share a single Kind cluster managed by TestMain and create
+// cluster-wide resources, so they must run sequentially.
 func TestWorkloadScan(t *testing.T) {
 	f := features.New("Workload Scan").
 		Assess("Create WorkloadScanConfiguration", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {

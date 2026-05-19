@@ -25,6 +25,7 @@ import (
 
 type workloadScanReportWatcherTestSuite struct {
 	suite.Suite
+
 	db                  *pgxpool.Pool
 	pgContainer         *postgres.PostgresContainer
 	natsServer          *server.Server

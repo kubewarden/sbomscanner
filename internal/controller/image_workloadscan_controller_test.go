@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 
-	"github.com/aws/smithy-go/ptr"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +29,7 @@ var _ = Describe("ImageWorkloadScan Controller", func() {
 		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 			Scheme: k8sClient.Scheme(),
 			Controller: config.Controller{
-				SkipNameValidation: ptr.Bool(true),
+				SkipNameValidation: new(true),
 			},
 			Metrics: metricsserver.Options{
 				BindAddress: "0",

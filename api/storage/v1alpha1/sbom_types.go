@@ -11,7 +11,8 @@ import (
 type SBOMList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items           []SBOM `json:"items" protobuf:"bytes,2,rep,name=items"`
+
+	Items []SBOM `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -28,7 +29,8 @@ type SBOMList struct {
 type SBOM struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	ImageMetadata     ImageMetadata `json:"imageMetadata" protobuf:"bytes,2,req,name=imageMetadata"`
+
+	ImageMetadata ImageMetadata `json:"imageMetadata" protobuf:"bytes,2,req,name=imageMetadata"`
 	// SPDX contains the SPDX document of the SBOM in JSON format
 	SPDX runtime.RawExtension `json:"spdx" protobuf:"bytes,3,req,name=spdx"`
 }

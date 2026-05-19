@@ -99,7 +99,7 @@ type workloadScanReportTableConvertor struct{}
 func (c *workloadScanReportTableConvertor) ConvertToTable(_ context.Context, obj runtime.Object, _ runtime.Object) (*metav1.Table, error) {
 	table := &metav1.Table{
 		ColumnDefinitions: []metav1.TableColumnDefinition{
-			{Name: "Name", Type: "string", Description: "Name of the workload scan report", Format: "name"},
+			{Name: "Name", Type: "string", Description: "Name of the workload scan report", Format: "name"}, //nolint:goconst // table column literals
 			{Name: "Namespace", Type: "string", Description: "Namespace of the workload scan report"},
 			{Name: "Kind", Type: "string", Description: "Kind of the owning workload"},
 			{Name: "Workload", Type: "string", Description: "Name of the owning workload"},
@@ -127,7 +127,7 @@ func (c *workloadScanReportTableConvertor) ConvertToTable(_ context.Context, obj
 		}
 		row := metav1.TableRow{
 			Object: runtime.RawExtension{Object: &report},
-			Cells: []interface{}{
+			Cells: []any{
 				report.Name,
 				report.Namespace,
 				ownerKind,

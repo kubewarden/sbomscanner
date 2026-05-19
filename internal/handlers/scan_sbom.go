@@ -139,11 +139,11 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	}
 	defer func() {
 		if err = sbomFile.Close(); err != nil {
-			h.logger.Error("failed to close temporary SBOM file", "error", err)
+			h.logger.ErrorContext(ctx, "failed to close temporary SBOM file", "error", err)
 		}
 
 		if err = os.Remove(sbomFile.Name()); err != nil {
-			h.logger.Error("failed to remove temporary SBOM file", "error", err)
+			h.logger.ErrorContext(ctx, "failed to remove temporary SBOM file", "error", err)
 		}
 	}()
 
@@ -157,11 +157,11 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	}
 	defer func() {
 		if err = reportFile.Close(); err != nil {
-			h.logger.Error("failed to close temporary report file", "error", err)
+			h.logger.ErrorContext(ctx, "failed to close temporary report file", "error", err)
 		}
 
 		if err = os.Remove(reportFile.Name()); err != nil {
-			h.logger.Error("failed to remove temporary repoort file", "error", err)
+			h.logger.ErrorContext(ctx, "failed to remove temporary report file", "error", err)
 		}
 	}()
 
@@ -198,9 +198,9 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 		// Clean up the trivy home directory after each handler execution to
 		// ensure VEX repositories are refreshed on every run.
 		defer func() {
-			h.logger.Debug("Removing trivy home")
+			h.logger.DebugContext(ctx, "Removing trivy home")
 			if err = os.RemoveAll(trivyHome); err != nil {
-				h.logger.Error("failed to remove temporary trivy home", "error", err)
+				h.logger.ErrorContext(ctx, "failed to remove temporary trivy home", "error", err)
 			}
 		}()
 

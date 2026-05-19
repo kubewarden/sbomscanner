@@ -33,7 +33,7 @@ func requireBasicAuth(username, password string, logger *slog.Logger) func(http.
 			if !ok ||
 				subtle.ConstantTimeCompare([]byte(u), []byte(username)) != 1 ||
 				subtle.ConstantTimeCompare([]byte(p), []byte(password)) != 1 {
-				logger.Warn("Unauthorized request", "remote", r.RemoteAddr)
+				logger.WarnContext(r.Context(), "Unauthorized request", "remote", r.RemoteAddr)
 				w.Header().Set("WWW-Authenticate", `Basic realm="sbomscanner-mcp"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return

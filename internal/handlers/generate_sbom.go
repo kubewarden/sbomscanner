@@ -236,10 +236,10 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 	}
 	defer func() {
 		if err = sbomFile.Close(); err != nil {
-			h.logger.Error("failed to close temporary SBOM file", "error", err)
+			h.logger.ErrorContext(ctx, "failed to close temporary SBOM file", "error", err)
 		}
 		if err = os.Remove(sbomFile.Name()); err != nil {
-			h.logger.Error("failed to remove temporary SBOM file", "error", err)
+			h.logger.ErrorContext(ctx, "failed to remove temporary SBOM file", "error", err)
 		}
 	}()
 
@@ -254,12 +254,12 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		h.logger.DebugContext(ctx, "Setup registry authentication", "dockerconfig", os.Getenv("DOCKER_CONFIG"))
 		defer func() {
 			if err = os.RemoveAll(dockerConfig); err != nil {
-				h.logger.Error("failed to remove dockerconfig directory", "error", err)
+				h.logger.ErrorContext(ctx, "failed to remove dockerconfig directory", "error", err)
 			}
 			// unset the DOCKER_CONFIG variable so at every run
 			// we start from a clean environment.
 			if err = os.Unsetenv("DOCKER_CONFIG"); err != nil {
-				h.logger.Error("failed to unset DOCKER_CONFIG variable", "error", err)
+				h.logger.ErrorContext(ctx, "failed to unset DOCKER_CONFIG variable", "error", err)
 			}
 		}()
 	}
@@ -290,7 +290,7 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		}
 		defer func(caBundlePath string) {
 			if err := os.Remove(caBundlePath); err != nil {
-				h.logger.Error("failed to remove CA bundle file", "error", err)
+				h.logger.ErrorContext(ctx, "failed to remove CA bundle file", "error", err)
 			}
 		}(caBundleFile.Name())
 		if _, err := caBundleFile.WriteString(registry.Spec.CABundle); err != nil {

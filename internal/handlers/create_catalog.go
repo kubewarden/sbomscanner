@@ -146,12 +146,12 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 		h.logger.DebugContext(ctx, "Setup registry authentication", "dockerconfig", os.Getenv("DOCKER_CONFIG"))
 		defer func() {
 			if err = os.RemoveAll(dockerConfig); err != nil {
-				h.logger.Error("failed to remove dockerconfig directory", "error", err)
+				h.logger.ErrorContext(ctx, "failed to remove dockerconfig directory", "error", err)
 			}
 			// uset the DOCKER_CONFIG variable so at every run
 			// we start from a clean environment.
 			if err = os.Unsetenv("DOCKER_CONFIG"); err != nil {
-				h.logger.Error("failed to unset DOCKER_CONFIG variable", "error", err)
+				h.logger.ErrorContext(ctx, "failed to unset DOCKER_CONFIG variable", "error", err)
 			}
 		}()
 	}
@@ -539,7 +539,7 @@ func applyTargetsToRegistry(registry *v1alpha1.Registry, scanJob *v1alpha1.ScanJ
 	return nil
 }
 
-// transportFromRegistry creates a new http.RoundTripper from the options specified in the Registry spec.
+// transportFromRegistry creates a new [http.RoundTripper] from the options specified in the Registry spec.
 func (h *CreateCatalogHandler) transportFromRegistry(registry *v1alpha1.Registry) (http.RoundTripper, error) {
 	transport, ok := remote.DefaultTransport.(*http.Transport)
 	if !ok {

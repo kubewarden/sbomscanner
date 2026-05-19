@@ -21,6 +21,7 @@ const gcServiceAccount = "system:serviceaccount:kube-system:generic-garbage-coll
 
 type WorkloadScanReportValidation struct {
 	*admission.Handler
+
 	serviceAccountNamespace string
 	serviceAccountName      string
 }

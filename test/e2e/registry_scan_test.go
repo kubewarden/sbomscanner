@@ -19,6 +19,8 @@ import (
 	v1alpha1 "github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
+// e2e tests share a single Kind cluster managed by TestMain and create
+// cluster-wide resources, so they must run sequentially.
 func TestRegistryScan(t *testing.T) {
 	registryName := "test-registry"
 	registryURI := "ghcr.io"

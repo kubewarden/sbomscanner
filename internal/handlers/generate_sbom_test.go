@@ -37,7 +37,6 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	messagingMocks "github.com/kubewarden/sbomscanner/internal/messaging/mocks"
-	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 )
 
 func TestGenerateSBOMHandler_Handle(t *testing.T) {
@@ -130,7 +129,7 @@ func testGenerateSBOM(t *testing.T, platform, sha256, expectedSPDXJSON string) {
 		},
 	}
 
-	scheme := scheme.Scheme
+	scheme := runtime.NewScheme()
 	err = storagev1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 	err = v1alpha1.AddToScheme(scheme)
@@ -291,7 +290,7 @@ func TestGenerateSBOMHandler_Handle_ReuseSBOMWithSameDigest(t *testing.T) {
 		},
 	}
 
-	scheme := scheme.Scheme
+	scheme := runtime.NewScheme()
 	err = storagev1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 	err = v1alpha1.AddToScheme(scheme)
@@ -441,7 +440,7 @@ func TestGenerateSBOMHandler_Handle_StopProcessing(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scheme := scheme.Scheme
+			scheme := runtime.NewScheme()
 			err := storagev1alpha1.AddToScheme(scheme)
 			require.NoError(t, err)
 			err = v1alpha1.AddToScheme(scheme)
@@ -545,7 +544,7 @@ func TestGenerateSBOMHandler_Handle_ExistingSBOM(t *testing.T) {
 		ImageMetadata: image.ImageMetadata,
 	}
 
-	scheme := scheme.Scheme
+	scheme := runtime.NewScheme()
 	err = storagev1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 	err = v1alpha1.AddToScheme(scheme)
@@ -681,7 +680,7 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 		},
 	}
 
-	scheme := scheme.Scheme
+	scheme := runtime.NewScheme()
 	err = storagev1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 	err = v1alpha1.AddToScheme(scheme)
@@ -854,7 +853,7 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 				},
 			}
 
-			scheme := scheme.Scheme
+			scheme := runtime.NewScheme()
 			err = storagev1alpha1.AddToScheme(scheme)
 			require.NoError(t, err)
 			err = v1alpha1.AddToScheme(scheme)

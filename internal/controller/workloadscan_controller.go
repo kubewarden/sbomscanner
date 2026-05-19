@@ -23,6 +23,7 @@ import (
 
 type WorkloadScanReconciler struct {
 	client.Client
+
 	Scheme *runtime.Scheme
 }
 
