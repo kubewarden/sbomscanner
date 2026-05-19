@@ -22,6 +22,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	workloadKindPod        = "Pod"
+	workloadKindReplicaSet = "ReplicaSet"
+	workloadKindDeployment = "Deployment"
+	workloadKindJob        = "Job"
+	workloadKindCronJob    = "CronJob"
+)
+
 // reconcileWorkloadScanReports creates or updates WorkloadScanReport resources for each workload.
 // It also deletes stale reports that no longer have corresponding workloads.
 func (r *WorkloadScanReconciler) reconcileWorkloadScanReports(ctx context.Context, namespace string, pods []corev1.Pod, config *v1alpha1.WorkloadScanConfiguration) error {
@@ -135,15 +143,15 @@ func (r *WorkloadScanReconciler) resolveWorkloadOwner(ctx context.Context, pod *
 	if ownerReference == nil {
 		return &metav1.OwnerReference{
 			APIVersion: "v1",
-			Kind:       "Pod",
+			Kind:       workloadKindPod,
 			Name:       pod.Name,
 			UID:        pod.UID,
 		}, nil
 	}
 
-	if ownerReference.Kind == "ReplicaSet" {
+	if ownerReference.Kind == workloadKindReplicaSet {
 		replicaSet := &metav1.PartialObjectMetadata{}
-		replicaSet.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("ReplicaSet"))
+		replicaSet.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind(workloadKindReplicaSet))
 
 		if err := r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: ownerReference.Name}, replicaSet); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -152,14 +160,14 @@ func (r *WorkloadScanReconciler) resolveWorkloadOwner(ctx context.Context, pod *
 			return nil, fmt.Errorf("failed to get ReplicaSet %s/%s: %w", pod.Namespace, ownerReference.Name, err)
 		}
 
-		if deploymentReference := metav1.GetControllerOf(replicaSet); deploymentReference != nil && deploymentReference.Kind == "Deployment" {
+		if deploymentReference := metav1.GetControllerOf(replicaSet); deploymentReference != nil && deploymentReference.Kind == workloadKindDeployment {
 			return deploymentReference, nil
 		}
 	}
 
-	if ownerReference.Kind == "Job" {
+	if ownerReference.Kind == workloadKindJob {
 		job := &metav1.PartialObjectMetadata{}
-		job.SetGroupVersionKind(batchv1.SchemeGroupVersion.WithKind("Job"))
+		job.SetGroupVersionKind(batchv1.SchemeGroupVersion.WithKind(workloadKindJob))
 
 		if err := r.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: ownerReference.Name}, job); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -168,7 +176,7 @@ func (r *WorkloadScanReconciler) resolveWorkloadOwner(ctx context.Context, pod *
 			return nil, fmt.Errorf("failed to get Job %s/%s: %w", pod.Namespace, ownerReference.Name, err)
 		}
 
-		if cronJobReference := metav1.GetControllerOf(job); cronJobReference != nil && cronJobReference.Kind == "CronJob" {
+		if cronJobReference := metav1.GetControllerOf(job); cronJobReference != nil && cronJobReference.Kind == workloadKindCronJob {
 			return cronJobReference, nil
 		}
 	}
