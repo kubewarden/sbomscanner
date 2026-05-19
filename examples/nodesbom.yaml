@@ -1,0 +1,134 @@
+apiVersion: storage.sbomscanner.kubewarden.io/v1alpha1
+kind: NodeSBOM
+metadata:
+  name: worker-node-1
+nodeMetadata:
+  name: worker-node-1
+  platform: linux/amd64
+spdx:
+  SPDXID: SPDXRef-DOCUMENT
+  creationInfo:
+    created: "2026-05-19T10:15:00Z"
+    creators:
+      - "Organization: aquasecurity"
+      - "Tool: trivy-dev"
+  dataLicense: CC0-1.0
+  documentNamespace: http://aquasecurity.github.io/trivy/filesystem/worker-node-1-3b2d8e10-0c4b-4a7f-9d2a-1f6b8e0d4c5a
+  name: worker-node-1
+  packages:
+    - SPDXID: SPDXRef-Package-2a1c4e7b9d0f3a52
+      annotations:
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgID: libc6@2.39-0ubuntu8.3"
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgType: ubuntu"
+      checksums:
+        - algorithm: SHA256
+          checksumValue: c1f4e1b2d3a4c5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0
+      downloadLocation: NONE
+      externalRefs:
+        - referenceCategory: PACKAGE-MANAGER
+          referenceLocator: pkg:deb/ubuntu/libc6@2.39-0ubuntu8.3?arch=amd64&distro=ubuntu-24.04
+          referenceType: purl
+      filesAnalyzed: false
+      licenseConcluded: GPL-2.0-only AND LGPL-2.1-only
+      licenseDeclared: GPL-2.0-only AND LGPL-2.1-only
+      name: libc6
+      primaryPackagePurpose: LIBRARY
+      sourceInfo: "built package from: glibc 2.39-0ubuntu8.3"
+      supplier: "Organization: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>"
+      versionInfo: 2.39-0ubuntu8.3
+    - SPDXID: SPDXRef-Package-6f3b8d2a4c1e9b07
+      annotations:
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgID: systemd@255.4-1ubuntu8.4"
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgType: ubuntu"
+      checksums:
+        - algorithm: SHA256
+          checksumValue: a9b8c7d6e5f4039281a7b6c5d4e3f201928374a5b6c7d8e9f0a1b2c3d4e5f607
+      downloadLocation: NONE
+      externalRefs:
+        - referenceCategory: PACKAGE-MANAGER
+          referenceLocator: pkg:deb/ubuntu/systemd@255.4-1ubuntu8.4?arch=amd64&distro=ubuntu-24.04
+          referenceType: purl
+      filesAnalyzed: false
+      licenseConcluded: LGPL-2.1-or-later AND GPL-2.0-or-later
+      licenseDeclared: LGPL-2.1-or-later AND GPL-2.0-or-later
+      name: systemd
+      primaryPackagePurpose: APPLICATION
+      sourceInfo: "built package from: systemd 255.4-1ubuntu8.4"
+      supplier: "Organization: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>"
+      versionInfo: 255.4-1ubuntu8.4
+    - SPDXID: SPDXRef-Package-8e2a1d5c7b9f4036
+      annotations:
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgID: containerd@1.7.24-0ubuntu1~24.04.1"
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgType: ubuntu"
+      checksums:
+        - algorithm: SHA256
+          checksumValue: 5f8e7d6c5b4a3928170615243342516273849500a1b2c3d4e5f6a7b8c9d0e1f2
+      downloadLocation: NONE
+      externalRefs:
+        - referenceCategory: PACKAGE-MANAGER
+          referenceLocator: pkg:deb/ubuntu/containerd@1.7.24-0ubuntu1~24.04.1?arch=amd64&distro=ubuntu-24.04
+          referenceType: purl
+      filesAnalyzed: false
+      licenseConcluded: Apache-2.0
+      licenseDeclared: Apache-2.0
+      name: containerd
+      primaryPackagePurpose: APPLICATION
+      sourceInfo: "built package from: containerd 1.7.24-0ubuntu1~24.04.1"
+      supplier: "Organization: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>"
+      versionInfo: 1.7.24-0ubuntu1~24.04.1
+    - SPDXID: SPDXRef-Package-3c7b2e5a8d1f9046
+      annotations:
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgID: kubelet@1.31.2-1.1"
+        - annotationDate: "2026-05-19T10:15:00Z"
+          annotationType: OTHER
+          annotator: "Tool: trivy-dev"
+          comment: "PkgType: ubuntu"
+      checksums:
+        - algorithm: SHA256
+          checksumValue: 0e1d2c3b4a5968778695a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3
+      downloadLocation: NONE
+      externalRefs:
+        - referenceCategory: PACKAGE-MANAGER
+          referenceLocator: pkg:deb/ubuntu/kubelet@1.31.2-1.1?arch=amd64&distro=ubuntu-24.04
+          referenceType: purl
+      filesAnalyzed: false
+      licenseConcluded: Apache-2.0
+      licenseDeclared: Apache-2.0
+      name: kubelet
+      primaryPackagePurpose: APPLICATION
+      versionInfo: 1.31.2-1.1
+  relationships:
+    - relatedSpdxElement: SPDXRef-Package-2a1c4e7b9d0f3a52
+      relationshipType: DESCRIBES
+      spdxElementId: SPDXRef-DOCUMENT
+    - relatedSpdxElement: SPDXRef-Package-6f3b8d2a4c1e9b07
+      relationshipType: DESCRIBES
+      spdxElementId: SPDXRef-DOCUMENT
+    - relatedSpdxElement: SPDXRef-Package-8e2a1d5c7b9f4036
+      relationshipType: DESCRIBES
+      spdxElementId: SPDXRef-DOCUMENT
+    - relatedSpdxElement: SPDXRef-Package-3c7b2e5a8d1f9046
+      relationshipType: DESCRIBES
+      spdxElementId: SPDXRef-DOCUMENT
+  spdxVersion: SPDX-2.3

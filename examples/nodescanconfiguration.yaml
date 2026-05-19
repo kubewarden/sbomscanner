@@ -1,0 +1,18 @@
+apiVersion: sbomscanner.kubewarden.io/v1alpha1
+kind: NodeScanConfiguration
+metadata:
+  name: default
+spec:
+  skipPatterns:
+    - "/run/k3s/containerd/"
+  scanInterval: 5m
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/hostname
+        operator: In
+        values:
+          - "node1"
+          - "node2"
+  platforms:
+    - arch: "amd64"
+      os: "linux"
