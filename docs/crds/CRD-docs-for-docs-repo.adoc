@@ -15,6 +15,10 @@
 Package v1alpha1 contains API Schema definitions for the SBOMscanner v1alpha1 API group.
 
 .Resource Types
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfiguration[$$NodeScanConfiguration$$]
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationlist[$$NodeScanConfigurationList$$]
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjob[$$NodeScanJob$$]
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjoblist[$$NodeScanJobList$$]
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registry[$$Registry$$]
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registrylist[$$RegistryList$$]
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjob[$$ScanJob$$]
@@ -69,6 +73,182 @@ MatchOperator defines how multiple match conditions are combined.
 
 
 
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfiguration"]
+==== NodeScanConfiguration
+
+
+
+NodeScanConfiguration is the Schema for the nodescanconfigurations API.
+This is a singleton resource - only one instance named "default" is allowed.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationlist[$$NodeScanConfigurationList$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
+| *`kind`* __string__ | `NodeScanConfiguration` | |
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
+ |  | 
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationspec[$$NodeScanConfigurationSpec$$]__ |  |  | 
+|===
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationlist"]
+==== NodeScanConfigurationList
+
+
+
+NodeScanConfigurationList contains a list of NodeScanConfiguration.
+
+
+
+
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
+| *`kind`* __string__ | `NodeScanConfigurationList` | |
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
+ |  | 
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfiguration[$$NodeScanConfiguration$$] array__ |  |  | 
+|===
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationspec"]
+==== NodeScanConfigurationSpec
+
+
+
+NodeScanConfigurationSpec defines the desired configuration for node scanning.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfiguration[$$NodeScanConfiguration$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`nodeSelector`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta[$$LabelSelector$$]__ | NodeSelector filters which nodes are scanned. +
+If not specified, all the nodes are scanned. + |  | Optional: \{} +
+
+| *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__ | ScanInterval is the interval at which nodes are scanned. + |  | Optional: \{} +
+
+| *`skipPatterns`* __string array__ | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning. +
+Patterns ending with "/" are treated as directories (passed to trivy's --skip-dirs). +
+All other patterns are treated as files (passed to trivy's --skip-files). +
+Glob patterns like "**/vendor/" or "*.min.js" are supported. + |  | Optional: \{} +
+
+| *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__ | Platforms allows to specify the list of platforms to scan. +
+If not set, all nodes are scanned regardless of their platform. + |  | Optional: \{} +
+
+|===
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjob"]
+==== NodeScanJob
+
+
+
+NodeScanJob is the Schema for the nodescanjobs API.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjoblist[$$NodeScanJobList$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
+| *`kind`* __string__ | `NodeScanJob` | |
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
+ |  | 
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobspec[$$NodeScanJobSpec$$]__ |  |  | 
+| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobstatus[$$NodeScanJobStatus$$]__ |  |  | 
+|===
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjoblist"]
+==== NodeScanJobList
+
+
+
+NodeScanJobList contains a list of NodeScanJob.
+
+
+
+
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
+| *`kind`* __string__ | `NodeScanJobList` | |
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
+ |  | 
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjob[$$NodeScanJob$$] array__ |  |  | 
+|===
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobspec"]
+==== NodeScanJobSpec
+
+
+
+NodeScanJobSpec defines the desired state of NodeScanJob.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjob[$$NodeScanJob$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`nodeName`* __string__ | NodeName specifies the name of the node to be scanned. + |  | 
+|===
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobstatus"]
+==== NodeScanJobStatus
+
+
+
+NodeScanJobStatus defines the observed state of NodeScanJob.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjob[$$NodeScanJob$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`conditions`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta[$$Condition$$] array__ | Conditions represent the latest available observations of ScanJob state + |  | Optional: \{} +
+
+| *`startTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__ | StartTime is when the job started processing. + |  | Optional: \{} +
+
+| *`completionTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__ | CompletionTime is when the job completed or failed. + |  | Optional: \{} +
+
+|===
+
+
 [id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform"]
 ==== Platform
 
@@ -80,6 +260,7 @@ Platform describes the platform which the image in the manifest runs on.
 
 .Appears In:
 ****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationspec[$$NodeScanConfigurationSpec$$]
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registryspec[$$RegistrySpec$$]
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-workloadscanconfigurationspec[$$WorkloadScanConfigurationSpec$$]
 ****
@@ -798,6 +979,83 @@ ImageWorkloadScanReports identifies a workload that references this image
 |===
 
 
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata"]
+==== NodeMetadata
+
+
+
+NodeMetadata contains the metadata details of a node.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodesbom[$$NodeSBOM$$]
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodevulnerabilityreport[$$NodeVulnerabilityReport$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`name`* __string__ | Name specifies the name of the node. + |  | 
+| *`platform`* __string__ | Platform specifies the platform of the image. Example "linux/amd64". + |  | 
+|===
+
+
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodesbom"]
+==== NodeSBOM
+
+
+
+NodeSBOM represents a Software Bill of Materials of a node
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodesbomlist[$$NodeSBOMList$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
+ |  | 
+| *`nodeMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata[$$NodeMetadata$$]__ |  |  | 
+| *`spdx`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#rawextension-runtime-pkg[$$RawExtension$$]__ | SPDX contains the SPDX document of the SBOM in JSON format + |  | 
+|===
+
+
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodevulnerabilityreport"]
+==== NodeVulnerabilityReport
+
+
+
+NodeVulnerabilityReport is the Schema for the scanresults API
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodevulnerabilityreportlist[$$NodeVulnerabilityReportList$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
+ |  | 
+| *`nodeMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata[$$NodeMetadata$$]__ | NodeMetadata contains info about the scanned node + |  | 
+| *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__ | Report is the actual vulnerability scan report + |  | 
+|===
+
+
+
+
 [id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report"]
 ==== Report
 
@@ -809,6 +1067,7 @@ Report contains metadata about the scanned image and a list of vulnerability res
 
 .Appears In:
 ****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodevulnerabilityreport[$$NodeVulnerabilityReport$$]
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vulnerabilityreport[$$VulnerabilityReport$$]
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanvulnerabilityreport[$$WorkloadScanVulnerabilityReport$$]
 ****

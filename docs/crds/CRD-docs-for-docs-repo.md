@@ -10,6 +10,10 @@
 Package v1alpha1 contains API Schema definitions for the SBOMscanner v1alpha1 API group.
 
 ### Resource Types
+- [NodeScanConfiguration](#nodescanconfiguration)
+- [NodeScanConfigurationList](#nodescanconfigurationlist)
+- [NodeScanJob](#nodescanjob)
+- [NodeScanJobList](#nodescanjoblist)
 - [Registry](#registry)
 - [RegistryList](#registrylist)
 - [ScanJob](#scanjob)
@@ -57,6 +61,135 @@ _Appears in:_
 | `Or` | MatchOperatorOr requires at least one condition to pass.<br /> |
 
 
+#### NodeScanConfiguration
+
+
+
+NodeScanConfiguration is the Schema for the nodescanconfigurations API.
+This is a singleton resource - only one instance named "default" is allowed.
+
+
+
+_Appears in:_
+- [NodeScanConfigurationList](#nodescanconfigurationlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `sbomscanner.kubewarden.io/v1alpha1` | | |
+| `kind` _string_ | `NodeScanConfiguration` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[NodeScanConfigurationSpec](#nodescanconfigurationspec)_ |  |  |  |
+
+
+#### NodeScanConfigurationList
+
+
+
+NodeScanConfigurationList contains a list of NodeScanConfiguration.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `sbomscanner.kubewarden.io/v1alpha1` | | |
+| `kind` _string_ | `NodeScanConfigurationList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[NodeScanConfiguration](#nodescanconfiguration) array_ |  |  |  |
+
+
+#### NodeScanConfigurationSpec
+
+
+
+NodeScanConfigurationSpec defines the desired configuration for node scanning.
+
+
+
+_Appears in:_
+- [NodeScanConfiguration](#nodescanconfiguration)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta)_ | NodeSelector filters which nodes are scanned.<br />If not specified, all the nodes are scanned. |  | Optional: \{\} <br /> |
+| `scanInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta)_ | ScanInterval is the interval at which nodes are scanned. |  | Optional: \{\} <br /> |
+| `skipPatterns` _string array_ | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning.<br />Patterns ending with "/" are treated as directories (passed to trivy's --skip-dirs).<br />All other patterns are treated as files (passed to trivy's --skip-files).<br />Glob patterns like "**/vendor/" or "*.min.js" are supported. |  | Optional: \{\} <br /> |
+| `platforms` _[Platform](#platform) array_ | Platforms allows to specify the list of platforms to scan.<br />If not set, all nodes are scanned regardless of their platform. |  | Optional: \{\} <br /> |
+
+
+#### NodeScanJob
+
+
+
+NodeScanJob is the Schema for the nodescanjobs API.
+
+
+
+_Appears in:_
+- [NodeScanJobList](#nodescanjoblist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `sbomscanner.kubewarden.io/v1alpha1` | | |
+| `kind` _string_ | `NodeScanJob` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[NodeScanJobSpec](#nodescanjobspec)_ |  |  |  |
+| `status` _[NodeScanJobStatus](#nodescanjobstatus)_ |  |  |  |
+
+
+#### NodeScanJobList
+
+
+
+NodeScanJobList contains a list of NodeScanJob.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `sbomscanner.kubewarden.io/v1alpha1` | | |
+| `kind` _string_ | `NodeScanJobList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[NodeScanJob](#nodescanjob) array_ |  |  |  |
+
+
+#### NodeScanJobSpec
+
+
+
+NodeScanJobSpec defines the desired state of NodeScanJob.
+
+
+
+_Appears in:_
+- [NodeScanJob](#nodescanjob)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nodeName` _string_ | NodeName specifies the name of the node to be scanned. |  |  |
+
+
+#### NodeScanJobStatus
+
+
+
+NodeScanJobStatus defines the observed state of NodeScanJob.
+
+
+
+_Appears in:_
+- [NodeScanJob](#nodescanjob)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta) array_ | Conditions represent the latest available observations of ScanJob state |  | Optional: \{\} <br /> |
+| `startTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta)_ | StartTime is when the job started processing. |  | Optional: \{\} <br /> |
+| `completionTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta)_ | CompletionTime is when the job completed or failed. |  | Optional: \{\} <br /> |
+
+
 #### Platform
 
 
@@ -66,6 +199,7 @@ Platform describes the platform which the image in the manifest runs on.
 
 
 _Appears in:_
+- [NodeScanConfigurationSpec](#nodescanconfigurationspec)
 - [RegistrySpec](#registryspec)
 - [WorkloadScanConfigurationSpec](#workloadscanconfigurationspec)
 
@@ -602,6 +736,66 @@ _Appears in:_
 | `namespace` _string_ | Namespace of the WorkloadScanReport |  |  |
 
 
+#### NodeMetadata
+
+
+
+NodeMetadata contains the metadata details of a node.
+
+
+
+_Appears in:_
+- [NodeSBOM](#nodesbom)
+- [NodeVulnerabilityReport](#nodevulnerabilityreport)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name specifies the name of the node. |  |  |
+| `platform` _string_ | Platform specifies the platform of the image. Example "linux/amd64". |  |  |
+
+
+
+
+#### NodeSBOM
+
+
+
+NodeSBOM represents a Software Bill of Materials of a node
+
+
+
+_Appears in:_
+- [NodeSBOMList](#nodesbomlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `nodeMetadata` _[NodeMetadata](#nodemetadata)_ |  |  |  |
+| `spdx` _[RawExtension](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#rawextension-runtime-pkg)_ | SPDX contains the SPDX document of the SBOM in JSON format |  |  |
+
+
+
+
+#### NodeVulnerabilityReport
+
+
+
+NodeVulnerabilityReport is the Schema for the scanresults API
+
+
+
+_Appears in:_
+- [NodeVulnerabilityReportList](#nodevulnerabilityreportlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `nodeMetadata` _[NodeMetadata](#nodemetadata)_ | NodeMetadata contains info about the scanned node |  |  |
+| `report` _[Report](#report)_ | Report is the actual vulnerability scan report |  |  |
+
+
+
+
 #### Report
 
 
@@ -611,6 +805,7 @@ Report contains metadata about the scanned image and a list of vulnerability res
 
 
 _Appears in:_
+- [NodeVulnerabilityReport](#nodevulnerabilityreport)
 - [VulnerabilityReport](#vulnerabilityreport)
 - [WorkloadScanVulnerabilityReport](#workloadscanvulnerabilityreport)
 
