@@ -161,7 +161,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 		}
 
 		if err = os.Remove(reportFile.Name()); err != nil {
-			h.logger.ErrorContext(ctx, "failed to remove temporary repoort file", "error", err)
+			h.logger.ErrorContext(ctx, "failed to remove temporary report file", "error", err)
 		}
 	}()
 
