@@ -33,6 +33,16 @@ func SetupIndexer(ctx context.Context, mgr ctrl.Manager) error {
 		return fmt.Errorf("unable to create field indexer: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.NodeScanJob{}, v1alpha1.IndexNodeScanJobSpecNodeName, func(rawObj client.Object) []string {
+		nodeScanJob, ok := rawObj.(*v1alpha1.NodeScanJob)
+		if !ok {
+			panic(fmt.Sprintf("Expected NodeScanJob, got %T", rawObj))
+		}
+		return []string{nodeScanJob.Spec.NodeName}
+	}); err != nil {
+		return fmt.Errorf("failed to setup field indexer for spec.nodeName: %w", err)
+	}
+
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &storagev1alpha1.Image{}, storagev1alpha1.IndexImageMetadataComposite, indexImageByMetadata); err != nil {
 		return fmt.Errorf("failed to setup field indexer for %s: %w", storagev1alpha1.IndexImageMetadataComposite, err)
 	}

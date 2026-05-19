@@ -26,13 +26,13 @@ type RetryConfig struct {
 	MaxAttempts int
 }
 
-// HandlerRegistry is a map that associates subjects with their respective handlers.
-type HandlerRegistry map[string]Handler
+// HandlerScan is a map that associates subjects with their respective handlers.
+type HandlerScan map[string]Handler
 
 // NatsSubscriber is an implementation of a message subscriber that uses NATS JetStream to receive messages.
 type NatsSubscriber struct {
 	cons           jetstream.Consumer
-	handlers       HandlerRegistry
+	handlers       HandlerScan
 	failureHandler FailureHandler
 	retryConfig    *RetryConfig
 	logger         *slog.Logger
@@ -42,7 +42,7 @@ type NatsSubscriber struct {
 func NewNatsSubscriber(ctx context.Context,
 	nc *nats.Conn,
 	durable string,
-	handlers HandlerRegistry,
+	handlers HandlerScan,
 	failureHandler FailureHandler,
 	retryConfig *RetryConfig,
 	logger *slog.Logger,
