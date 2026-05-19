@@ -28,6 +28,7 @@ const (
 // ScanJobReconciler reconciles a ScanJob object
 type ScanJobReconciler struct {
 	client.Client
+
 	Scheme    *runtime.Scheme
 	Publisher messaging.Publisher
 }

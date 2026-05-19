@@ -21,6 +21,7 @@ import (
 
 type genericObjectRepositoryTestSuite struct {
 	suite.Suite
+
 	pgContainer *postgres.PostgresContainer
 	db          *pgxpool.Pool
 	repo        *GenericObjectRepository

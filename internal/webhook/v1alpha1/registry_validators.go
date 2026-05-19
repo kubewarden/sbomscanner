@@ -15,7 +15,11 @@ import (
 // The current validator was developed based on the OCI image spec:
 // https://specs.opencontainers.org/image-spec/image-index/
 
-// validPlatforms maps OS to supported architectures
+// validPlatforms maps OS to supported architectures.
+// Mirrors the GOOS/GOARCH pairs from Go's `go/build/syslist.go`; values are
+// repeated by design (static reference data, not duplication to deduplicate).
+//
+//nolint:goconst // static OS/arch reference data
 var validPlatforms = map[string][]string{
 	"aix":       {"ppc64"},
 	"android":   {"386", "amd64", "arm", "arm64"},

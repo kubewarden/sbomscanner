@@ -10,7 +10,7 @@ import (
 // TransformStripPod strips the Pod object to only keep container names and images.
 // This removes status and all other spec fields to reduce memory usage.
 // The workloadscan controller only needs container names and images.
-func TransformStripPod(object interface{}) (interface{}, error) {
+func TransformStripPod(object any) (any, error) {
 	pod, ok := object.(*corev1.Pod)
 	if !ok {
 		return object, fmt.Errorf("expected Pod object, got %T", object)

@@ -75,7 +75,8 @@ type WorkloadScanConfiguration struct {
 type WorkloadScanConfigurationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []WorkloadScanConfiguration `json:"items"`
+
+	Items []WorkloadScanConfiguration `json:"items"`
 }
 
 func init() {

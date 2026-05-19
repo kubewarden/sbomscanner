@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+// BuildDockerConfigForRegistry sets the global DOCKER_CONFIG env var, so this test
+// (and its subtests) cannot run in parallel without racing on the env var.
 func TestBuildDockerConfigForRegistry(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))

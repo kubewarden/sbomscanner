@@ -30,7 +30,7 @@ func WaitForStorageTypes(ctx context.Context, config *rest.Config, logger *slog.
 	gv := storagev1alpha1.SchemeGroupVersion.String()
 	err = retry.Do(
 		func() error {
-			logger.Info("Checking for storage types availability", "groupVersion", gv)
+			logger.InfoContext(ctx, "Checking for storage types availability", "groupVersion", gv)
 			_, err := discoveryClient.ServerResourcesForGroupVersion(gv)
 			if err != nil {
 				return fmt.Errorf("group version not available: %s: %w", gv, err)
@@ -119,7 +119,7 @@ func WaitForPostgres(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger)
 			return nil
 		},
 		retryOptions(ctx, func(n uint, err error) {
-			logger.Info("Checking for Postgres failed, retrying", "attempt", n+1, "error", err)
+			logger.InfoContext(ctx, "Checking for Postgres failed, retrying", "attempt", n+1, "error", err)
 		})...,
 	)
 	if err != nil {

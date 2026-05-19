@@ -14,7 +14,6 @@ import (
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
-	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -164,7 +163,7 @@ func testScanSBOM(t *testing.T, cacheDir, platform, sourceSBOMJSON, expectedRepo
 		Items: vexHubList,
 	}
 
-	scheme := scheme.Scheme
+	scheme := runtime.NewScheme()
 	err = storagev1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 	err = v1alpha1.AddToScheme(scheme)
@@ -309,7 +308,7 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scheme := scheme.Scheme
+			scheme := runtime.NewScheme()
 			err := storagev1alpha1.AddToScheme(scheme)
 			require.NoError(t, err)
 			err = v1alpha1.AddToScheme(scheme)

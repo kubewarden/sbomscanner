@@ -22,7 +22,8 @@ const (
 type WorkloadScanReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items           []WorkloadScanReport `json:"items" protobuf:"bytes,2,rep,name=items"`
+
+	Items []WorkloadScanReport `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient

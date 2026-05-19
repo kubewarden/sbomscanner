@@ -181,7 +181,8 @@ type RescanRequest struct {
 type RegistryList struct {
 	metav1.TypeMeta `           json:",inline"`
 	metav1.ListMeta `           json:"metadata,omitempty"`
-	Items           []Registry `json:"items"`
+
+	Items []Registry `json:"items"`
 }
 
 func init() {

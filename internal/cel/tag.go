@@ -65,7 +65,7 @@ func (e *TagEvaluator) Evaluate(expression string, tag string) (bool, error) {
 		return false, fmt.Errorf("failed to create CEL program: %w", err)
 	}
 
-	val, _, err := prg.Eval(map[string]interface{}{
+	val, _, err := prg.Eval(map[string]any{
 		"tag": tag,
 	})
 	if err != nil {

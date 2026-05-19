@@ -10,7 +10,7 @@ import (
 
 // TransformStripImage strips the Image object of its Layers field and managed fields.
 // This is useful for caching scenarios where the Layers data is not needed, reducing memory usage.
-func TransformStripImage(obj interface{}) (interface{}, error) {
+func TransformStripImage(obj any) (any, error) {
 	image, ok := obj.(*storagev1alpha1.Image)
 	if !ok {
 		return obj, fmt.Errorf("expected Image object, got %T", obj)
@@ -23,7 +23,7 @@ func TransformStripImage(obj interface{}) (interface{}, error) {
 
 // TransformStripSBOM strips the SBOM object of its SPDX field and managed fields.
 // This is useful for caching scenarios where the SPDX data is not needed, reducing memory usage.
-func TransformStripSBOM(obj interface{}) (interface{}, error) {
+func TransformStripSBOM(obj any) (any, error) {
 	sbom, ok := obj.(*storagev1alpha1.SBOM)
 	if !ok {
 		return nil, fmt.Errorf("expected SBOM object, got %T", obj)
@@ -36,7 +36,7 @@ func TransformStripSBOM(obj interface{}) (interface{}, error) {
 
 // TransformStripVulnerabilityReport strips the VulnerabilityReport object of its Results field and managed fields.
 // This is useful for caching scenarios where the Results data is not needed, reducing memory usage.
-func TransformStripVulnerabilityReport(obj interface{}) (interface{}, error) {
+func TransformStripVulnerabilityReport(obj any) (any, error) {
 	vulnerabilityReport, ok := obj.(*storagev1alpha1.VulnerabilityReport)
 	if !ok {
 		return obj, fmt.Errorf("expected VulnerabilityReport object, got %T", obj)
@@ -49,7 +49,7 @@ func TransformStripVulnerabilityReport(obj interface{}) (interface{}, error) {
 
 // TransformStripWorkloadScanReport strips the WorkloadScanReport object of its status.
 // This is useful for caching scenarios where the Reports data is not needed, reducing memory usage.
-func TransformStripWorkloadScanReport(object interface{}) (interface{}, error) {
+func TransformStripWorkloadScanReport(object any) (any, error) {
 	report, ok := object.(*storagev1alpha1.WorkloadScanReport)
 	if !ok {
 		return object, fmt.Errorf("expected WorkloadScanReport object, got %T", object)

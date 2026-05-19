@@ -271,7 +271,7 @@ func processRepositoryMatchConditions(
 
 		nsLabel := namespacePrefix + sourceNamespace
 		if neededMatchConditions.Has(key) {
-			matchCondition.Labels[nsLabel] = "true"
+			matchCondition.Labels[nsLabel] = "true" //nolint:goconst // label boolean value
 			matchedMatchConditions.Insert(key)
 		} else {
 			delete(matchCondition.Labels, nsLabel)

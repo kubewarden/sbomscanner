@@ -19,6 +19,7 @@ import (
 
 type workloadScanReportRepositoryTestSuite struct {
 	suite.Suite
+
 	pgContainer    *postgres.PostgresContainer
 	db             *pgxpool.Pool
 	repo           *WorkloadScanReportRepository

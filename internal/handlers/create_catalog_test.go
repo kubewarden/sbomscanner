@@ -20,7 +20,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	cranev1 "github.com/google/go-containerregistry/pkg/v1"
 
-	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -497,7 +496,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			}
 
-			scheme := scheme.Scheme
+			scheme := runtime.NewScheme()
 			err = corev1.AddToScheme(scheme)
 			require.NoError(t, err)
 			err = storagev1alpha1.AddToScheme(scheme)
@@ -767,7 +766,7 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scheme := scheme.Scheme
+			scheme := runtime.NewScheme()
 			err := storagev1alpha1.AddToScheme(scheme)
 			require.NoError(t, err)
 			err = v1alpha1.AddToScheme(scheme)
@@ -855,7 +854,7 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 		},
 	}
 
-	scheme := scheme.Scheme
+	scheme := runtime.NewScheme()
 	err = v1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 

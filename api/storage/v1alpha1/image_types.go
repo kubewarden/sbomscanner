@@ -10,7 +10,8 @@ import (
 type ImageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items           []Image `json:"items" protobuf:"bytes,2,rep,name=items"`
+
+	Items []Image `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // +genclient
@@ -30,6 +31,7 @@ type Image struct {
 
 	// Metadata of the image
 	ImageMetadata `json:"imageMetadata" protobuf:"bytes,2,req,name=imageMetadata"`
+
 	// List of the layers that make the image
 	Layers []ImageLayer `json:"layers,omitempty" protobuf:"bytes,3,rep,name=layers"`
 	// Status of the image

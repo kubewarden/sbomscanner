@@ -10,15 +10,15 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	sbombasticv1alpha1 "github.com/kubewarden/sbomscanner/api/v1alpha1"
-	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 )
 
 func TestScanJobFailureHandler_HandleFailure(t *testing.T) {
-	scheme := scheme.Scheme
+	scheme := runtime.NewScheme()
 	err := sbombasticv1alpha1.AddToScheme(scheme)
 	require.NoError(t, err)
 

@@ -42,6 +42,7 @@ type vulnerabilityKey struct {
 // CREATE INDEX IF NOT EXISTS idx_workloadscanreports_containers_gin ON workloadscanreports USING GIN ((object->'spec'->'containers') jsonb_path_ops);
 type WorkloadScanReportRepository struct {
 	*GenericObjectRepository
+
 	vulnerabilityReportsTable string
 	imagesTable               string
 }
