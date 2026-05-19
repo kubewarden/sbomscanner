@@ -12,69 +12,95 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
+// MCP tool names. Exported so tests and consumers can refer to them
+// without duplicating string literals.
+const (
+	ToolListRegistries                  = "list_registries"
+	ToolGetRegistry                     = "get_registry"
+	ToolCreateRegistry                  = "create_registry"
+	ToolUpdateRegistry                  = "update_registry"
+	ToolDeleteRegistry                  = "delete_registry"
+	ToolListScanJobs                    = "list_scanjobs"
+	ToolGetScanJob                      = "get_scanjob"
+	ToolCreateScanJob                   = "create_scanjob"
+	ToolDeleteScanJob                   = "delete_scanjob"
+	ToolGetWorkloadScanConfiguration    = "get_workloadscan_configuration"
+	ToolListVEXHubs                     = "list_vexhubs"
+	ToolGetVEXHub                       = "get_vexhub"
+	ToolCreateVEXHub                    = "create_vexhub"
+	ToolUpdateVEXHub                    = "update_vexhub"
+	ToolDeleteVEXHub                    = "delete_vexhub"
+	ToolListImages                      = "list_images"
+	ToolGetImageVulnerabilities         = "get_image_vulnerabilities"
+	ToolGetImageVulnerabilitySummary    = "get_image_vulnerability_summary"
+	ToolListWorkloads                   = "list_workloads"
+	ToolGetWorkloadVulnerabilities      = "get_workload_vulnerabilities"
+	ToolGetWorkloadVulnerabilitySummary = "get_workload_vulnerability_summary"
+)
+
 func (s *Server) registerReadTools() {
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "list_registries",
+		Name:        ToolListRegistries,
 		Description: "List Registry resources. Registries define container registries to scan for images. Each has a URI, a catalogType controlling image discovery, and optional repository filters with CEL-based tag matching.",
 	}, s.listRegistries)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_registry",
+		Name:        ToolGetRegistry,
 		Description: "Get a specific Registry by name and namespace. Returns the registry spec (URI, catalogType, repositories with CEL match conditions, platforms) and status conditions (Discovering, Scanning, UpToDate).",
 	}, s.getRegistry)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "list_scanjobs",
+		Name:        ToolListScanJobs,
 		Description: "List ScanJob resources. A ScanJob triggers a scan of all images in a Registry. Check status conditions to track progress: Scheduled, InProgress, Complete, or Failed. Status includes imagesCount and scannedImagesCount.",
 	}, s.listScanJobs)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_scanjob",
+		Name:        ToolGetScanJob,
 		Description: "Get a specific ScanJob by name and namespace. Returns the target registry reference and status with conditions (Scheduled, InProgress, Complete, Failed), progress counters (imagesCount, scannedImagesCount), and timing (startTime, completionTime).",
 	}, s.getScanJob)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_workloadscan_configuration",
+		Name:        ToolGetWorkloadScanConfiguration,
 		Description: `Get the cluster-scoped singleton WorkloadScanConfiguration (always named "default"). Controls automatic scanning of container images referenced by Kubernetes workloads.`,
 	}, s.getWorkloadScanConfiguration)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "list_vexhubs",
+		Name:        ToolListVEXHubs,
 		Description: "List VEXHub resources (cluster-scoped). VEX (Vulnerability Exploitability eXchange) declares whether known vulnerabilities are actually exploitable in a product. A VEXHub points to a repository of VEX documents used to enrich vulnerability reports with suppression data.",
 	}, s.listVEXHubs)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_vexhub",
+		Name:        ToolGetVEXHub,
 		Description: "Get a specific VEXHub by name. Returns the repository URL and enabled state. When enabled, vulnerability reports are enriched with VEX statuses: not_affected, fixed, or under_investigation.",
 	}, s.getVEXHub)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "list_images",
+		Name:        ToolListImages,
 		Description: "List scanned container images with vulnerability counts. Returns the image name, namespace, registry, repository, tag, total vulnerability count, and severity breakdown (critical, high, medium, low, unknown, suppressed). Use this to assess image security posture or find the most vulnerable images.",
 	}, s.listImages)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_image_vulnerabilities",
+		Name:        ToolGetImageVulnerabilities,
 		Description: "Advanced: Get the COMPLETE simplified CVE list for a container image (deduplicated by CVE ID, with top CVSS v3 score, severity, fix availability, and first reference link). WARNING: This returns a very large response that may exceed context limits. In most cases, use get_image_vulnerability_summary instead. Only use this tool if the user explicitly requests the full vulnerability list beyond the top 10.",
 	}, s.getImageVulnerabilities)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_image_vulnerability_summary",
+		Name:        ToolGetImageVulnerabilitySummary,
 		Description: "Get vulnerabilities for a scanned container image by name and namespace. This is the DEFAULT tool for any vulnerability query. Use list_images first to find the image name and namespace. Returns severity counts (critical, high, medium, low, unknown, suppressed) and the top 10 most severe CVEs.",
 	}, s.getImageVulnerabilitySummary)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "list_workloads",
+		Name:        ToolListWorkloads,
 		Description: "List scanned Kubernetes workloads with vulnerability counts. Returns for each workload: reportName (the identifier to pass as 'name' to get_workload_vulnerability_summary), namespace, workloadName (the Deployment/StatefulSet/DaemonSet/Job/CronJob/Pod name), workloadKind, total vulnerability count, and severity breakdown. To query a workload's vulnerabilities, find it by workloadName/workloadKind, then use its reportName as the 'name' argument.",
 	}, s.listWorkloads)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_workload_vulnerability_summary",
+		Name:        ToolGetWorkloadVulnerabilitySummary,
 		Description: "Get vulnerabilities for a scanned workload. This is the DEFAULT tool for any workload vulnerability query. Use list_workloads first to find the workload by workloadName/workloadKind, then pass the reportName as 'name' and the namespace. Returns per-container severity counts and top 10 CVEs, plus an overall summary.",
 	}, s.getWorkloadVulnerabilitySummary)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "get_workload_vulnerabilities",
+		Name:        ToolGetWorkloadVulnerabilities,
 		Description: "Advanced: Get the COMPLETE simplified CVE list for all containers in a workload (deduplicated by CVE ID per container, with top CVSS v3 score, severity, fix availability, and first reference link). Pass the reportName from list_workloads as the 'name' argument. WARNING: This returns a very large response that may exceed context limits. In most cases, use get_workload_vulnerability_summary instead. Only use this tool if the user explicitly requests the full vulnerability list beyond the top 10.",
 	}, s.getWorkloadVulnerabilities)
 }
@@ -269,7 +295,7 @@ func (s *Server) getWorkloadVulnerabilities(ctx context.Context, _ *mcp.CallTool
 
 func (s *Server) registerWriteTools() {
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name: "create_registry",
+		Name: ToolCreateRegistry,
 		Description: `Create a new Registry defining a container registry to scan. Set catalogType to "OCIDistribution" if the registry exposes the OCI _catalog endpoint, or "NoCatalog" if not (requires explicit repositories list).
 
 Repositories optionally filter tags via matchConditions. Each condition has a "name" and a CEL "expression" evaluated against the "tag" variable. Use "matchOperator" on the repository to combine multiple conditions: "And" (default) or "Or". Do NOT combine logic with && or || inside a single expression — use separate matchConditions instead.
@@ -303,37 +329,37 @@ CEL expression reference:
 	}, s.createRegistry)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "update_registry",
+		Name:        ToolUpdateRegistry,
 		Description: "Update an existing Registry. Only provided fields are changed; omitted fields keep current values. The repositories list, if provided, replaces the existing list entirely.",
 	}, s.updateRegistry)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "delete_registry",
+		Name:        ToolDeleteRegistry,
 		Description: "Delete a Registry. Previously discovered Images, SBOMs, and VulnerabilityReports are not deleted.",
 	}, s.deleteRegistry)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "create_scanjob",
+		Name:        ToolCreateScanJob,
 		Description: `Create a ScanJob to trigger a scan of all images in a Registry. The registry must exist in the same namespace. Monitor progress with get_scanjob: Scheduled → InProgress (CatalogCreationInProgress, SBOMGenerationInProgress, ImageScanInProgress) → Complete or Failed.`,
 	}, s.createScanJob)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "delete_scanjob",
+		Name:        ToolDeleteScanJob,
 		Description: "Delete a ScanJob. Scan results (Images, SBOMs, VulnerabilityReports) produced by the job are not deleted.",
 	}, s.deleteScanJob)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "create_vexhub",
+		Name:        ToolCreateVEXHub,
 		Description: "Create a new VEXHub (cluster-scoped). VEX (Vulnerability Exploitability eXchange) documents declare whether vulnerabilities are exploitable. Point it at a VEX document repository and set enabled to true to enrich vulnerability reports with suppression data (not_affected, fixed, under_investigation).",
 	}, s.createVEXHub)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "update_vexhub",
+		Name:        ToolUpdateVEXHub,
 		Description: "Update an existing VEXHub. Only provided fields are changed. Toggle enabled to start or stop VEX enrichment of vulnerability reports.",
 	}, s.updateVEXHub)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
-		Name:        "delete_vexhub",
+		Name:        ToolDeleteVEXHub,
 		Description: "Delete a VEXHub. VEX annotations already applied to existing vulnerability reports are not removed.",
 	}, s.deleteVEXHub)
 }
