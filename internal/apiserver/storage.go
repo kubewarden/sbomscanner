@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	mutatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
+	validatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -91,6 +93,12 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 	recommendedOptions.Etcd = nil
 	recommendedOptions.Features.EnablePriorityAndFairness = false
 	recommendedOptions.SecureServing.ServerCert.GeneratedCert = dynamicCertKeyPairContent
+	// The API extension server doesn't use admission policies; disable the plugins.
+	recommendedOptions.Admission.DisablePlugins = append(
+		recommendedOptions.Admission.DisablePlugins,
+		mutatingadmissionpolicy.PluginName,
+		validatingadmissionpolicy.PluginName,
+	)
 
 	// Register admission plugins
 	workloadScanReportValidationPlugin := admission.NewWorkloadScanReportValidation(
