@@ -358,5 +358,5 @@ type ScanJobList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&ScanJob{}, &ScanJobList{})
+	register(&ScanJob{}, &ScanJobList{})
 }
