@@ -55,6 +55,7 @@ spec:
             {{- if .Values.worker.logLevel }}
             - -log-level={{ .Values.worker.logLevel }}
             {{- end }}
+            - -mode=registry
           {{- if and .Values.worker .Values.worker.resources }}
           resources:
 {{ toYaml .Values.worker.resources | indent 12 }}

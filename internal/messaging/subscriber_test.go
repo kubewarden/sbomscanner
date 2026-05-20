@@ -68,7 +68,7 @@ func TestSubscriber_Run(t *testing.T) {
 	}
 
 	testHandler := &testHandler{handleFunc: handleFunc}
-	handlers := HandlerRegistry{
+	handlers := HandlerScan{
 		testSubscriberSubject: testHandler,
 	}
 	subscriber, err := NewNatsSubscriber(t.Context(), nc, "test-durable", handlers, nil, nil, slog.Default())
@@ -129,7 +129,7 @@ func TestSubscriber_Run_WithRetry(t *testing.T) {
 	}
 
 	testHandler := &testHandler{handleFunc: handleFunc}
-	handlers := HandlerRegistry{
+	handlers := HandlerScan{
 		testSubscriberSubject: testHandler,
 	}
 	retryConfig := &RetryConfig{
@@ -202,7 +202,7 @@ func TestSubscriber_Run_WithMaxRetriesExceeded(t *testing.T) {
 	testHandler := &testHandler{handleFunc: handleFunc}
 	testFailureHandler := &testFailureHandler{handleFailureFunc: failureHandleFunc}
 
-	handlers := HandlerRegistry{
+	handlers := HandlerScan{
 		testSubscriberSubject: testHandler,
 	}
 	retryConfig := &RetryConfig{
@@ -279,7 +279,7 @@ func TestSubscriber_handleMessage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handlers := HandlerRegistry{}
+			handlers := HandlerScan{}
 			handlers[testSubscriberSubject] = &testHandler{
 				handleFunc: test.handleFunc,
 			}

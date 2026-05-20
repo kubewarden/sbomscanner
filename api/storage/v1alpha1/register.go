@@ -42,6 +42,10 @@ func AddKnownTypes(scheme *runtime.Scheme) error {
 		&VulnerabilityReportList{},
 		&WorkloadScanReport{},
 		&WorkloadScanReportList{},
+		&NodeSBOM{},
+		&NodeSBOMList{},
+		&NodeVulnerabilityReport{},
+		&NodeVulnerabilityReportList{},
 		&metav1.GetOptions{},
 		&metav1.CreateOptions{},
 		&metav1.UpdateOptions{},
@@ -58,7 +62,10 @@ func AddKnownTypes(scheme *runtime.Scheme) error {
 		return fmt.Errorf("unable to add field selector conversion function to Image: %w", err)
 	}
 
-	err = scheme.AddFieldLabelConversionFunc(SchemeGroupVersion.WithKind("SBOM"), imageMetadataFieldSelectorConversion)
+	err = scheme.AddFieldLabelConversionFunc(
+		SchemeGroupVersion.WithKind("SBOM"),
+		imageMetadataFieldSelectorConversion,
+	)
 	if err != nil {
 		return fmt.Errorf("unable to add field selector conversion function to SBOM: %w", err)
 	}
@@ -71,9 +78,26 @@ func AddKnownTypes(scheme *runtime.Scheme) error {
 		return fmt.Errorf("unable to add field selector conversion function to VulnerabilityReport: %w", err)
 	}
 
+	err = scheme.AddFieldLabelConversionFunc(
+		SchemeGroupVersion.WithKind("NodeSBOM"),
+		nodeMetadataFieldSelectorConversion,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to add field selector conversion function to NodeSBOM: %w", err)
+	}
+
+	err = scheme.AddFieldLabelConversionFunc(
+		SchemeGroupVersion.WithKind("NodeVulnerabilityReport"),
+		nodeMetadataFieldSelectorConversion,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to add field selector conversion function to NodeVulnerabilityReport: %w", err)
+	}
+
 	return nil
 }
 
+// imageMetadataFieldSelectorConversion allows field selection on the image metadata fields.
 func imageMetadataFieldSelectorConversion(label, value string) (string, string, error) {
 	switch label {
 	case "metadata.name":
@@ -101,6 +125,30 @@ func imageMetadataFieldSelectorConversion(label, value string) (string, string, 
 			"metadata.name",
 			"metadata.namespace",
 			"imageMetadata.*",
+		)
+	}
+}
+
+// nodeMetadataFieldSelectorConversion allows field selection on the node metadata fields.
+// This is needed to allow listing NodeSBOMs and NodeVulnerabilityReports by node metadata,
+// since the node name and platform are part of the node metadata and not the top-level resource metadata.
+func nodeMetadataFieldSelectorConversion(label, value string) (string, string, error) {
+	switch label {
+	case "metadata.name":
+		return label, value, nil
+	case "metadata.namespace":
+		return label, value, nil
+	case "nodeMetadata.name":
+		return label, value, nil
+	case "nodeMetadata.platform":
+		return label, value, nil
+	default:
+		return "", "", fmt.Errorf(
+			"%q is not a known field selector: only %q, %q, %q",
+			label,
+			"metadata.name",
+			"metadata.namespace",
+			"nodeMetadata.*",
 		)
 	}
 }

@@ -32,6 +32,12 @@ func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
 	if _, err := db.Exec(ctx, createWorkloadScanReportTableSQL); err != nil {
 		return fmt.Errorf("creating workload scan report table: %w", err)
 	}
+	if _, err := db.Exec(ctx, createNodeSBOMTableSQL); err != nil {
+		return fmt.Errorf("creating node sbom table: %w", err)
+	}
+	if _, err := db.Exec(ctx, createNodeVulnerabilityReportTableSQL); err != nil {
+		return fmt.Errorf("creating node vulnerability report table: %w", err)
+	}
 
 	return nil
 }
