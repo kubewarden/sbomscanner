@@ -739,7 +739,7 @@ func schema_sbomscanner_api_storage_v1alpha1_NodeVulnerabilityReportList(ref com
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NodeVulnerabilityReportList contains a list of ScanResult",
+				Description: "NodeVulnerabilityReportList contains a list of NodeVulnerabilityReport",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
