@@ -48,5 +48,5 @@ type VEXHubList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&VEXHub{}, &VEXHubList{})
+	register(&VEXHub{}, &VEXHubList{})
 }
