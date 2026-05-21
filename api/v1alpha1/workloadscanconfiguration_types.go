@@ -80,5 +80,5 @@ type WorkloadScanConfigurationList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&WorkloadScanConfiguration{}, &WorkloadScanConfigurationList{})
+	register(&WorkloadScanConfiguration{}, &WorkloadScanConfigurationList{})
 }
