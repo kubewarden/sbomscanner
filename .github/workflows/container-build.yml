@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Set up Docker Buildx
@@ -62,29 +64,43 @@ jobs:
       # cosign) are not able to properly verify the signatures using this
       # new format
       - name: Sign container image with cosign v2 signature format
+        env:
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          COMPONENT: ${{ matrix.component }}
+          DIGEST: ${{ steps.build-image.outputs.digest }}
         run: |
           cosign sign --yes --new-bundle-format=false --use-signing-config=false \
-            ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${{ steps.build-image.outputs.digest }}
+            "ghcr.io/${IMAGE_OWNER}/sbomscanner/${COMPONENT}@${DIGEST}"
 
       - name: Sign container image with cosign v3 signature format
+        env:
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          COMPONENT: ${{ matrix.component }}
+          DIGEST: ${{ steps.build-image.outputs.digest }}
         run: |
           cosign sign --yes --new-bundle-format=true --use-signing-config=true \
-            ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${{ steps.build-image.outputs.digest }}
+            "ghcr.io/${IMAGE_OWNER}/sbomscanner/${COMPONENT}@${DIGEST}"
 
       - name: Verify container image signature
         env:
           GH_REF: ${{ github.ref }}
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          COMPONENT: ${{ matrix.component }}
+          DIGEST: ${{ steps.build-image.outputs.digest }}
         run: |
           cosign verify \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
-            --certificate-identity="https://github.com/${{github.repository_owner}}/sbomscanner/.github/workflows/container-build.yml@${GH_REF}" \
-            ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${{ steps.build-image.outputs.digest }}
+            --certificate-identity="https://github.com/${IMAGE_OWNER}/sbomscanner/.github/workflows/container-build.yml@${GH_REF}" \
+            "ghcr.io/${IMAGE_OWNER}/sbomscanner/${COMPONENT}@${DIGEST}"
 
       - name: Export digest
+        env:
+          DIGEST: ${{ steps.build-image.outputs.digest }}
+          COMPONENT: ${{ matrix.component }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          mkdir -p ${{ runner.temp }}/digests
-          digest="${{ steps.build-image.outputs.digest }}"
-          echo "${digest}" > "${{ runner.temp }}/digests/${{ matrix.component }}-${{ matrix.arch }}.txt"
+          mkdir -p "${RUNNER_TEMP}/digests"
+          echo "${DIGEST}" > "${RUNNER_TEMP}/digests/${COMPONENT}-${ARCH}.txt"
 
       - name: Upload digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -145,14 +161,14 @@ jobs:
 
           # Create the manifest locally
           docker buildx imagetools create \
-            -t ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}:${{ env.TAG_NAME }} \
+            -t ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}:${TAG_NAME} \
             ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${amd64_digest} \
             ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${arm64_digest} \
             --dry-run > expected-multi-arch-manifest.json
 
           # Create the manifest and push it
           docker buildx imagetools create \
-            -t ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}:${{ env.TAG_NAME }} \
+            -t ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}:${TAG_NAME} \
             ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${amd64_digest} \
             ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${arm64_digest}
 
@@ -160,7 +176,7 @@ jobs:
           # fetching it from the OCI registry and **verify** its contents before signing it
 
           # Fetch the multi arch manifest
-          docker buildx imagetools inspect ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}:${{ env.TAG_NAME }} \
+          docker buildx imagetools inspect ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}:${TAG_NAME} \
             --raw > multi-arch-manifest.json
           multi_arch_manifest_digest="sha256:$(sha256sum multi-arch-manifest.json | awk '{print $1}')"
 
@@ -192,7 +208,7 @@ jobs:
           cosign verify \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
             --certificate-identity="https://github.com/${{github.repository_owner}}/sbomscanner/.github/workflows/container-build.yml@${GH_REF}" \
-            ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${{ env.MULTI_ARCH_MANIFEST_DIGEST}}
+            ghcr.io/${{ github.repository_owner }}/sbomscanner/${{ matrix.component }}@${MULTI_ARCH_MANIFEST_DIGEST}
 
   attest:
     needs: [merge]
