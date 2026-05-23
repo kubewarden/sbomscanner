@@ -90,7 +90,7 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/aquasecurity/go-gem-version v0.0.0-20201115065557-8eed6fe000ce // indirect
 	github.com/aquasecurity/go-npm-version v0.0.2 // indirect
-	github.com/aquasecurity/go-pep440-version v0.0.1 // indirect
+	github.com/aquasecurity/go-pep440-version v0.0.2-0.20260224065243-f9bba28c51a4 // indirect
 	github.com/aquasecurity/go-version v0.0.1 // indirect
 	github.com/aquasecurity/iamgo v0.0.10 // indirect
 	github.com/aquasecurity/jfather v0.0.8 // indirect
@@ -100,27 +100,26 @@ require (
 	github.com/aquasecurity/trivy-java-db v0.0.0-20250912094916-94bd09842933 // indirect
 	github.com/aquasecurity/trivy-kubernetes v0.9.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.41.5 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.32.12 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.12 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.20 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.6 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.22 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.41.7 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.32.17 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.16 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.24 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ebs v1.33.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.290.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.55.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21 // indirect
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.99.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.0.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.30.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.41.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.300.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.57.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.0.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.30.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.21 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1 // indirect
 	github.com/aws/smithy-go v1.25.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
@@ -290,7 +289,7 @@ require (
 	github.com/masahiro331/go-disk v0.0.0-20260423015231-f7a470ebd472 // indirect
 	github.com/masahiro331/go-ebs-file v0.0.0-20260422020928-9d24e29aac27 // indirect
 	github.com/masahiro331/go-ext4-filesystem v0.0.0-20260423010602-fe51f5b5e52b // indirect
-	github.com/masahiro331/go-mvn-version v0.0.0-20250131095131-f4974fa13b8a // indirect
+	github.com/masahiro331/go-mvn-version v0.0.0-20260119054159-d21fcd2e7de1 // indirect
 	github.com/masahiro331/go-vmdk-parser v0.0.0-20260423020818-08305fa668d2 // indirect
 	github.com/masahiro331/go-xfs-filesystem v0.0.0-20260422061116-d21e5e4481bb // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -489,7 +488,7 @@ require (
 // TODO: remove https://github.com/containerd/containerd/issues/12493 is resolved.
 replace github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.3.0
 
-replace github.com/aquasecurity/trivy => github.com/kubewarden/trivy v0.0.0-20260506084153-920fad253709
+replace github.com/aquasecurity/trivy => github.com/kubewarden/trivy v0.0.0-20260520062440-fc1e46fb0214
 
 // Upstream trivy does not yet support go-containerregistry v0.21.6:
 // v0.21.6 always populates Descriptor.ArtifactType from the manifest's config
