@@ -21,7 +21,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
 	github.com/spdx/tools-golang v0.5.7
-	github.com/stephenafamo/bob v0.43.0
+	github.com/stephenafamo/bob v0.44.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
