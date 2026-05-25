@@ -47,7 +47,7 @@ jobs:
         # the token in that case, so the upload would fail. The SARIF is still
         # available as a workflow artifact (uploaded below) for reviewers.
         if: github.event.pull_request.head.repo.fork != true
-        uses: github/codeql-action/upload-sarif@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
         with:
           sarif_file: govulncheck.sarif
           category: govulncheck
@@ -109,7 +109,7 @@ jobs:
         # the token in that case, so the upload would fail. The SARIF is still
         # available as a workflow artifact (uploaded below) for reviewers.
         if: github.event.pull_request.head.repo.fork != true
-        uses: github/codeql-action/upload-sarif@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
         with:
           sarif_file: trivy.sarif
           category: trivy
