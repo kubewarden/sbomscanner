@@ -13,7 +13,6 @@ jobs:
     uses: ./.github/workflows/container-build.yml
     with:
       version: ${{ github.ref_name }}
-    secrets: inherit
   create-release:
     needs: [build]
     permissions:
@@ -129,4 +128,7 @@ jobs:
     permissions:
       contents: write # for updatecli to update the repository
       pull-requests: write # for updatecli to create a PR
-    secrets: inherit
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      APP_INSTALLATION_ID: ${{ secrets.APP_INSTALLATION_ID }}
