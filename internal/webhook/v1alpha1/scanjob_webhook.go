@@ -19,7 +19,7 @@ import (
 func SetupScanJobWebhookWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.ScanJob{}).
 		WithValidator(&ScanJobCustomValidator{
-			client: mgr.GetClient(),
+			client: mgr.GetAPIReader(),
 			logger: mgr.GetLogger().WithName("scanjob_validator"),
 		}).
 		WithDefaulter(&ScanJobCustomDefaulter{
@@ -57,7 +57,7 @@ func (d *ScanJobCustomDefaulter) Default(_ context.Context, scanJob *v1alpha1.Sc
 // +kubebuilder:webhook:path=/validate-sbomscanner-kubewarden-io-v1alpha1-scanjob,mutating=false,failurePolicy=fail,sideEffects=None,groups=sbomscanner.kubewarden.io,resources=scanjobs,verbs=create;update,versions=v1alpha1,name=vscanjob.sbomscanner.kubewarden.io,admissionReviewVersions=v1
 
 type ScanJobCustomValidator struct {
-	client client.Client
+	client client.Reader
 	logger logr.Logger
 }
 
