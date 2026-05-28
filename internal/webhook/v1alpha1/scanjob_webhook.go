@@ -86,6 +86,20 @@ func (v *ScanJobCustomValidator) ValidateCreate(ctx context.Context, scanJob *v1
 		}
 	}
 
+	registry := &v1alpha1.Registry{}
+	if err := v.client.Get(ctx, client.ObjectKey{
+		Name:      scanJob.Spec.Registry,
+		Namespace: scanJob.GetNamespace(),
+	}, registry); err != nil {
+		if apierrors.IsNotFound(err) {
+			allErrs = append(allErrs, field.NotFound(
+				field.NewPath("spec").Child("registry"),
+				scanJob.Spec.Registry))
+		} else {
+			return nil, apierrors.NewInternalError(fmt.Errorf("getting Registry: %w", err))
+		}
+	}
+
 	if len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(
 			v1alpha1.GroupVersion.WithKind("ScanJob").GroupKind(),
