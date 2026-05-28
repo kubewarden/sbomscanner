@@ -139,6 +139,37 @@ spec:
     - name: kubewarden/sbomscanner/test-assets/golang
 ```
 
+#### Connecting to registries with custom CAs or insecure transport
+
+If you need to connect to a registry that uses a self-signed or private
+certificate authority, provide a PEM-encoded CA bundle via `spec.caBundle`:
+
+```yaml
+spec:
+  uri: my-registry.example.com
+  caBundle: |
+    -----BEGIN CERTIFICATE-----
+    <base64-encoded certificate>
+    -----END CERTIFICATE-----
+  repositories:
+    - name: my-org/my-image
+```
+
+For development or testing against a registry that uses an untrusted
+certificate, you can disable TLS verification by setting
+`spec.insecure` to `true`:
+
+```yaml
+spec:
+  uri: my-registry.example.com
+  insecure: true
+  repositories:
+    - name: my-org/my-image
+```
+
+Do not enable `insecure` in production environments, as it disables TLS
+certificate verification when connecting to the registry.
+
 ### Create the Registry CR
 
 ```bash
