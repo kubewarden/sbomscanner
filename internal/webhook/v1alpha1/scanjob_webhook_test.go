@@ -40,16 +40,25 @@ func TestScanJobDefaulter_Default(t *testing.T) {
 }
 
 func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
+	defaultRegistry := &v1alpha1.Registry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "registry.example.com",
+			Namespace: "default",
+		},
+	}
+
 	tests := []struct {
-		name            string
-		existingScanJob *v1alpha1.ScanJob
-		scanJob         *v1alpha1.ScanJob
-		expectedError   string
-		expectedField   string
+		name             string
+		existingScanJob  *v1alpha1.ScanJob
+		existingRegistry *v1alpha1.Registry
+		scanJob          *v1alpha1.ScanJob
+		expectedError    string
+		expectedField    string
 	}{
 		{
-			name:            "should admit creation when no existing jobs with same registry",
-			existingScanJob: nil,
+			name:             "should admit creation when no existing jobs with same registry",
+			existingScanJob:  nil,
+			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-scan-job",
@@ -75,6 +84,7 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				job.InitializeConditions()
 				return job
 			}(),
+			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-scan-job",
@@ -103,6 +113,7 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				job.MarkInProgress(v1alpha1.ReasonImageScanInProgress, "Image scan in progress")
 				return job
 			}(),
+			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-scan-job",
@@ -131,6 +142,7 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				job.MarkComplete(v1alpha1.ReasonAllImagesScanned, "Done")
 				return job
 			}(),
+			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-scan-job",
@@ -157,6 +169,7 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				job.MarkFailed(v1alpha1.ReasonInternalError, "Failed")
 				return job
 			}(),
+			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-scan-job",
@@ -166,6 +179,22 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 					Registry: "registry.example.com",
 				},
 			},
+		},
+		{
+			name:             "should deny creation when referenced Registry does not exist",
+			existingScanJob:  nil,
+			existingRegistry: nil,
+			scanJob: &v1alpha1.ScanJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-scan-job",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ScanJobSpec{
+					Registry: "registry.example.com",
+				},
+			},
+			expectedField: "spec.registry",
+			expectedError: "Not found",
 		},
 	}
 
@@ -189,6 +218,9 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 
 			if test.existingScanJob != nil {
 				require.NoError(t, client.Create(t.Context(), test.existingScanJob))
+			}
+			if test.existingRegistry != nil {
+				require.NoError(t, client.Create(t.Context(), test.existingRegistry.DeepCopy()))
 			}
 
 			warnings, err := validator.ValidateCreate(t.Context(), test.scanJob)
