@@ -742,6 +742,7 @@ _Appears in:_
 | `diffID` _string_ | DiffID of the image layer where the vulnerability was introduced |  |  |
 | `description` _string_ | Description of the vulnerability |  |  |
 | `severity` _string_ | Severity rating (e.g., "HIGH", "MEDIUM") |  |  |
+| `severitySource` _string_ | SeveritySource identifies the vendor that produced the Severity<br />(e.g. "nvd", "ghsa", "redhat", "alpine").<br />Consumers can use this key to look up the matching entry in the CVSS map to display alongside Severity.<br />May be empty when the source vendor is not known. |  |  |
 | `references` _string array_ | References contains URLs for more information |  |  |
 | `cvss` _object (keys:string, values:[CVSS](#cvss))_ | CVSS scoring details |  |  |
 | `cwes` _string array_ | CWEs with which the CVE is classified |  |  |

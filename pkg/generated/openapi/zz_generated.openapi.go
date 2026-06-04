@@ -932,6 +932,13 @@ func schema_sbomscanner_api_storage_v1alpha1_Vulnerability(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"severitySource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SeveritySource identifies the vendor that produced the Severity (e.g. \"nvd\", \"ghsa\", \"redhat\", \"alpine\"). Consumers can use this key to look up the matching entry in the CVSS map to display alongside Severity. May be empty when the source vendor is not known.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"references": {
 						SchemaProps: spec.SchemaProps{
 							Description: "References contains URLs for more information",

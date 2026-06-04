@@ -86,6 +86,7 @@ func newVulnerability(trivyVuln trivyTypes.DetectedVulnerability) storagev1alpha
 		DiffID:           trivyVuln.Layer.DiffID,
 		Description:      trivyVuln.Description,
 		Severity:         trivyVuln.Severity,
+		SeveritySource:   string(trivyVuln.SeveritySource),
 		References:       trivyVuln.References,
 		CVSS:             newCVSS(trivyVuln.CVSS),
 		CWEs:             trivyVuln.CweIDs,
