@@ -10,15 +10,17 @@ Under the hood, SBOMscanner creates managed `Registry` resources for each discov
 
 ### Supported workload types
 
-SBOMscanner resolves pods to their owning workload by walking the owner reference chain. For example, a pod owned by a ReplicaSet owned by a Deployment results in a report for the Deployment. The following workload types are supported:
+SBOMscanner resolves pods to their owning workload by walking the controller owner reference chain and produces one `WorkloadScanReport` per top-level owner. Any Kubernetes object that is the controller owner of a pod can act as the top-level workload — common examples include:
 
-- Deployments
+- Deployments (resolved from ReplicaSet → Deployment)
 - StatefulSets
 - DaemonSets
 - ReplicaSets (not owned by a Deployment)
-- Pods (not owned by any controller)
-- Jobs
-- CronJobs
+- Jobs (not owned by a CronJob)
+- CronJobs (resolved from Job → CronJob)
+- Pods with no controller owner
+
+Any other controller kind that owns a pod is also supported and reported under its own kind. For example, mirror (static) pods owned by a `Node`, pods owned by a [`Cluster`](https://github.com/rancher/k3k/blob/main/docs/crds/crds.md#cluster) resource from [k3k](https://github.com/rancher/k3k), or pods owned by a [`Cluster`](https://cloudnative-pg.io/docs/devel/cloudnative-pg.v1#cluster) resource from [CloudNativePG](https://cloudnative-pg.io/documentation/), all produce a `WorkloadScanReport` named after that owning resource (e.g. `node-<uid>` or `cluster-<uid>`) rather than being collapsed into a `Pod` report. Only the ReplicaSet → Deployment and Job → CronJob chains are walked up; every other owner kind is used as-is.
 
 ### Default behavior
 
