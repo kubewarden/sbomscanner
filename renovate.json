@@ -25,6 +25,11 @@
         "/^k8s\\.io/component-base/",
         "/^sigs\\.k8s\\.io/controller-runtime/"
       ]
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["replace"],
+      "enabled": false
     }
   ]
 }
