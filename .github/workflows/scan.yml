@@ -75,7 +75,7 @@ jobs:
       - name: Install Trivy
         env:
           # renovate: datasource=github-releases depName=aquasecurity/trivy
-          TRIVY_VERSION: "0.70.0"
+          TRIVY_VERSION: "0.71.0"
         run: |
           set -euo pipefail
           tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
