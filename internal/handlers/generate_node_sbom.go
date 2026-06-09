@@ -142,7 +142,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
 	}
 
-	nodeSbom, err := h.generateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodeScanConfiguration)
+	nodeSBOM, err := h.generateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodeScanConfiguration)
 	if err != nil {
 		return fmt.Errorf("failed to get or generate NodeSBOM: %w", err)
 	}
@@ -151,7 +151,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
-	if err = h.k8sClient.Create(ctx, nodeSbom); err != nil {
+	if err = h.k8sClient.Create(ctx, nodeSBOM); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			h.logger.InfoContext(ctx, "NodeSBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
 		} else {
