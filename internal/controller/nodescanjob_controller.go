@@ -73,13 +73,13 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	nodeScanJob.InitializeConditions()
 
-	var failed bool
-	failed, err := r.validateNodeAgainstConfig(ctx, nodeScanJob, &node)
+	var valid bool
+	valid, err := r.validateNodeAgainstConfig(ctx, nodeScanJob, &node)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if failed {
+	if !valid {
 		if err := r.Status().Update(ctx, nodeScanJob); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
 		}
@@ -97,7 +97,7 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // validateNodeAgainstConfig checks the NodeScanConfiguration exists and
-// the node matches it. Returns (true, nil) when the job was marked Failed.
+// the node matches it. Returns (true, nil) when the node is valid.
 func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, job *v1alpha1.NodeScanJob, node *corev1.Node) (bool, error) {
 	log := logf.FromContext(ctx)
 
@@ -106,7 +106,7 @@ func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, j
 		if errors.IsNotFound(err) {
 			log.Info("NodeScanConfiguration not found, marking NodeScanJob as failed", "nodeScanJob", job.Name)
 			job.MarkFailed(v1alpha1.ReasonNodeScanJobConfigurationMissing, "NodeScanConfiguration not found: node scanning is not configured")
-			return true, nil
+			return false, nil
 		}
 		return false, fmt.Errorf("failed to get NodeScanConfiguration: %w", err)
 	}
@@ -121,7 +121,7 @@ func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, j
 				"nodeScanJob", job.Name, "node", node.Name)
 			job.MarkFailed(v1alpha1.ReasonNodeScanJobNotMatching,
 				fmt.Sprintf("node %q does not match the NodeScanConfiguration nodeSelector", node.Name))
-			return true, nil
+			return false, nil
 		}
 	}
 
@@ -137,10 +137,10 @@ func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, j
 		job.MarkFailed(v1alpha1.ReasonNodeScanJobNotMatching,
 			fmt.Sprintf("node %q platform %s/%s is not allowed by the NodeScanConfiguration",
 				node.Name, node.Status.NodeInfo.OperatingSystem, node.Status.NodeInfo.Architecture))
-		return true, nil
+		return false, nil
 	}
 
-	return false, nil
+	return true, nil
 }
 
 // reconcileScanJob implements the actual reconciliation logic.
