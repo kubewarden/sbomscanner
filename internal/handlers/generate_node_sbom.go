@@ -142,21 +142,27 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
 	}
 
-	nodeSBOM, err := h.generateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodeScanConfiguration)
+	generated, err := h.generateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodeScanConfiguration)
 	if err != nil {
-		return fmt.Errorf("failed to get or generate NodeSBOM: %w", err)
+		return fmt.Errorf("failed to generate NodeSBOM: %w", err)
 	}
 
 	if err = message.InProgress(); err != nil {
 		return fmt.Errorf("failed to ack message as in progress: %w", err)
 	}
 
-	if err = h.k8sClient.Create(ctx, nodeSBOM); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			h.logger.InfoContext(ctx, "NodeSBOM already exists, skipping creation", "nodesbom", generateNodeSBOMMessage.Node.Name)
-		} else {
-			return fmt.Errorf("failed to create NodeSBOM: %w", err)
-		}
+	nodeSBOM := &storagev1alpha1.NodeSBOM{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: generated.Name,
+		},
+	}
+	if _, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, nodeSBOM, func() error {
+		nodeSBOM.Labels = generated.Labels
+		nodeSBOM.NodeMetadata = generated.NodeMetadata
+		nodeSBOM.SPDX = generated.SPDX
+		return controllerutil.SetControllerReference(nodeScanConfiguration, nodeSBOM, h.scheme)
+	}); err != nil {
+		return fmt.Errorf("failed to create or update NodeSBOM: %w", err)
 	}
 
 	scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.GetUID(), generateNodeSBOMMessage.Node.Name)
@@ -203,10 +209,6 @@ func (h *GenerateNodeSBOMHandler) generateNodeSBOM(ctx context.Context, node *co
 			Platform: nodePlatform,
 		},
 		SPDX: runtime.RawExtension{Raw: spdxBytes},
-	}
-
-	if err := controllerutil.SetControllerReference(config, nodeSbom, h.scheme); err != nil {
-		return nil, fmt.Errorf("failed to set owner reference: %w", err)
 	}
 
 	return nodeSbom, nil
