@@ -18,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	api "github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/filters"
 	"github.com/kubewarden/sbomscanner/internal/handlers"
@@ -187,7 +186,6 @@ func (r *NodeScanJobReconciler) cleanupOldNodeScanJobs(ctx context.Context, curr
 	scanJobList := &v1alpha1.NodeScanJobList{}
 	listOpts := []client.ListOption{
 		client.MatchingFields{v1alpha1.IndexNodeScanJobSpecNodeName: currentNodeScanJob.Spec.NodeName},
-		client.MatchingLabels{api.LabelManagedByKey: api.LabelManagedByValue},
 	}
 
 	if err := r.List(ctx, scanJobList, listOpts...); err != nil {

@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/filters"
 )
@@ -254,9 +253,6 @@ func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, config *v1alpha1
 			GenerateName: fmt.Sprintf("node-%s-", nodeName),
 			Annotations: map[string]string{
 				v1alpha1.AnnotationNodeScanJobTriggerKey: "runner",
-			},
-			Labels: map[string]string{
-				api.LabelManagedByKey: api.LabelManagedByValue,
 			},
 		},
 		Spec: v1alpha1.NodeScanJobSpec{

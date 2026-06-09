@@ -73,9 +73,6 @@ var _ = Describe("NodeScan Controller", func() {
 			nodeScanJob := v1alpha1.NodeScanJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("nodescanjob-%s", nodeName),
-					Labels: map[string]string{
-						api.LabelManagedByKey: api.LabelManagedByValue,
-					},
 				},
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: nodeName,
@@ -132,9 +129,6 @@ var _ = Describe("NodeScan Controller", func() {
 			otherJob := v1alpha1.NodeScanJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("nodescanjob-%s", otherNodeName),
-					Labels: map[string]string{
-						api.LabelManagedByKey: api.LabelManagedByValue,
-					},
 				},
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: otherNodeName,
