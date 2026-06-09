@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kubewarden/sbomscanner/api"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,44 +48,17 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *NodeScanReconciler) cleanupNodeResources(ctx context.Context, nodeName string) error {
-	logger := log.FromContext(ctx)
+	if err := r.DeleteAllOf(ctx, &v1alpha1.NodeScanJob{},
+		client.MatchingFields{v1alpha1.IndexNodeScanJobSpecNodeName: nodeName},
+	); err != nil && !apierrors.IsNotFound(err) {
 
-	var nodeScanJobs v1alpha1.NodeScanJobList
-	if err := r.List(ctx, &nodeScanJobs,
-		client.MatchingLabels{
-			api.LabelManagedByKey: api.LabelManagedByValue,
-		},
-	); err != nil {
-		return fmt.Errorf("failed to list managed NodeScanJobs: %w", err)
+		return fmt.Errorf("delete NodeScanJobs for node %s: %w", nodeName, err)
 	}
 
-	for i := range nodeScanJobs.Items {
-		job := &nodeScanJobs.Items[i]
-		if job.Spec.NodeName == nodeName {
-			logger.Info("Deleting NodeScanJob for deleted node", "nodeScanJob", job.Name, "nodeName", nodeName)
-			if err := r.Delete(ctx, job); err != nil && !apierrors.IsNotFound(err) {
-				return fmt.Errorf("failed to delete NodeScanJob %s: %w", job.Name, err)
-			}
-		}
-	}
-
-	var nodesboms storagev1alpha1.NodeSBOMList
-	if err := r.List(ctx, &nodesboms,
-		client.MatchingLabels{
-			api.LabelManagedByKey: api.LabelManagedByValue,
-		},
-	); err != nil {
-		return fmt.Errorf("failed to list managed NodeSBOMs: %w", err)
-	}
-
-	for i := range nodesboms.Items {
-		nodesbom := &nodesboms.Items[i]
-		if nodesbom.NodeMetadata.Name == nodeName {
-			logger.Info("Deleting NodeSBOM for deleted node", "nodesbom", nodesbom.Name, "nodeName", nodeName)
-			if err := r.Delete(ctx, nodesbom); err != nil && !apierrors.IsNotFound(err) {
-				return fmt.Errorf("failed to delete NodeSBOM %s: %w", nodesbom.Name, err)
-			}
-		}
+	if err := r.DeleteAllOf(ctx, &storagev1alpha1.NodeSBOM{},
+		client.MatchingFields{storagev1alpha1.IndexNodeMetadataName: nodeName},
+	); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("delete NodeSBOMs for node %s: %w", nodeName, err)
 	}
 
 	return nil
