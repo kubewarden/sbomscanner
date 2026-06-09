@@ -129,10 +129,10 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	}
 
 	// Get the NodeScanConfiguration to determine where to create the NodeSBOM.
-	nodescanconfig := &v1alpha1.NodeScanConfiguration{}
+	nodeScanConfiguration := &v1alpha1.NodeScanConfiguration{}
 	err = h.k8sClient.Get(ctx, client.ObjectKey{
 		Name: v1alpha1.NodeScanConfigurationName,
-	}, nodescanconfig)
+	}, nodeScanConfiguration)
 	if err != nil {
 		// Stop processing if the scanjob is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
@@ -142,7 +142,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
 	}
 
-	nodeSbom, err := h.generateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodescanconfig)
+	nodeSbom, err := h.generateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodeScanConfiguration)
 	if err != nil {
 		return fmt.Errorf("failed to get or generate NodeSBOM: %w", err)
 	}
