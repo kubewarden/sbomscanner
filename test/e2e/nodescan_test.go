@@ -30,6 +30,9 @@ func TestNodeScan(t *testing.T) {
 			nodeScanConfig := &v1alpha1.NodeScanConfiguration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: v1alpha1.NodeScanConfigurationName,
+					Annotations: map[string]string{
+						"sbomscanner.kubewarden.io/node-rescan-requested": "true",
+					},
 				},
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					SkipPatterns: []string{
@@ -54,7 +57,6 @@ func TestNodeScan(t *testing.T) {
 			err := wait.For(
 				conditions.New(cfg.Client().Resources()).ResourceListN(
 					nodeScanJobs, 1,
-					resources.WithLabelSelector(nodeScanLabelSelector),
 				),
 				wait.WithTimeout(scanTimeout),
 			)
@@ -66,8 +68,7 @@ func TestNodeScan(t *testing.T) {
 			nodeScanJobs := &v1alpha1.NodeScanJobList{}
 			err := wait.For(func(ctx context.Context) (bool, error) {
 				if err := cfg.Client().Resources().List(ctx, nodeScanJobs,
-					resources.WithLabelSelector(nodeScanLabelSelector),
-				); err != nil {
+					resources.WithTimeout(scanTimeout)); err != nil {
 					return false, err
 				}
 
