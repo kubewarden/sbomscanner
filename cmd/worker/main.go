@@ -148,17 +148,17 @@ func main() {
 		return registry.NewClient(transport, logger)
 	}
 
-	var scanMode messaging.HandlerScan
+	var scanMode messaging.HandlerRegistry
 	durableName := "worker"
 	switch mode {
 	case registryMode:
-		scanMode = messaging.HandlerScan{
+		scanMode = messaging.HandlerRegistry{
 			handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, installationNamespace, logger),
 			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
 			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
 	case nodeMode:
-		scanMode = messaging.HandlerScan{
+		scanMode = messaging.HandlerRegistry{
 			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, targetDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
 			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
