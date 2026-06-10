@@ -51,7 +51,6 @@ func (r *NodeScanReconciler) cleanupNodeResources(ctx context.Context, nodeName 
 	if err := r.DeleteAllOf(ctx, &v1alpha1.NodeScanJob{},
 		client.MatchingFields{v1alpha1.IndexNodeScanJobSpecNodeName: nodeName},
 	); err != nil && !apierrors.IsNotFound(err) {
-
 		return fmt.Errorf("delete NodeScanJobs for node %s: %w", nodeName, err)
 	}
 

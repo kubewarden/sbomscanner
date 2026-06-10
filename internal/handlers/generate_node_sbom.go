@@ -64,7 +64,7 @@ func NewGenerateNodeSBOMHandler(
 
 // Handle processes the GenerateNodeSBOMMessage and generates a SBOM resource from the specified image.
 //
-//nolint:gocognit,funlen // This function is responsible for orchestrating multiple steps in the SBOM generation process, making it inherently complex and lengthy.
+//nolint:funlen // This function is responsible for orchestrating multiple steps in the SBOM generation process, making it inherently complex and lengthy.
 func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
 	generateNodeSBOMMessage := &GenerateNodeSBOMMessage{}
 	if err := json.Unmarshal(message.Data(), generateNodeSBOMMessage); err != nil {
