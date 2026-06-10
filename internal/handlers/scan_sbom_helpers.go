@@ -30,6 +30,7 @@ const (
 	trivyVEXRepoFile = "repository.yaml"
 )
 
+// scanSBOMBase provides common functionality for SBOM scanning handlers.
 type scanSBOMBase struct {
 	k8sClient             client.Client
 	scheme                *runtime.Scheme
@@ -151,6 +152,7 @@ func (b *scanSBOMBase) runTrivyScan(ctx context.Context, rawSPDX []byte, message
 	return results, summary, nil
 }
 
+// setupVEXHubRepositories creates the VEX repository configuration file for trivy based on the provided VEXHubList.
 func (b *scanSBOMBase) setupVEXHubRepositories(vexHubList *v1alpha1.VEXHubList, trivyVEXPath, vexRepoPath string) error {
 	config := vexrepo.Config{}
 	for _, repo := range vexHubList.Items {
