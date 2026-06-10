@@ -30,13 +30,14 @@ const (
 )
 
 const (
-	ReasonNodeScanJobInProgress           = "InProgress"
-	ReasonNodeScanJobConfigurationMissing = "NodeScanConfigurationMissing"
-	ReasonNodeScanJobNotMatching          = "NodeNotMatching"
-	ReasonNodeScanJobPending              = "Pending"
-	ReasonNodeScanJobScheduled            = "Scheduled"
-	ReasonNodeScanJobComplete             = "Complete"
-	ReasonNodeScanJobFailed               = "Failed"
+	ReasonNodeScanJobInProgress               = "InProgress"
+	ReasonNodeScanJobConfigurationMissing     = "NodeScanConfigurationMissing"
+	ReasonNodeScanJobNotMatching              = "NodeNotMatching"
+	ReasonNodeScanJobPending                  = "Pending"
+	ReasonNodeScanJobSBOMGenerationInProgress = "SBOMGenerationInProgress"
+	ReasonNodeScanJobScheduled                = "Scheduled"
+	ReasonNodeScanJobComplete                 = "Complete"
+	ReasonNodeScanJobFailed                   = "Failed"
 )
 
 const (

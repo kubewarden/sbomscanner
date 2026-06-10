@@ -59,8 +59,8 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	nodeSBOMName := scanNodeSBOMMessage.NodeSBOM.Name
 	nodeSBOMNamespace := scanNodeSBOMMessage.NodeSBOM.Namespace
 
-	h.logger.InfoContext(ctx, "SBOM scan requested",
-		"sbom", nodeSBOMName,
+	h.logger.InfoContext(ctx, "NodeSBOM scan requested",
+		"nodesbom", nodeSBOMName,
 		"namespace", nodeSBOMNamespace,
 	)
 
@@ -70,7 +70,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		Namespace: nodeScanJobNamespace,
 	}, scanJob); err != nil {
 		if apierrors.IsNotFound(err) {
-			h.logger.ErrorContext(ctx, "ScanJob not found, stopping SBOM scan", "scanJob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			h.logger.ErrorContext(ctx, "NodeScanJob not found, stopping SBOM scan", "scanJob", nodeScanJobName, "namespace", nodeScanJobNamespace)
 			return nil
 		}
 
@@ -78,13 +78,13 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	}
 
 	if string(scanJob.GetUID()) != nodeScanJobUID {
-		h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace,
+		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping SBOM generation (UID changed)", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace,
 			"uid", nodeScanJobUID)
 		return nil
 	}
 
 	if scanJob.IsFailed() {
-		h.logger.InfoContext(ctx, "ScanJob is in failed state, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
 		return nil
 	}
 
@@ -93,10 +93,10 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 			Name:      nodeScanJobName,
 			Namespace: nodeScanJobNamespace,
 		}, scanJob); err != nil {
-			return fmt.Errorf("failed to get ScanJob: %w", err)
+			return fmt.Errorf("failed to get NodeScanJob: %w", err)
 		}
 
-		scanJob.MarkInProgress(v1alpha1.ReasonScanJobSBOMGenerationInProgress, "SBOM vulnerability scan in progress")
+		scanJob.MarkInProgress(v1alpha1.ReasonNodeScanJobSBOMGenerationInProgress, "NodeSBOM vulnerability scan in progress")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
 	if err != nil {
@@ -121,8 +121,8 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		return err
 	}
 
-	h.logger.InfoContext(ctx, "SBOM scanned",
-		"sbom", nodeSBOMName,
+	h.logger.InfoContext(ctx, "NodeSBOM scanned",
+		"nodesbom", nodeSBOMName,
 		"namespace", nodeSBOMNamespace,
 	)
 
@@ -152,10 +152,10 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create or update nodevulnerability report: %w", err)
+		return fmt.Errorf("failed to create or update nodevulnerabilityreport: %w", err)
 	}
-	h.logger.InfoContext(ctx, "Vulnerability report created or updated",
-		"sbom", nodeSBOMName,
+	h.logger.InfoContext(ctx, "NodeVulnerabilityReport created or updated",
+		"nodesbom", nodeSBOMName,
 		"namespace", nodeSBOMNamespace,
 	)
 
@@ -167,14 +167,14 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 			return fmt.Errorf("failed to get ScanJob: %w", err)
 		}
 
-		scanJob.MarkComplete(v1alpha1.ReasonNodeScanJobComplete, "Node SBOM scanned successfully")
+		scanJob.MarkComplete(v1alpha1.ReasonNodeScanJobComplete, "NodeSBOM scanned successfully")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update NodeScanJob status: %w", err)
 	}
-	h.logger.InfoContext(ctx, "SBOM scanned",
-		"sbom", nodeSBOMName,
+	h.logger.InfoContext(ctx, "NodeSBOM scanned",
+		"nodesbom", nodeSBOMName,
 		"namespace", nodeSBOMNamespace,
 	)
 
