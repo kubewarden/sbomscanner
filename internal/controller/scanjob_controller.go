@@ -87,7 +87,7 @@ func (r *ScanJobReconciler) reconcileScanJob(ctx context.Context, scanJob *v1alp
 	}, registry); err != nil {
 		if errors.IsNotFound(err) {
 			log.Error(err, "Registry not found", "registry", scanJob.Spec.Registry)
-			scanJob.MarkFailed(v1alpha1.ReasonRegistryNotFound, fmt.Sprintf("Registry %s not found", scanJob.Spec.Registry))
+			scanJob.MarkFailed(v1alpha1.ReasonScanJobRegistryNotFound, fmt.Sprintf("Registry %s not found", scanJob.Spec.Registry))
 
 			return ctrl.Result{}, nil
 		}
@@ -149,7 +149,7 @@ func (r *ScanJobReconciler) reconcileScanJob(ctx context.Context, scanJob *v1alp
 		return ctrl.Result{}, fmt.Errorf("unable to publish CreateSBOM message: %w", err)
 	}
 
-	scanJob.MarkScheduled(v1alpha1.ReasonScheduled, "ScanJob has been scheduled for processing by the controller")
+	scanJob.MarkScheduled(v1alpha1.ReasonScanJobScheduled, "ScanJob has been scheduled for processing by the controller")
 
 	return ctrl.Result{}, nil
 }
@@ -203,14 +203,14 @@ func validateScanJobTargets(scanJob *v1alpha1.ScanJob, registry *v1alpha1.Regist
 	for _, target := range scanJob.Spec.Repositories {
 		repository := registry.GetRepository(target.Name)
 		if repository == nil {
-			return v1alpha1.ReasonRepositoryNotFound,
+			return v1alpha1.ReasonScanJobRepositoryNotFound,
 				fmt.Errorf("repository %q is not declared on registry %q", target.Name, registry.Name)
 		}
 		for _, conditionName := range target.MatchConditions {
 			if !slices.ContainsFunc(repository.MatchConditions, func(mc v1alpha1.MatchCondition) bool {
 				return mc.Name == conditionName
 			}) {
-				return v1alpha1.ReasonMatchConditionNotFound,
+				return v1alpha1.ReasonScanJobMatchConditionNotFound,
 					fmt.Errorf("match condition %q is not declared on repository %q of registry %q", conditionName, target.Name, registry.Name)
 			}
 		}

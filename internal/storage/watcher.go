@@ -150,7 +150,12 @@ func (w *natsWatcher) rehydrate(ctx context.Context, payloadObj runtime.Object) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get meta accessor: %w", err)
 	}
-	key := fmt.Sprintf("%s/%s/%s/%s", storagev1alpha1.GroupName, w.resource, payloadAccessor.GetNamespace(), payloadAccessor.GetName())
+	var key string
+	if w.store.clusterScoped {
+		key = fmt.Sprintf("%s/%s/%s", storagev1alpha1.GroupName, w.resource, payloadAccessor.GetName())
+	} else {
+		key = fmt.Sprintf("%s/%s/%s/%s", storagev1alpha1.GroupName, w.resource, payloadAccessor.GetNamespace(), payloadAccessor.GetName())
+	}
 
 	fetched := w.store.newFunc()
 	if err := w.store.Get(ctx, key, storage.GetOptions{}, fetched); err != nil {

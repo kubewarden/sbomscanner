@@ -25,6 +25,12 @@ import (
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
+const (
+	targetDir    = "/host"
+	nodeMode     = "node"
+	registryMode = "registry"
+)
+
 func main() {
 	var natsURL string
 	var natsCertFile string
@@ -36,6 +42,8 @@ func main() {
 	var installationNamespace string
 	var init bool
 	var logLevel string
+	var mode string
+	var nodeName string
 
 	flag.StringVar(&natsURL, "nats-url", "localhost:4222", "The URL of the NATS server.")
 	flag.StringVar(&natsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
@@ -47,6 +55,8 @@ func main() {
 	flag.StringVar(&installationNamespace, "installation-namespace", "sbomscanner", "The namespace where sbomscanner is installed.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
+	flag.StringVar(&mode, "mode", "registry", "Mode of operation ('registry' or 'node').")
+	flag.StringVar(&nodeName, "node-name", "", "The name of the node (required if mode is 'node').")
 	flag.Parse()
 
 	slogLevel, err := cmdutil.ParseLogLevel(logLevel)
@@ -97,6 +107,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if mode == nodeMode && nodeName == "" {
+		logger.Error("Node name must be provided when mode is 'node'")
+		os.Exit(1)
+	}
+
 	nc, err := nats.Connect(natsURL,
 		natsOpts...,
 	)
@@ -133,19 +148,40 @@ func main() {
 		return registry.NewClient(transport, logger)
 	}
 
-	registry := messaging.HandlerRegistry{
-		handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, installationNamespace, logger),
-		handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-		handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+	var scanMode messaging.HandlerRegistry
+	durableName := "worker"
+	switch mode {
+	case registryMode:
+		scanMode = messaging.HandlerRegistry{
+			handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, installationNamespace, logger),
+			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
+			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+		}
+	case nodeMode:
+		scanMode = messaging.HandlerRegistry{
+			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, targetDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
+			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+		}
+		durableName = "worker-node-" + nodeName
+	default:
+		logger.Error("Invalid scanning mode", "mode", mode)
+		os.Exit(1)
 	}
-	failureHandler := handlers.NewScanJobFailureHandler(k8sClient, logger)
+
+	var failureHandler messaging.FailureHandler
+	switch mode {
+	case nodeMode:
+		failureHandler = handlers.NewNodeScanJobFailureHandler(k8sClient, logger)
+	default:
+		failureHandler = handlers.NewScanJobFailureHandler(k8sClient, logger)
+	}
 	retryConfig := &messaging.RetryConfig{
 		BaseDelay:   5 * time.Second,
 		Jitter:      0.2,
 		MaxAttempts: 5,
 	}
 
-	subscriber, err := messaging.NewNatsSubscriber(ctx, nc, "worker", registry, failureHandler, retryConfig, logger)
+	subscriber, err := messaging.NewNatsSubscriber(ctx, nc, durableName, scanMode, failureHandler, retryConfig, logger)
 	if err != nil {
 		logger.Error("Error creating NATS subscriber", "error", err)
 		os.Exit(1)

@@ -33,12 +33,26 @@ func SetupIndexer(ctx context.Context, mgr ctrl.Manager) error {
 		return fmt.Errorf("unable to create field indexer: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1alpha1.NodeScanJob{}, v1alpha1.IndexNodeScanJobSpecNodeName, func(rawObj client.Object) []string {
+		nodeScanJob, ok := rawObj.(*v1alpha1.NodeScanJob)
+		if !ok {
+			panic(fmt.Sprintf("Expected NodeScanJob, got %T", rawObj))
+		}
+		return []string{nodeScanJob.Spec.NodeName}
+	}); err != nil {
+		return fmt.Errorf("failed to setup field indexer for spec.nodeName: %w", err)
+	}
+
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &storagev1alpha1.Image{}, storagev1alpha1.IndexImageMetadataComposite, indexImageByMetadata); err != nil {
 		return fmt.Errorf("failed to setup field indexer for %s: %w", storagev1alpha1.IndexImageMetadataComposite, err)
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &storagev1alpha1.WorkloadScanReport{}, storagev1alpha1.IndexWorkloadScanReportImageRef, indexWorkloadByImageRef); err != nil {
 		return fmt.Errorf("failed to setup field indexer for %s: %w", storagev1alpha1.IndexWorkloadScanReportImageRef, err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &storagev1alpha1.NodeSBOM{}, storagev1alpha1.IndexNodeMetadataName, indexNodeSBOMByNodeName); err != nil {
+		return fmt.Errorf("failed to setup field indexer for %s: %w", storagev1alpha1.IndexNodeMetadataName, err)
 	}
 
 	return nil
@@ -52,6 +66,16 @@ func indexImageByMetadata(obj client.Object) []string {
 	}
 
 	return []string{imageMetadataIndexKey(image.ImageMetadata)}
+}
+
+// indexNodeSBOMByNodeName indexes NodeSBOMs by their node name
+func indexNodeSBOMByNodeName(obj client.Object) []string {
+	nodeSBOM, ok := obj.(*storagev1alpha1.NodeSBOM)
+	if !ok {
+		return nil
+	}
+
+	return []string{nodeMetadataIndexKey(nodeSBOM.NodeMetadata)}
 }
 
 // indexWorkloadByImageRef indexes WorkloadScanReports by their container image refs
@@ -79,6 +103,11 @@ func indexWorkloadByImageRef(obj client.Object) []string {
 // imageMetadataIndexKey generates an index key for image metadata: registry/repository:tag
 func imageMetadataIndexKey(m storagev1alpha1.ImageMetadata) string {
 	return fmt.Sprintf("%s/%s:%s", m.Registry, m.Repository, m.Tag)
+}
+
+// nodeMetadataIndexKey generates an index key for node metadata: nodeMetadata.name
+func nodeMetadataIndexKey(m storagev1alpha1.NodeMetadata) string {
+	return m.Name
 }
 
 // imageRefIndexKey generates an index key for a full image ref: namespace/registry/repository:tag

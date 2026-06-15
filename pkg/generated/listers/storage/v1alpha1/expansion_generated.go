@@ -10,6 +10,14 @@ type ImageListerExpansion interface{}
 // ImageNamespaceLister.
 type ImageNamespaceListerExpansion interface{}
 
+// NodeSBOMListerExpansion allows custom methods to be added to
+// NodeSBOMLister.
+type NodeSBOMListerExpansion interface{}
+
+// NodeVulnerabilityReportListerExpansion allows custom methods to be added to
+// NodeVulnerabilityReportLister.
+type NodeVulnerabilityReportListerExpansion interface{}
+
 // SBOMListerExpansion allows custom methods to be added to
 // SBOMLister.
 type SBOMListerExpansion interface{}

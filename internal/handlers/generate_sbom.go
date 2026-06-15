@@ -266,14 +266,20 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 
 	args := []string{
 		"image",
+		//nolint:goconst // These are specific Trivy command arguments, not constant values used elsewhere
 		"--skip-version-check",
+		//nolint:goconst // These are specific Trivy command arguments, not constant values used elsewhere
 		"--disable-telemetry",
+		//nolint:goconst // These are specific Trivy command arguments, not constant values used elsewhere
 		"--cache-dir", h.workDir,
+		//nolint:goconst // These are specific Trivy command arguments, not constant values used elsewhere
 		"--format", "spdx-json",
 		"--skip-db-update",
 		// The Java DB is needed to generate SBOMs for images containing Java components
 		// See: https://github.com/aquasecurity/trivy/discussions/9666
+		//nolint:goconst // These are specific Trivy command arguments, not constant values used elsewhere
 		"--java-db-repository", h.trivyJavaDBRepository,
+		//nolint:goconst // These are specific Trivy command arguments, not constant values used elsewhere
 		"--output", sbomFile.Name(),
 	}
 

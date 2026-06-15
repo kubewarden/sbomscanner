@@ -277,7 +277,7 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	differentUIDScanJob.UID = "test-scanjob-different-uid"
 
 	failedScanJob := scanJob.DeepCopy()
-	failedScanJob.MarkFailed(v1alpha1.ReasonInternalError, "kaboom")
+	failedScanJob.MarkFailed(v1alpha1.ReasonScanJobInternalError, "kaboom")
 
 	tests := []struct {
 		name            string

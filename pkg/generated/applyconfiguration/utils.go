@@ -36,6 +36,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &storagev1alpha1.ImageStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ImageWorkloadScanReports"):
 		return &storagev1alpha1.ImageWorkloadScanReportsApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("NodeMetadata"):
+		return &storagev1alpha1.NodeMetadataApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("NodeSBOM"):
+		return &storagev1alpha1.NodeSBOMApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("NodeVulnerabilityReport"):
+		return &storagev1alpha1.NodeVulnerabilityReportApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Report"):
 		return &storagev1alpha1.ReportApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Result"):

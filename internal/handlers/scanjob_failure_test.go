@@ -66,8 +66,8 @@ func TestScanJobFailureHandler_HandleFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, updatedScanJob.IsFailed())
-	failedCondition := meta.FindStatusCondition(updatedScanJob.Status.Conditions, string(sbombasticv1alpha1.ConditionTypeFailed))
+	failedCondition := meta.FindStatusCondition(updatedScanJob.Status.Conditions, string(sbombasticv1alpha1.ConditionScanJobTypeFailed))
 	require.NotNil(t, failedCondition)
-	assert.Equal(t, sbombasticv1alpha1.ReasonInternalError, failedCondition.Reason)
+	assert.Equal(t, sbombasticv1alpha1.ReasonScanJobInternalError, failedCondition.Reason)
 	assert.Equal(t, errorMessage, failedCondition.Message)
 }

@@ -35,6 +35,7 @@ func getAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 	}
 
 	selectableMetadata := fields.Set{
+		//nolint:goconst // These are user-friendly field names, not constant values used elsewhere
 		"metadata.name":      objMeta.GetName(),
 		"metadata.namespace": objMeta.GetNamespace(),
 	}
