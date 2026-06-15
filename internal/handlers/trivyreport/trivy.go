@@ -85,11 +85,17 @@ func newVulnerability(trivyVuln trivyTypes.DetectedVulnerability) storagev1alpha
 		FixedVersions:    getFixedVersions(trivyVuln.FixedVersion),
 		DiffID:           trivyVuln.Layer.DiffID,
 		Description:      trivyVuln.Description,
-		Severity:         trivyVuln.Severity,
-		SeveritySource:   string(trivyVuln.SeveritySource),
-		References:       trivyVuln.References,
-		CVSS:             newCVSS(trivyVuln.CVSS),
-		CWEs:             trivyVuln.CweIDs,
+		// trivyVuln.Severity is the severity string Trivy already resolved
+		// from VendorSeverity[SeveritySource] in FillInfo(),
+		// with an autoDetectSeverity fallback when no source is known:
+		// https://github.com/aquasecurity/trivy/blob/v0.71.0/pkg/vulnerability/vulnerability.go#L64
+		// The field is deprecated in trivy-db, but only slated for removal at
+		// Trivy DB v3, and upstream Trivy still consumes it in its own reporters.
+		Severity:       trivyVuln.Severity, //nolint:staticcheck // SA1019: see comment above
+		SeveritySource: string(trivyVuln.SeveritySource),
+		References:     trivyVuln.References,
+		CVSS:           newCVSS(trivyVuln.CVSS),
+		CWEs:           trivyVuln.CweIDs,
 	}
 }
 
