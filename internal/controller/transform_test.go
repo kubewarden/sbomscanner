@@ -23,7 +23,7 @@ func TestTransformStripPod(t *testing.T) {
 					Image:   "busybox:latest",
 					Command: []string{"echo", "init"},
 					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
+						Limits: corev1.ResourceList{ //nolint:exhaustive // this is just a test
 							corev1.ResourceMemory: resource.MustParse("64Mi"),
 						},
 					},
@@ -42,7 +42,7 @@ func TestTransformStripPod(t *testing.T) {
 						{Name: "FOO", Value: "bar"},
 					},
 					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
+						Limits: corev1.ResourceList{ //nolint:exhaustive // this is just a test
 							corev1.ResourceMemory: resource.MustParse("128Mi"),
 							corev1.ResourceCPU:    resource.MustParse("100m"),
 						},
