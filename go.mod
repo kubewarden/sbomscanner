@@ -29,12 +29,12 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/sync v0.21.0
 	golang.org/x/time v0.15.0
-	k8s.io/api v0.36.1
-	k8s.io/apimachinery v0.36.1
-	k8s.io/apiserver v0.36.1
-	k8s.io/client-go v0.36.1
-	k8s.io/code-generator v0.36.1
-	k8s.io/component-base v0.36.1
+	k8s.io/api v0.36.2
+	k8s.io/apimachinery v0.36.2
+	k8s.io/apiserver v0.36.2
+	k8s.io/client-go v0.36.2
+	k8s.io/code-generator v0.36.2
+	k8s.io/component-base v0.36.2
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20260603220949-865597e52e25
 	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2
@@ -470,9 +470,9 @@ require (
 	k8s.io/apiextensions-apiserver v0.36.1 // indirect
 	k8s.io/cli-runtime v0.36.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
-	k8s.io/kms v0.36.1 // indirect
+	k8s.io/kms v0.36.2 // indirect
 	k8s.io/kubectl v0.36.1 // indirect
-	k8s.io/streaming v0.36.1 // indirect
+	k8s.io/streaming v0.36.2 // indirect
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
