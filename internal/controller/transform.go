@@ -45,3 +45,23 @@ func TransformStripPod(object any) (any, error) {
 
 	return cache.TransformStripManagedFields()(pod)
 }
+
+// TransformStripNode strips the Node object of all Spec and Status fields except OS and architecture, and managed fields.
+// This is useful for caching scenarios where only the node OS and architecture are needed, reducing memory usage.
+func TransformStripNode(object any) (any, error) {
+	node, ok := object.(*corev1.Node)
+	if !ok {
+		return object, fmt.Errorf("expected Node object, got %T", object)
+	}
+
+	node.Annotations = nil
+	node.Spec = corev1.NodeSpec{}
+	node.Status = corev1.NodeStatus{
+		NodeInfo: corev1.NodeSystemInfo{
+			OperatingSystem: node.Status.NodeInfo.OperatingSystem,
+			Architecture:    node.Status.NodeInfo.Architecture,
+		},
+	}
+
+	return cache.TransformStripManagedFields()(node)
+}

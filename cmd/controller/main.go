@@ -270,6 +270,19 @@ func main() {
 		}
 	}
 
+	if cfg.NodeScan {
+		cacheByObject[&corev1.Node{}] = cache.ByObject{
+			Transform: controller.TransformStripNode,
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		}
+		cacheByObject[&storagev1alpha1.NodeSBOM{}] = cache.ByObject{
+			Transform: storage.TransformStripNodeSBOM,
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		}
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
