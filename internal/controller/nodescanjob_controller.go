@@ -15,7 +15,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
@@ -54,18 +53,6 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	var node corev1.Node
-	if err := r.Get(ctx, types.NamespacedName{Name: nodeScanJob.Spec.NodeName}, &node); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("Node no longer exists, deleting NodeScanJob", "nodeScanJob", req.NamespacedName, "nodeName", nodeScanJob.Spec.NodeName)
-			if delErr := r.Delete(ctx, nodeScanJob); delErr != nil && !errors.IsNotFound(delErr) {
-				return ctrl.Result{}, fmt.Errorf("failed to delete NodeScanJob for missing node: %w", delErr)
-			}
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, fmt.Errorf("failed to check if node %s exists: %w", nodeScanJob.Spec.NodeName, err)
-	}
-
 	if !nodeScanJob.IsPending() {
 		log.V(1).Info("NodeScanJob is not in pending state, skipping reconciliation", "nodeScanJob", req.NamespacedName)
 		return ctrl.Result{}, nil
@@ -73,8 +60,7 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	nodeScanJob.InitializeConditions()
 
-	var valid bool
-	valid, err := r.validateNodeAgainstConfig(ctx, nodeScanJob, &node)
+	valid, err := r.validateNodeAgainstConfig(ctx, nodeScanJob)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -97,8 +83,9 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // validateNodeAgainstConfig checks the NodeScanConfiguration exists and
-// the node matches it. Returns (true, nil) when the node is valid.
-func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, job *v1alpha1.NodeScanJob, node *corev1.Node) (bool, error) {
+// the node referenced by the job exists and matches the configuration.
+// Returns (true, nil) when the node is valid.
+func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, job *v1alpha1.NodeScanJob) (bool, error) {
 	log := logf.FromContext(ctx)
 
 	var config v1alpha1.NodeScanConfiguration
@@ -109,6 +96,18 @@ func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, j
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to get NodeScanConfiguration: %w", err)
+	}
+
+	var node corev1.Node
+	if err := r.Get(ctx, types.NamespacedName{Name: job.Spec.NodeName}, &node); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Node not found, marking NodeScanJob as failed",
+				"nodeScanJob", job.Name, "nodeName", job.Spec.NodeName)
+			job.MarkFailed(v1alpha1.ReasonNodeScanJobNodeNotFound,
+				fmt.Sprintf("Node %s not found", job.Spec.NodeName))
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check if node %s exists: %w", job.Spec.NodeName, err)
 	}
 
 	if config.Spec.NodeSelector != nil {
@@ -221,36 +220,10 @@ func (r *NodeScanJobReconciler) cleanupOldNodeScanJobs(ctx context.Context, curr
 	return nil
 }
 
-func (r *NodeScanJobReconciler) mapNodeToNodeScanJobs(ctx context.Context, obj client.Object) []ctrl.Request {
-	log := logf.FromContext(ctx)
-
-	var nodeScanJobs v1alpha1.NodeScanJobList
-	if err := r.List(ctx, &nodeScanJobs,
-		client.MatchingFields{v1alpha1.IndexNodeScanJobSpecNodeName: obj.GetName()},
-	); err != nil {
-		log.Error(err, "Failed to list NodeScanJobs for node", "node", obj.GetName())
-		return nil
-	}
-
-	requests := make([]ctrl.Request, 0, len(nodeScanJobs.Items))
-	for i := range nodeScanJobs.Items {
-		requests = append(requests, ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name: nodeScanJobs.Items[i].Name,
-			},
-		})
-	}
-
-	return requests
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *NodeScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.NodeScanJob{}).
-		Watches(&corev1.Node{},
-			handler.EnqueueRequestsFromMapFunc(r.mapNodeToNodeScanJobs),
-		).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
