@@ -25,8 +25,8 @@ type NodeScanSBOMHandler struct {
 	scanSBOMBase
 }
 
-// NewScanNodeSBOMHandler creates a new instance of NodeScanSBOMHandler for nodes.
-func NewScanNodeSBOMHandler(
+// NewNodeScanSBOMHandler creates a new instance of NodeScanSBOMHandler for nodes.
+func NewNodeScanSBOMHandler(
 	k8sClient client.Client,
 	scheme *runtime.Scheme,
 	workDir string,
