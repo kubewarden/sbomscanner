@@ -19,12 +19,12 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 )
 
-// ImageScanSBOMHandler handles SBOM scan requests for container images.
-type ImageScanSBOMHandler struct {
+// ScanSBOMHandler is responsible for handling SBOM scan requests.
+type ScanSBOMHandler struct {
 	scanSBOMBase
 }
 
-// NewScanSBOMHandler creates a new instance of ImageScanSBOMHandler for container images.
+// NewScanSBOMHandler creates a new instance of ScanSBOMHandler.
 func NewScanSBOMHandler(
 	k8sClient client.Client,
 	scheme *runtime.Scheme,
@@ -32,8 +32,8 @@ func NewScanSBOMHandler(
 	trivyDBRepository string,
 	trivyJavaDBRepository string,
 	logger *slog.Logger,
-) *ImageScanSBOMHandler {
-	return &ImageScanSBOMHandler{
+) *ScanSBOMHandler {
+	return &ScanSBOMHandler{
 		scanSBOMBase: scanSBOMBase{
 			k8sClient:             k8sClient,
 			scheme:                scheme,
@@ -46,7 +46,7 @@ func NewScanSBOMHandler(
 }
 
 //nolint:funlen
-func (h *ImageScanSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
+func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
 	scanSBOMMessage := &ScanSBOMMessage{}
 	if err := json.Unmarshal(message.Data(), scanSBOMMessage); err != nil {
 		return fmt.Errorf("failed to unmarshal scan job message: %w", err)
