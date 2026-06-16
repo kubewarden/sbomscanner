@@ -48,6 +48,7 @@ var _ = Describe("NodeScanRunner", func() {
 						Name: v1alpha1.NodeScanConfigurationName,
 					},
 					Spec: v1alpha1.NodeScanConfigurationSpec{
+						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
 					},
 				}
@@ -99,6 +100,7 @@ var _ = Describe("NodeScanRunner", func() {
 						Name: v1alpha1.NodeScanConfigurationName,
 					},
 					Spec: v1alpha1.NodeScanConfigurationSpec{
+						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
 						Platforms: []v1alpha1.Platform{
 							{OS: "linux", Architecture: "amd64"},
@@ -145,6 +147,7 @@ var _ = Describe("NodeScanRunner", func() {
 						},
 					},
 					Spec: v1alpha1.NodeScanConfigurationSpec{
+						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
 					},
 				}
@@ -231,6 +234,7 @@ var _ = Describe("NodeScanRunner", func() {
 						},
 					},
 					Spec: v1alpha1.NodeScanConfigurationSpec{
+						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 0},
 					},
 				}
@@ -276,6 +280,7 @@ var _ = Describe("NodeScanRunner", func() {
 						Name: v1alpha1.NodeScanConfigurationName,
 					},
 					Spec: v1alpha1.NodeScanConfigurationSpec{
+						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 0},
 					},
 				}

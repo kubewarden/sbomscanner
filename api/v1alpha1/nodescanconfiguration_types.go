@@ -15,6 +15,9 @@ const (
 
 // NodeScanConfigurationSpec defines the desired configuration for node scanning.
 type NodeScanConfigurationSpec struct {
+	// Enabled controls whether node scanning is active.
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
 	// NodeSelector filters which nodes are scanned.
 	// If not specified, all the nodes are scanned.
 	// +optional
