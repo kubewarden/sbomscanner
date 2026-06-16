@@ -100,6 +100,11 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
 	if err != nil {
+		// The NodeScanJob may have been deleted while we were processing; abandon the update.
+		if apierrors.IsNotFound(err) {
+			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			return nil
+		}
 		return fmt.Errorf("failed to update NodeScanJob status to SBOM generation in progress: %w", err)
 	}
 
@@ -171,6 +176,11 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
 	if err != nil {
+		// The NodeScanJob may have been deleted while we were processing; abandon the update.
+		if apierrors.IsNotFound(err) {
+			h.logger.InfoContext(ctx, "NodeScanJob not found, skipping completion update", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			return nil
+		}
 		return fmt.Errorf("failed to update NodeScanJob status: %w", err)
 	}
 	h.logger.InfoContext(ctx, "NodeSBOM scanned",
