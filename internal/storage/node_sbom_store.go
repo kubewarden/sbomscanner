@@ -29,9 +29,10 @@ const (
 
 const createNodeSBOMTableSQL = `
 CREATE TABLE IF NOT EXISTS nodesboms (
-    name VARCHAR(253) NOT NULL,
-    object JSONB NOT NULL,
-    PRIMARY KEY (name)
+    name      VARCHAR(253) NOT NULL,
+    namespace VARCHAR(253) NOT NULL DEFAULT '',
+    object    JSONB        NOT NULL,
+    PRIMARY KEY (name, namespace)
 );
 
 ALTER TABLE nodesboms ADD COLUMN IF NOT EXISTS id BIGSERIAL;
@@ -53,7 +54,7 @@ func NewNodeSBOMStore(
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
 	natsBroadcaster := newNatsBroadcaster(nc, nodeSBOMResourcePluralName, watchBroadcaster, TransformStripNodeSBOM, logger)
 
-	repo := repository.NewClusterScopedObjectRepository(nodeSBOMResourcePluralName, newFunc)
+	repo := repository.NewGenericObjectRepository(nodeSBOMResourcePluralName, newFunc)
 
 	store := &store{
 		db:            db,

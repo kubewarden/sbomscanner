@@ -20,6 +20,9 @@ import (
 // GenericObjectRepository is a generic implementation of Repository for any Kubernetes object.
 // It uses a single table to store objects as JSONB.
 //
+// Cluster-scoped objects are supported too: their metadata.namespace is empty,
+// and rows for them are stored with namespace = ”.
+//
 // Expected table schema:
 //
 //	CREATE TABLE <table_name> (

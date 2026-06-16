@@ -282,6 +282,58 @@ func (suite *genericObjectRepositoryTestSuite) TestCount() {
 	suite.Equal(int64(4), count)
 }
 
+// TestClusterScopedUsage tests cluster-scoped objects, where namespace is empty.
+func (suite *genericObjectRepositoryTestSuite) TestClusterScopedUsage() {
+	ctx := context.Background()
+
+	// Create with empty namespace
+	sbom := testSBOMFactory("cluster-scoped", "", "sha256:cluster-scoped")
+	sbom.Labels = map[string]string{"scope": "cluster"}
+
+	err := suite.withTx(ctx, func(tx pgx.Tx) error {
+		return suite.repo.Create(ctx, tx, sbom)
+	})
+	suite.Require().NoError(err)
+
+	// Duplicate insert with the same (name, "") must return ErrAlreadyExists.
+	err = suite.withTx(ctx, func(tx pgx.Tx) error {
+		return suite.repo.Create(ctx, tx, sbom)
+	})
+	suite.Require().ErrorIs(err, ErrAlreadyExists)
+
+	// Get with empty namespace round-trips
+	got, err := suite.repo.Get(ctx, suite.db, "cluster-scoped", "")
+	suite.Require().NoError(err)
+	gotSBOM := got.(*storagev1alpha1.SBOM)
+	suite.Equal("cluster-scoped", gotSBOM.Name)
+	suite.Empty(gotSBOM.Namespace)
+	suite.Equal(map[string]string{"scope": "cluster"}, gotSBOM.Labels)
+
+	// Update with empty namespace
+	sbom.Labels = map[string]string{"scope": "cluster", "updated": "true"}
+	err = suite.withTx(ctx, func(tx pgx.Tx) error {
+		return suite.repo.Update(ctx, tx, "cluster-scoped", "", sbom)
+	})
+	suite.Require().NoError(err)
+
+	got, err = suite.repo.Get(ctx, suite.db, "cluster-scoped", "")
+	suite.Require().NoError(err)
+	suite.Equal(
+		map[string]string{"scope": "cluster", "updated": "true"},
+		got.(metav1.Object).GetLabels(),
+	)
+
+	// Delete with empty namespace
+	deleted, err := suite.withTxReturn(ctx, func(tx pgx.Tx) (runtime.Object, error) {
+		return suite.repo.Delete(ctx, tx, "cluster-scoped", "")
+	})
+	suite.Require().NoError(err)
+	suite.Equal("cluster-scoped", deleted.(metav1.Object).GetName())
+
+	_, err = suite.repo.Get(ctx, suite.db, "cluster-scoped", "")
+	suite.Require().ErrorIs(err, ErrNotFound)
+}
+
 func (suite *genericObjectRepositoryTestSuite) withTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
 	tx, err := suite.db.Begin(ctx)
 	if err != nil {
