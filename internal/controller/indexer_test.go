@@ -75,6 +75,24 @@ var _ = Describe("SetupIndexer", func() {
 			}),
 		})
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Listing NodeScanJobs by spec.nodeName index")
+		var nodeScanJobList v1alpha1.NodeScanJobList
+		err = mgr.GetClient().List(ctx, &nodeScanJobList, &client.ListOptions{
+			FieldSelector: fields.SelectorFromSet(fields.Set{
+				v1alpha1.IndexNodeScanJobSpecNodeName: "test-node",
+			}),
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Listing NodeSBOMs by node name index")
+		var nodeSBOMList storagev1alpha1.NodeSBOMList
+		err = mgr.GetClient().List(ctx, &nodeSBOMList, &client.ListOptions{
+			FieldSelector: fields.SelectorFromSet(fields.Set{
+				storagev1alpha1.IndexNodeMetadataName: "test-node",
+			}),
+		})
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
 
@@ -186,6 +204,160 @@ func TestIndexWorkloadByImageRef(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			keys := indexWorkloadByImageRef(test.object)
 			assert.Equal(t, test.expected, keys)
+		})
+	}
+}
+
+func TestIndexNodeSBOMByNodeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		object   client.Object
+		expected []string
+	}{
+		{
+			name: "returns the node name for a NodeSBOM",
+			object: &storagev1alpha1.NodeSBOM{
+				NodeMetadata: storagev1alpha1.NodeMetadata{
+					Name:     "node-1",
+					Platform: "linux/amd64",
+				},
+			},
+			expected: []string{"node-1"},
+		},
+		{
+			name: "returns the node name even when platform is empty",
+			object: &storagev1alpha1.NodeSBOM{
+				NodeMetadata: storagev1alpha1.NodeMetadata{
+					Name: "node-2",
+				},
+			},
+			expected: []string{"node-2"},
+		},
+		{
+			name:     "returns nil for non-NodeSBOM objects",
+			object:   &storagev1alpha1.Image{},
+			expected: nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			keys := indexNodeSBOMByNodeName(test.object)
+			assert.Equal(t, test.expected, keys)
+		})
+	}
+}
+
+func TestImageMetadataIndexKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata storagev1alpha1.ImageMetadata
+		expected string
+	}{
+		{
+			name: "formats registry/repository:tag",
+			metadata: storagev1alpha1.ImageMetadata{
+				Registry:   "docker.io",
+				Repository: "library/nginx",
+				Tag:        "latest",
+			},
+			expected: "docker.io/library/nginx:latest",
+		},
+		{
+			name: "still emits the colon when tag is empty",
+			metadata: storagev1alpha1.ImageMetadata{
+				Registry:   "ghcr.io",
+				Repository: "org/app",
+				Tag:        "",
+			},
+			expected: "ghcr.io/org/app:",
+		},
+		{
+			name:     "all empty fields collapse to separators only",
+			metadata: storagev1alpha1.ImageMetadata{},
+			expected: "/:",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, imageMetadataIndexKey(test.metadata))
+		})
+	}
+}
+
+func TestNodeMetadataIndexKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata storagev1alpha1.NodeMetadata
+		expected string
+	}{
+		{
+			name: "returns the node name verbatim",
+			metadata: storagev1alpha1.NodeMetadata{
+				Name:     "node-1",
+				Platform: "linux/amd64",
+			},
+			expected: "node-1",
+		},
+		{
+			name: "ignores Platform",
+			metadata: storagev1alpha1.NodeMetadata{
+				Name:     "node-2",
+				Platform: "linux/arm64",
+			},
+			expected: "node-2",
+		},
+		{
+			name:     "empty name yields empty key",
+			metadata: storagev1alpha1.NodeMetadata{},
+			expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, nodeMetadataIndexKey(test.metadata))
+		})
+	}
+}
+
+func TestImageRefIndexKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		ref      storagev1alpha1.ImageRef
+		expected string
+	}{
+		{
+			name: "formats namespace/registry/repository:tag",
+			ref: storagev1alpha1.ImageRef{
+				Namespace:  "default",
+				Registry:   "docker.io",
+				Repository: "library/nginx",
+				Tag:        "latest",
+			},
+			expected: "default/docker.io/library/nginx:latest",
+		},
+		{
+			name: "still emits the colon when tag is empty",
+			ref: storagev1alpha1.ImageRef{
+				Namespace:  "kube-system",
+				Registry:   "ghcr.io",
+				Repository: "org/app",
+				Tag:        "",
+			},
+			expected: "kube-system/ghcr.io/org/app:",
+		},
+		{
+			name:     "all empty fields collapse to separators only",
+			ref:      storagev1alpha1.ImageRef{},
+			expected: "//:",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, imageRefIndexKey(test.ref))
 		})
 	}
 }
