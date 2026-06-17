@@ -46,7 +46,7 @@ func NewNodeScanSBOMHandler(
 	}
 }
 
-//nolint:funlen
+//nolint:funlen,gocognit // This function is responsible for orchestrating multiple steps in the node SBOM scanning process, making it inherently complex and lengthy.
 func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
 	scanNodeSBOMMessage := &ScanNodeSBOMMessage{}
 	if err := json.Unmarshal(message.Data(), scanNodeSBOMMessage); err != nil {
