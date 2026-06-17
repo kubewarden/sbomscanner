@@ -110,3 +110,92 @@ func TestTransformStripPod(t *testing.T) {
 	assert.Empty(t, resultPod.Status.PodIP)
 	assert.Nil(t, resultPod.Status.ContainerStatuses)
 }
+
+func TestTransformStripNode(t *testing.T) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-node",
+			Labels: map[string]string{
+				"kubernetes.io/os":   "linux",
+				"kubernetes.io/arch": "amd64",
+			},
+			Annotations: map[string]string{
+				"node.alpha.kubernetes.io/ttl": "0",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			PodCIDR:       "10.244.0.0/24",
+			ProviderID:    "aws:///us-east-1a/i-0abcdef",
+			Unschedulable: true,
+			Taints: []corev1.Taint{
+				{Key: "dedicated", Value: "gpu", Effect: corev1.TaintEffectNoSchedule},
+			},
+		},
+		Status: corev1.NodeStatus{
+			NodeInfo: corev1.NodeSystemInfo{
+				OperatingSystem: "linux",
+				Architecture:    "amd64",
+				KernelVersion:   "5.15.0",
+				OSImage:         "Ubuntu 22.04",
+				KubeletVersion:  "v1.30.0",
+			},
+			Capacity: corev1.ResourceList{ //nolint:exhaustive // this is just a test
+				corev1.ResourceCPU:    resource.MustParse("4"),
+				corev1.ResourceMemory: resource.MustParse("8Gi"),
+			},
+			Allocatable: corev1.ResourceList{ //nolint:exhaustive // this is just a test
+				corev1.ResourceCPU:    resource.MustParse("3500m"),
+				corev1.ResourceMemory: resource.MustParse("7Gi"),
+			},
+			Conditions: []corev1.NodeCondition{
+				{Type: corev1.NodeReady, Status: corev1.ConditionTrue},
+			},
+			Addresses: []corev1.NodeAddress{
+				{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
+			},
+			Images: []corev1.ContainerImage{
+				{Names: []string{"nginx:1.25"}, SizeBytes: 12345},
+				{Names: []string{"busybox:latest"}, SizeBytes: 6789},
+			},
+			VolumesInUse: []corev1.UniqueVolumeName{"v1", "v2"},
+			VolumesAttached: []corev1.AttachedVolume{
+				{Name: "v1", DevicePath: "/dev/sda"},
+			},
+		},
+	}
+
+	result, err := TransformStripNode(node)
+	require.NoError(t, err)
+
+	resultNode := result.(*corev1.Node)
+
+	// Name and Labels should be preserved
+	assert.Equal(t, "test-node", resultNode.Name)
+	assert.Equal(t, "linux", resultNode.Labels["kubernetes.io/os"])
+	assert.Equal(t, "amd64", resultNode.Labels["kubernetes.io/arch"])
+
+	// Only OperatingSystem and Architecture from NodeInfo should be preserved
+	assert.Equal(t, "linux", resultNode.Status.NodeInfo.OperatingSystem)
+	assert.Equal(t, "amd64", resultNode.Status.NodeInfo.Architecture)
+	assert.Empty(t, resultNode.Status.NodeInfo.KernelVersion)
+	assert.Empty(t, resultNode.Status.NodeInfo.OSImage)
+	assert.Empty(t, resultNode.Status.NodeInfo.KubeletVersion)
+
+	// Annotations should be stripped
+	assert.Nil(t, resultNode.Annotations)
+
+	// Spec should be stripped entirely
+	assert.Empty(t, resultNode.Spec.PodCIDR)
+	assert.Empty(t, resultNode.Spec.ProviderID)
+	assert.False(t, resultNode.Spec.Unschedulable)
+	assert.Nil(t, resultNode.Spec.Taints)
+
+	// All other Status fields should be stripped
+	assert.Empty(t, resultNode.Status.Capacity)
+	assert.Empty(t, resultNode.Status.Allocatable)
+	assert.Nil(t, resultNode.Status.Conditions)
+	assert.Nil(t, resultNode.Status.Addresses)
+	assert.Nil(t, resultNode.Status.Images)
+	assert.Nil(t, resultNode.Status.VolumesInUse)
+	assert.Nil(t, resultNode.Status.VolumesAttached)
+}

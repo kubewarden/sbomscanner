@@ -1,19 +1,3 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package main
 
 import (
@@ -216,59 +200,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cacheByObject := map[client.Object]cache.ByObject{
-		&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: storagev1alpha1.SchemeGroupVersion.String(),
-				Kind:       "VulnerabilityReport",
-			},
-		}: {
-			// Read-only
-			UnsafeDisableDeepCopy: new(true),
-		},
-		&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: corev1.SchemeGroupVersion.String(),
-				Kind:       "Namespace",
-			},
-		}: {
-			// Read-only
-			UnsafeDisableDeepCopy: new(true),
-		},
-	}
-
-	if cfg.WorkloadScan {
-		cacheByObject[&storagev1alpha1.Image{}] = cache.ByObject{
-			Label:     labels.SelectorFromSet(labels.Set{api.LabelWorkloadScanKey: api.LabelWorkloadScanValue}),
-			Transform: storage.TransformStripImage,
-		}
-		cacheByObject[&storagev1alpha1.WorkloadScanReport{}] = cache.ByObject{
-			Transform: storage.TransformStripWorkloadScanReport,
-		}
-		cacheByObject[&corev1.Pod{}] = cache.ByObject{
-			Transform: controller.TransformStripPod,
-			// Read-only
-			UnsafeDisableDeepCopy: new(true),
-		}
-		cacheByObject[&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: appsv1.SchemeGroupVersion.String(),
-				Kind:       "ReplicaSet",
-			},
-		}] = cache.ByObject{
-			// Read-only
-			UnsafeDisableDeepCopy: new(true),
-		}
-		cacheByObject[&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: batchv1.SchemeGroupVersion.String(),
-				Kind:       "Job",
-			},
-		}] = cache.ByObject{
-			// Read-only
-			UnsafeDisableDeepCopy: new(true),
-		}
-	}
+	cacheByObject := buildCacheByObject(cfg)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -416,4 +348,75 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func buildCacheByObject(cfg Config) map[client.Object]cache.ByObject {
+	cacheByObject := map[client.Object]cache.ByObject{
+		&metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: storagev1alpha1.SchemeGroupVersion.String(),
+				Kind:       "VulnerabilityReport",
+			},
+		}: {
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		},
+		&metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: corev1.SchemeGroupVersion.String(),
+				Kind:       "Namespace",
+			},
+		}: {
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		},
+	}
+
+	if cfg.WorkloadScan {
+		cacheByObject[&storagev1alpha1.Image{}] = cache.ByObject{
+			Label:     labels.SelectorFromSet(labels.Set{api.LabelWorkloadScanKey: api.LabelWorkloadScanValue}),
+			Transform: storage.TransformStripImage,
+		}
+		cacheByObject[&storagev1alpha1.WorkloadScanReport{}] = cache.ByObject{
+			Transform: storage.TransformStripWorkloadScanReport,
+		}
+		cacheByObject[&corev1.Pod{}] = cache.ByObject{
+			Transform: controller.TransformStripPod,
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		}
+		cacheByObject[&metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: appsv1.SchemeGroupVersion.String(),
+				Kind:       "ReplicaSet",
+			},
+		}] = cache.ByObject{
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		}
+		cacheByObject[&metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: batchv1.SchemeGroupVersion.String(),
+				Kind:       "Job",
+			},
+		}] = cache.ByObject{
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		}
+	}
+
+	if cfg.NodeScan {
+		cacheByObject[&corev1.Node{}] = cache.ByObject{
+			Transform: controller.TransformStripNode,
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		}
+		cacheByObject[&storagev1alpha1.NodeSBOM{}] = cache.ByObject{
+			Transform: storage.TransformStripNodeSBOM,
+			// Read-only
+			UnsafeDisableDeepCopy: new(true),
+		}
+	}
+
+	return cacheByObject
 }
