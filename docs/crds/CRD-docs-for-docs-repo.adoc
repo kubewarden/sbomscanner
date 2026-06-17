@@ -138,6 +138,7 @@ NodeScanConfigurationSpec defines the desired configuration for node scanning.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
+| *`enabled`* __boolean__ | Enabled controls whether node scanning is active. + | true | 
 | *`nodeSelector`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta[$$LabelSelector$$]__ | NodeSelector filters which nodes are scanned. +
 If not specified, all the nodes are scanned. + |  | Optional: \{} +
 

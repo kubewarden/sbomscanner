@@ -112,6 +112,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `enabled` _boolean_ | Enabled controls whether node scanning is active. | true |  |
 | `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta)_ | NodeSelector filters which nodes are scanned.<br />If not specified, all the nodes are scanned. |  | Optional: \{\} <br /> |
 | `scanInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta)_ | ScanInterval is the interval at which nodes are scanned. |  | Optional: \{\} <br /> |
 | `skipPatterns` _string array_ | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning.<br />Patterns ending with "/" are treated as directories.<br />All other patterns are treated as files.<br />Glob patterns like "**/vendor/" or "*.min.js" are supported. |  | Optional: \{\} <br /> |
