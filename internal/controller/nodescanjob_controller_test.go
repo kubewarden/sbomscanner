@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
@@ -314,6 +314,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 	When("A NodeScanJob is created for an invalid Node", func() {
 		var reconciler NodeScanJobReconciler
 		var nodeScanJob v1alpha1.NodeScanJob
+		var config v1alpha1.NodeScanConfiguration
 		var mockPublisher *messagingMocks.MockPublisher
 
 		BeforeEach(func(ctx context.Context) {
@@ -324,6 +325,15 @@ var _ = Describe("NodeScanJob Controller", func() {
 				Publisher: mockPublisher,
 				Scheme:    k8sClient.Scheme(),
 			}
+
+			By("Creating a NodeScanConfiguration")
+			config = v1alpha1.NodeScanConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: v1alpha1.NodeScanConfigurationName,
+				},
+				Spec: v1alpha1.NodeScanConfigurationSpec{},
+			}
+			Expect(k8sClient.Create(ctx, &config)).To(Succeed())
 
 			By("Creating a NodeScanJob referencing a non-existent node")
 			nodeScanJob = v1alpha1.NodeScanJob{
@@ -337,7 +347,11 @@ var _ = Describe("NodeScanJob Controller", func() {
 			Expect(k8sClient.Create(ctx, &nodeScanJob)).To(Succeed())
 		})
 
-		It("should delete the NodeScanJob when the node no longer exists", func(ctx context.Context) {
+		AfterEach(func(ctx context.Context) {
+			Expect(k8sClient.Delete(ctx, &config)).To(Succeed())
+		})
+
+		It("should mark the NodeScanJob as failed with NodeNotFound reason", func(ctx context.Context) {
 			By("Reconciling the NodeScanJob")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -346,13 +360,17 @@ var _ = Describe("NodeScanJob Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Verifying the NodeScanJob was deleted")
-			deletedJob := &v1alpha1.NodeScanJob{}
+			By("Verifying the NodeScanJob still exists and is marked as failed with NodeNotFound")
+			updatedJob := &v1alpha1.NodeScanJob{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
 				Name: nodeScanJob.Name,
-			}, deletedJob)
-			Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred())
-			Expect(deletedJob.Name).To(BeEmpty())
+			}, updatedJob)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedJob.IsFailed()).To(BeTrue())
+
+			failedCond := meta.FindStatusCondition(updatedJob.Status.Conditions, v1alpha1.ConditionNodeScanJobTypeFailed)
+			Expect(failedCond).NotTo(BeNil())
+			Expect(failedCond.Reason).To(Equal(v1alpha1.ReasonNodeScanJobNodeNotFound))
 		})
 	})
 })

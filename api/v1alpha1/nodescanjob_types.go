@@ -32,6 +32,7 @@ const (
 const (
 	ReasonNodeScanJobInProgress               = "InProgress"
 	ReasonNodeScanJobConfigurationMissing     = "NodeScanConfigurationMissing"
+	ReasonNodeScanJobNodeNotFound             = "NodeNotFound"
 	ReasonNodeScanJobNotMatching              = "NodeNotMatching"
 	ReasonNodeScanJobPending                  = "Pending"
 	ReasonNodeScanJobSBOMGenerationInProgress = "SBOMGenerationInProgress"

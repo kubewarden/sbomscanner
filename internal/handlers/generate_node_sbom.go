@@ -64,7 +64,7 @@ func NewGenerateNodeSBOMHandler(
 
 // Handle processes the GenerateNodeSBOMMessage and generates a SBOM resource from the specified image.
 //
-//nolint:funlen // This function is responsible for orchestrating multiple steps in the SBOM generation process, making it inherently complex and lengthy.
+//nolint:funlen,gocognit // This function is responsible for orchestrating multiple steps in the SBOM generation process, making it inherently complex and lengthy.
 func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
 	generateNodeSBOMMessage := &GenerateNodeSBOMMessage{}
 	if err := json.Unmarshal(message.Data(), generateNodeSBOMMessage); err != nil {
@@ -125,6 +125,11 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return h.k8sClient.Status().Update(ctx, nodeScanJob)
 	})
 	if err != nil {
+		// The NodeScanJob may have been deleted while we were processing; abandon the update.
+		if apierrors.IsNotFound(err) {
+			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name)
+			return nil
+		}
 		return fmt.Errorf("failed to update NodeScanJob status to in progress: %w", err)
 	}
 
@@ -176,6 +181,15 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	})
 	if err != nil {
 		return fmt.Errorf("cannot marshal scan NodeSBOM message: %w", err)
+	}
+
+	// The NodeScanJob may have been deleted while we were processing; abandon the update.
+	if err = h.k8sClient.Get(ctx, client.ObjectKey{Name: generateNodeSBOMMessage.NodeScanJob.Name}, &v1alpha1.NodeScanJob{}); err != nil {
+		if apierrors.IsNotFound(err) {
+			h.logger.InfoContext(ctx, "NodeScanJob no longer exists, skipping publish of scan NodeSBOM message", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name)
+			return nil
+		}
+		return fmt.Errorf("cannot get NodeScanJob %s: %w", generateNodeSBOMMessage.NodeScanJob.Name, err)
 	}
 
 	if err = h.publisher.Publish(ctx, ScanNodeSBOMSubject+"."+nodeScanJob.Spec.NodeName, scanNodeSBOMMessageID, scanNodeSBOMMessage); err != nil {

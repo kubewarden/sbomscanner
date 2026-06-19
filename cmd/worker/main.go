@@ -160,7 +160,7 @@ func main() {
 	case nodeMode:
 		scanMode = messaging.HandlerRegistry{
 			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, targetDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewScanNodeSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
 		durableName = "worker-node-" + nodeName
 	default:
