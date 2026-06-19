@@ -39,6 +39,20 @@ func TestTransformStripSBOM(t *testing.T) {
 	assert.Equal(t, "test-sbom", resultSBOM.Name)
 }
 
+func TestTransformStripNodeSBOM(t *testing.T) {
+	nodeSBOM := &storagev1alpha1.NodeSBOM{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-node-sbom"},
+		SPDX:       runtime.RawExtension{Raw: []byte(`{"test": "data"}`)},
+	}
+
+	result, err := TransformStripNodeSBOM(nodeSBOM)
+	require.NoError(t, err)
+
+	resultNodeSBOM := result.(*storagev1alpha1.NodeSBOM)
+	assert.Empty(t, resultNodeSBOM.SPDX.Raw)
+	assert.Equal(t, "test-node-sbom", resultNodeSBOM.Name)
+}
+
 func TestTransformStripVulnerabilityReport(t *testing.T) {
 	vuln := &storagev1alpha1.VulnerabilityReport{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-vuln"},
@@ -53,6 +67,22 @@ func TestTransformStripVulnerabilityReport(t *testing.T) {
 	resultVuln := result.(*storagev1alpha1.VulnerabilityReport)
 	assert.Nil(t, resultVuln.Report.Results)
 	assert.Equal(t, "test-vuln", resultVuln.Name)
+}
+
+func TestTransformStripNodeVulnerabilityReport(t *testing.T) {
+	nodeVuln := &storagev1alpha1.NodeVulnerabilityReport{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-node-vuln"},
+		Report: storagev1alpha1.Report{
+			Results: []storagev1alpha1.Result{{Target: "test-target"}},
+		},
+	}
+
+	result, err := TransformStripNodeVulnerabilityReport(nodeVuln)
+	require.NoError(t, err)
+
+	resultNodeVuln := result.(*storagev1alpha1.NodeVulnerabilityReport)
+	assert.Nil(t, resultNodeVuln.Report.Results)
+	assert.Equal(t, "test-node-vuln", resultNodeVuln.Name)
 }
 
 func TestTransformStripWorkloadScanReport(t *testing.T) {
