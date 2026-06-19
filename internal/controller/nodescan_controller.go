@@ -47,17 +47,36 @@ func (r *NodeScanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
+// cleanupNodeResources deletes every NodeScanJob and NodeSBOM tied to nodeName.
+//
+// We use List+Delete via the cached field indexes (see internal/controller/indexer.go)
+// rather than DeleteAllOf, because DeleteAllOf bypasses the cache and issues a
+// deletecollection call directly against the API server.
 func (r *NodeScanReconciler) cleanupNodeResources(ctx context.Context, nodeName string) error {
-	if err := r.DeleteAllOf(ctx, &v1alpha1.NodeScanJob{},
+	var nodeScanJobs v1alpha1.NodeScanJobList
+	if err := r.List(ctx, &nodeScanJobs,
 		client.MatchingFields{v1alpha1.IndexNodeScanJobSpecNodeName: nodeName},
-	); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("delete NodeScanJobs for node %s: %w", nodeName, err)
+	); err != nil {
+		return fmt.Errorf("list NodeScanJobs for node %s: %w", nodeName, err)
+	}
+	for i := range nodeScanJobs.Items {
+		job := &nodeScanJobs.Items[i]
+		if err := r.Delete(ctx, job); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete NodeScanJob %s: %w", job.Name, err)
+		}
 	}
 
-	if err := r.DeleteAllOf(ctx, &storagev1alpha1.NodeSBOM{},
+	var nodeSBOMs storagev1alpha1.NodeSBOMList
+	if err := r.List(ctx, &nodeSBOMs,
 		client.MatchingFields{storagev1alpha1.IndexNodeMetadataName: nodeName},
-	); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("delete NodeSBOMs for node %s: %w", nodeName, err)
+	); err != nil {
+		return fmt.Errorf("list NodeSBOMs for node %s: %w", nodeName, err)
+	}
+	for i := range nodeSBOMs.Items {
+		sbom := &nodeSBOMs.Items[i]
+		if err := r.Delete(ctx, sbom); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete NodeSBOM %s: %w", sbom.Name, err)
+		}
 	}
 
 	return nil

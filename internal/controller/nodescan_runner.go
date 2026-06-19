@@ -69,6 +69,11 @@ func (r *NodeScanRunner) scanNodes(ctx context.Context) error {
 		return fmt.Errorf("failed to get NodeScanConfiguration: %w", err)
 	}
 
+	if !config.Spec.Enabled {
+		log.V(1).Info("NodeScanConfiguration disabled, skipping node scan cycle")
+		return nil
+	}
+
 	rescanRequested := hasForceNodeScanAnnotation(&config)
 
 	nodes, err := r.getMatchingNodes(ctx, &config)

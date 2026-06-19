@@ -43,6 +43,10 @@ spec:
             description: NodeScanConfigurationSpec defines the desired configuration
               for node scanning.
             properties:
+              enabled:
+                default: true
+                description: Enabled controls whether node scanning is active.
+                type: boolean
               nodeSelector:
                 description: |-
                   NodeSelector filters which nodes are scanned.
@@ -130,6 +134,8 @@ spec:
                 items:
                   type: string
                 type: array
+            required:
+            - enabled
             type: object
         type: object
         x-kubernetes-validations:

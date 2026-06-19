@@ -35,6 +35,7 @@ func TestNodeScan(t *testing.T) {
 					},
 				},
 				Spec: v1alpha1.NodeScanConfigurationSpec{
+					Enabled: true,
 					SkipPatterns: []string{
 						// Exclude containerd runtime files since they
 						// can cause issues with file access and are not
@@ -132,6 +133,39 @@ func TestNodeScan(t *testing.T) {
 
 			return ctx
 		}).
+		Assess("Disable NodeScanConfiguration and verify cleanup", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			nodeScanConfig := &v1alpha1.NodeScanConfiguration{}
+			err := cfg.Client().Resources().Get(ctx, v1alpha1.NodeScanConfigurationName, "", nodeScanConfig)
+			require.NoError(t, err)
+
+			nodeScanConfig.Spec.Enabled = false
+			err = cfg.Client().Resources().Update(ctx, nodeScanConfig)
+			require.NoError(t, err, "failed to disable NodeScanConfiguration")
+
+			err = wait.For(func(ctx context.Context) (bool, error) {
+				jobs := &v1alpha1.NodeScanJobList{}
+				if err := cfg.Client().Resources().List(ctx, jobs,
+					resources.WithLabelSelector(nodeScanLabelSelector),
+				); err != nil {
+					return false, err
+				}
+				return len(jobs.Items) == 0, nil
+			}, wait.WithTimeout(scanTimeout))
+			require.NoError(t, err, "NodeScanJobs should be cleaned up after disabling NodeScanConfiguration")
+
+			err = wait.For(func(ctx context.Context) (bool, error) {
+				sboms := &storagev1alpha1.NodeSBOMList{}
+				if err := cfg.Client().Resources().List(ctx, sboms,
+					resources.WithLabelSelector(nodeScanLabelSelector),
+				); err != nil {
+					return false, err
+				}
+				return len(sboms.Items) == 0, nil
+			}, wait.WithTimeout(scanTimeout))
+			require.NoError(t, err, "NodeSBOMs should be cleaned up after disabling NodeScanConfiguration")
+
+			return ctx
+		}).
 		Assess("Delete NodeScanConfiguration and verify cleanup", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			nodeScanConfig := &v1alpha1.NodeScanConfiguration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -172,6 +206,7 @@ func TestNodeScan(t *testing.T) {
 					Name: v1alpha1.NodeScanConfigurationName,
 				},
 				Spec: v1alpha1.NodeScanConfigurationSpec{
+					Enabled: true,
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"non-existent-label": "no-match",
