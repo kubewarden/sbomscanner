@@ -23,17 +23,42 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sstorage "k8s.io/apiserver/pkg/storage"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/storage/repository"
 )
 
-const keyPrefix = "/storage.sbomscanner.kubewarden.io/sboms"
+// storeTestCase parameterises storeTestSuite over a resource type.
+// Each case (namespaced SBOM, cluster-scoped NodeSBOM) brings up its own store, repository, watcher and broadcaster,
+// but shares the test bodies.
+// Concrete-type construction and field access are passed in as function pointers so the suite never type-switches.
+type storeTestCase struct {
+	resource      string
+	keyPrefix     string
+	clusterScoped bool
+	newFunc       func() runtime.Object
+	newListFunc   func() runtime.Object
+	truncateTable string
+	predicateFunc func(labels.Selector, fields.Selector) k8sstorage.SelectionPredicate
+	transform     cache.TransformFunc
+
+	// newObj builds an object of this case's resource type.
+	// For cluster-scoped resources the namespace argument is ignored.
+	newObj func(name, namespace string, labels map[string]string, spdx []byte) runtime.Object
+	// setUID sets the UID on an object of this case's resource type.
+	setUID func(obj runtime.Object, uid types.UID)
+	// objSPDX extracts the SPDX raw bytes from an object of this case's resource type.
+	objSPDX func(obj runtime.Object) []byte
+	// setSPDX overwrites the SPDX raw bytes on an object of this case's resource type.
+	setSPDX func(obj runtime.Object, raw []byte)
+}
 
 type storeTestSuite struct {
 	suite.Suite
 
+	test        storeTestCase
 	store       *store
 	db          *pgxpool.Pool
 	broadcaster *watch.Broadcaster
@@ -96,26 +121,27 @@ func (suite *storeTestSuite) TearDownSuite() {
 }
 
 func (suite *storeTestSuite) SetupTest() {
-	_, err := suite.db.Exec(suite.T().Context(), "TRUNCATE TABLE sboms")
+	_, err := suite.db.Exec(suite.T().Context(), fmt.Sprintf("TRUNCATE TABLE %s", suite.test.truncateTable))
 	suite.Require().NoError(err, "failed to truncate table")
 
 	_, err = suite.db.Exec(suite.T().Context(), "ALTER SEQUENCE resource_version_seq RESTART WITH 1")
 	suite.Require().NoError(err, "failed to reset resource version sequence")
 
-	repo := repository.NewGenericObjectRepository("sboms", func() runtime.Object { return &storagev1alpha1.SBOM{} })
+	repo := repository.NewGenericObjectRepository(suite.test.resource, suite.test.newFunc)
 
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
-	natsBroadcaster := newNatsBroadcaster(suite.nc, "sboms", watchBroadcaster, TransformStripSBOM, slog.Default())
+	natsBroadcaster := newNatsBroadcaster(suite.nc, suite.test.resource, watchBroadcaster, suite.test.transform, slog.Default())
 
 	store := &store{
-		db:          suite.db,
-		repository:  repo,
-		broadcaster: natsBroadcaster,
-		newFunc:     func() runtime.Object { return &storagev1alpha1.SBOM{} },
-		newListFunc: func() runtime.Object { return &storagev1alpha1.SBOMList{} },
-		logger:      slog.Default(),
+		db:            suite.db,
+		repository:    repo,
+		broadcaster:   natsBroadcaster,
+		newFunc:       suite.test.newFunc,
+		newListFunc:   suite.test.newListFunc,
+		logger:        slog.Default(),
+		clusterScoped: suite.test.clusterScoped,
 	}
-	natsWatcher := newNatsWatcher(suite.nc, "sboms", watchBroadcaster, store, slog.Default())
+	natsWatcher := newNatsWatcher(suite.nc, suite.test.resource, watchBroadcaster, store, slog.Default())
 
 	suite.store = store
 	suite.broadcaster = watchBroadcaster
@@ -123,82 +149,110 @@ func (suite *storeTestSuite) SetupTest() {
 }
 
 func TestStoreTestSuite(t *testing.T) {
-	suite.Run(t, &storeTestSuite{})
+	tests := []storeTestCase{
+		{
+			resource:      "sboms",
+			keyPrefix:     "/storage.sbomscanner.kubewarden.io/sboms",
+			clusterScoped: false,
+			newFunc:       func() runtime.Object { return &storagev1alpha1.SBOM{} },
+			newListFunc:   func() runtime.Object { return &storagev1alpha1.SBOMList{} },
+			truncateTable: "sboms",
+			predicateFunc: matcher,
+			transform:     TransformStripSBOM,
+			newObj: func(name, namespace string, objLabels map[string]string, spdx []byte) runtime.Object {
+				return &storagev1alpha1.SBOM{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: objLabels},
+					SPDX:       runtime.RawExtension{Raw: spdx},
+				}
+			},
+			setUID:  func(obj runtime.Object, uid types.UID) { obj.(*storagev1alpha1.SBOM).UID = uid },
+			objSPDX: func(obj runtime.Object) []byte { return obj.(*storagev1alpha1.SBOM).SPDX.Raw },
+			setSPDX: func(obj runtime.Object, raw []byte) { obj.(*storagev1alpha1.SBOM).SPDX.Raw = raw },
+		},
+		{
+			resource:      "nodesboms",
+			keyPrefix:     "/storage.sbomscanner.kubewarden.io/nodesboms",
+			clusterScoped: true,
+			newFunc:       func() runtime.Object { return &storagev1alpha1.NodeSBOM{} },
+			newListFunc:   func() runtime.Object { return &storagev1alpha1.NodeSBOMList{} },
+			truncateTable: "nodesboms",
+			predicateFunc: nodeSBOMMatcher,
+			transform:     TransformStripNodeSBOM,
+			newObj: func(name, _ string, objLabels map[string]string, spdx []byte) runtime.Object {
+				return &storagev1alpha1.NodeSBOM{
+					ObjectMeta:   metav1.ObjectMeta{Name: name, Labels: objLabels},
+					NodeMetadata: storagev1alpha1.NodeMetadata{Name: name, Platform: "linux/amd64"},
+					SPDX:         runtime.RawExtension{Raw: spdx},
+				}
+			},
+			setUID:  func(obj runtime.Object, uid types.UID) { obj.(*storagev1alpha1.NodeSBOM).UID = uid },
+			objSPDX: func(obj runtime.Object) []byte { return obj.(*storagev1alpha1.NodeSBOM).SPDX.Raw },
+			setSPDX: func(obj runtime.Object, raw []byte) { obj.(*storagev1alpha1.NodeSBOM).SPDX.Raw = raw },
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.resource, func(t *testing.T) {
+			suite.Run(t, &storeTestSuite{test: test})
+		})
+	}
 }
 
 func (suite *storeTestSuite) TestCreate() {
-	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
-		SPDX: runtime.RawExtension{Raw: []byte(`{"test": true}`)},
-	}
+	obj := suite.test.newObj("test", "default", nil, []byte(`{"test": true}`))
 
-	key := keyPrefix + "/default/test"
-	out := &storagev1alpha1.SBOM{}
-	err := suite.store.Create(suite.T().Context(), key, sbom, out, 0)
+	key := suite.keyFor("test", "default")
+	out := suite.test.newFunc()
+	err := suite.store.Create(suite.T().Context(), key, obj, out, 0)
 	suite.Require().NoError(err)
 
-	suite.Equal("test", out.Name)
-	suite.Equal("default", out.Namespace)
-	suite.NotEmpty(out.ResourceVersion)
-	suite.Equal([]byte(`{"test": true}`), out.SPDX.Raw)
+	outMeta, ok := out.(metav1.Object)
+	suite.Require().True(ok)
+	suite.Equal("test", outMeta.GetName())
+	suite.Equal(suite.expectedNamespace("default"), outMeta.GetNamespace())
+	suite.NotEmpty(outMeta.GetResourceVersion())
+	suite.Equal([]byte(`{"test": true}`), suite.test.objSPDX(out))
 
-	got := &storagev1alpha1.SBOM{}
+	got := suite.test.newFunc()
 	err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, got)
 	suite.Require().NoError(err)
 	suite.Equal(out, got)
 
 	// Duplicate create should fail
-	err = suite.store.Create(suite.T().Context(), key, sbom, out, 0)
+	err = suite.store.Create(suite.T().Context(), key, obj, out, 0)
 	suite.Require().Equal(k8sstorage.NewKeyExistsError(key, 0).Error(), err.Error())
 }
 
 func (suite *storeTestSuite) TestGet() {
-	key := keyPrefix + "/default/test"
+	key := suite.keyFor("test", "default")
 
-	out := &storagev1alpha1.SBOM{}
+	out := suite.test.newFunc()
 	err := suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, out)
 	suite.True(k8sstorage.IsNotFound(err))
 
-	out = &storagev1alpha1.SBOM{}
+	out = suite.test.newFunc()
 	err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{IgnoreNotFound: true}, out)
 	suite.Require().NoError(err)
-	suite.Equal(&storagev1alpha1.SBOM{}, out)
+	suite.Equal(suite.test.newFunc(), out)
 
-	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-			Labels: map[string]string{
-				"app": "test",
-			},
-		},
-		SPDX: runtime.RawExtension{Raw: []byte(`{"test": true}`)},
-	}
-	err = suite.store.Create(suite.T().Context(), key, sbom, nil, 0)
+	obj := suite.test.newObj("test", "default", map[string]string{"app": "test"}, []byte(`{"test": true}`))
+	err = suite.store.Create(suite.T().Context(), key, obj, nil, 0)
 	suite.Require().NoError(err)
 
-	out = &storagev1alpha1.SBOM{}
+	out = suite.test.newFunc()
 	err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, out)
 	suite.Require().NoError(err)
-	suite.Equal("test", out.Name)
-	suite.Equal("default", out.Namespace)
-	suite.Equal(map[string]string{"app": "test"}, out.Labels)
-	suite.NotEmpty(out.ResourceVersion)
-	suite.Equal([]byte(`{"test": true}`), out.SPDX.Raw)
+	outMeta, ok := out.(metav1.Object)
+	suite.Require().True(ok)
+	suite.Equal("test", outMeta.GetName())
+	suite.Equal(suite.expectedNamespace("default"), outMeta.GetNamespace())
+	suite.Equal(map[string]string{"app": "test"}, outMeta.GetLabels())
+	suite.NotEmpty(outMeta.GetResourceVersion())
+	suite.Equal([]byte(`{"test": true}`), suite.test.objSPDX(out))
 }
 
 func (suite *storeTestSuite) TestDelete() {
-	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
-	}
-
-	key := keyPrefix + "/default/test"
+	key := suite.keyFor("test", "default")
 
 	tests := []struct {
 		name             string
@@ -229,10 +283,11 @@ func (suite *storeTestSuite) TestDelete() {
 
 	for _, test := range tests {
 		suite.Run(test.name, func() {
-			err := suite.store.Create(suite.T().Context(), key, sbom, &storagev1alpha1.SBOM{}, 0)
+			obj := suite.test.newObj("test", "default", nil, nil)
+			err := suite.store.Create(suite.T().Context(), key, obj, suite.test.newFunc(), 0)
 			suite.Require().NoError(err)
 
-			out := &storagev1alpha1.SBOM{}
+			out := suite.test.newFunc()
 			err = suite.store.Delete(
 				suite.T().Context(),
 				key,
@@ -248,9 +303,9 @@ func (suite *storeTestSuite) TestDelete() {
 				suite.Equal(test.expectedError.Error(), err.Error())
 			} else {
 				suite.Require().NoError(err)
-				suite.Equal(sbom, out)
+				suite.Equal(obj, out)
 
-				err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, &storagev1alpha1.SBOM{})
+				err = suite.store.Get(suite.T().Context(), key, k8sstorage.GetOptions{}, suite.test.newFunc())
 				suite.True(k8sstorage.IsNotFound(err))
 			}
 		})
@@ -258,8 +313,8 @@ func (suite *storeTestSuite) TestDelete() {
 }
 
 func (suite *storeTestSuite) TestDeleteNotFound() {
-	key := keyPrefix + "/default/notfound"
-	out := &storagev1alpha1.SBOM{}
+	key := suite.keyFor("notfound", "default")
+	out := suite.test.newFunc()
 	err := suite.store.Delete(
 		suite.T().Context(),
 		key,
@@ -273,7 +328,7 @@ func (suite *storeTestSuite) TestDeleteNotFound() {
 }
 
 func (suite *storeTestSuite) TestWatchEmptyResourceVersion() {
-	key := keyPrefix + "/default/test"
+	key := suite.keyFor("test", "default")
 	opts := k8sstorage.ListOptions{ResourceVersion: ""}
 
 	w, err := suite.store.Watch(suite.T().Context(), key, opts)
@@ -285,14 +340,9 @@ func (suite *storeTestSuite) TestWatchEmptyResourceVersion() {
 }
 
 func (suite *storeTestSuite) TestWatchResourceVersionZero() {
-	key := keyPrefix + "/default/test"
-	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
-	}
-	err := suite.store.Create(suite.T().Context(), key, sbom, &storagev1alpha1.SBOM{}, 0)
+	key := suite.keyFor("test", "default")
+	obj := suite.test.newObj("test", "default", nil, nil)
+	err := suite.store.Create(suite.T().Context(), key, obj, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
 	opts := k8sstorage.ListOptions{ResourceVersion: "0"}
@@ -309,7 +359,7 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 	err = suite.store.Delete(
 		suite.T().Context(),
 		key,
-		&storagev1alpha1.SBOM{},
+		suite.test.newFunc(),
 		&k8sstorage.Preconditions{},
 		validateDeletion,
 		nil,
@@ -319,40 +369,35 @@ func (suite *storeTestSuite) TestWatchResourceVersionZero() {
 
 	events := mustReadEvents(suite.T(), w, 2)
 	suite.Equal(watch.Added, events[0].Type)
-	suite.Equal(sbom, events[0].Object)
+	suite.Equal(obj, events[0].Object)
 	suite.Equal(watch.Deleted, events[1].Type)
-	suite.Equal(sbom, events[1].Object)
+	suite.Equal(obj, events[1].Object)
 }
 
 func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
-	key := keyPrefix + "/default"
-	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
-	}
-	suite.Require().NoError(suite.store.Create(suite.T().Context(), key+"/test", sbom, &storagev1alpha1.SBOM{}, 0))
+	key := suite.keyFor("test", "default")
+	obj := suite.test.newObj("test", "default", nil, nil)
+	suite.Require().NoError(suite.store.Create(suite.T().Context(), key, obj, suite.test.newFunc(), 0))
 
 	opts := k8sstorage.ListOptions{
 		ResourceVersion: "1",
-		Predicate:       matcher(labels.Everything(), fields.Everything()),
+		Predicate:       suite.test.predicateFunc(labels.Everything(), fields.Everything()),
 	}
 
-	w, err := suite.store.Watch(suite.T().Context(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), suite.defaultNamespaceKey(), opts)
 	suite.Require().NoError(err)
 
 	suite.Require().NoError(suite.watcher.Setup(suite.T().Context()))
 	go suite.watcher.Start(suite.T().Context())
 
 	tryUpdate := func(input runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
-		return input, new(uint64(0)), nil
+		return input, new(uint64), nil
 	}
-	updatedSBOM := &storagev1alpha1.SBOM{}
+	updatedObj := suite.test.newFunc()
 	err = suite.store.GuaranteedUpdate(
 		suite.T().Context(),
-		key+"/test",
-		updatedSBOM,
+		key,
+		updatedObj,
 		false,
 		&k8sstorage.Preconditions{},
 		tryUpdate,
@@ -362,43 +407,32 @@ func (suite *storeTestSuite) TestWatchSpecificResourceVersion() {
 
 	events := mustReadEvents(suite.T(), w, 2)
 	suite.Equal(watch.Added, events[0].Type)
-	suite.Equal(sbom, events[0].Object)
-	suite.Equal("1", sbom.ResourceVersion, "expected resource version 1 for the added event")
+	suite.Equal(obj, events[0].Object)
+	addedMeta, ok := events[0].Object.(metav1.Object)
+	suite.Require().True(ok)
+	suite.Equal("1", addedMeta.GetResourceVersion(), "expected resource version 1 for the added event")
 	suite.Equal(watch.Modified, events[1].Type)
-	suite.Equal(updatedSBOM, events[1].Object)
+	suite.Equal(updatedObj, events[1].Object)
 }
 
 func (suite *storeTestSuite) TestWatchWithLabelSelector() {
-	key := keyPrefix + "/default"
-	sbom1 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test1",
-			Namespace: "default",
-			Labels: map[string]string{
-				"sbomscanner.kubewarden.io/test": "true",
-			},
-		},
-	}
-	err := suite.store.Create(suite.T().Context(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
+	obj1 := suite.test.newObj("test1", "default", map[string]string{
+		"sbomscanner.kubewarden.io/test": "true",
+	}, nil)
+	err := suite.store.Create(suite.T().Context(), suite.keyFor("test1", "default"), obj1, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	sbom2 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test2",
-			Namespace: "default",
-			Labels:    map[string]string{},
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	obj2 := suite.test.newObj("test2", "default", map[string]string{}, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test2", "default"), obj2, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
 	opts := k8sstorage.ListOptions{
 		ResourceVersion: "1",
-		Predicate: matcher(labels.SelectorFromSet(labels.Set{
+		Predicate: suite.test.predicateFunc(labels.SelectorFromSet(labels.Set{
 			"sbomscanner.kubewarden.io/test": "true",
 		}), fields.Everything()),
 	}
-	w, err := suite.store.Watch(suite.T().Context(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), suite.defaultNamespaceKey(), opts)
 	suite.Require().NoError(err)
 
 	suite.Require().NoError(suite.watcher.Setup(suite.T().Context()))
@@ -407,31 +441,19 @@ func (suite *storeTestSuite) TestWatchWithLabelSelector() {
 	events := mustReadEvents(suite.T(), w, 1)
 	suite.Require().Len(events, 1)
 	suite.Equal(watch.Added, events[0].Type)
-	suite.Equal(sbom1, events[0].Object)
+	suite.Equal(obj1, events[0].Object)
 }
 
 func (suite *storeTestSuite) TestWatchList() {
-	key := keyPrefix + "/default"
-
-	sbom1 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test1",
-			Namespace: "default",
-		},
-	}
-	err := suite.store.Create(suite.T().Context(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
+	obj1 := suite.test.newObj("test1", "default", nil, nil)
+	err := suite.store.Create(suite.T().Context(), suite.keyFor("test1", "default"), obj1, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	sbom2 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test2",
-			Namespace: "default",
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	obj2 := suite.test.newObj("test2", "default", nil, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test2", "default"), obj2, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	predicate := matcher(labels.Everything(), fields.Everything())
+	predicate := suite.test.predicateFunc(labels.Everything(), fields.Everything())
 	predicate.AllowWatchBookmarks = true
 
 	opts := k8sstorage.ListOptions{
@@ -440,7 +462,7 @@ func (suite *storeTestSuite) TestWatchList() {
 		Recursive:         true,
 	}
 
-	w, err := suite.store.Watch(suite.T().Context(), key, opts)
+	w, err := suite.store.Watch(suite.T().Context(), suite.defaultNamespaceKey(), opts)
 	suite.Require().NoError(err)
 
 	// Should receive ADDED events for existing items + BOOKMARK
@@ -455,9 +477,9 @@ func (suite *storeTestSuite) TestWatchList() {
 	// Verify both items were sent (order may vary)
 	addedNames := make([]string, 0, 2)
 	for _, evt := range addedEvents {
-		sbom, ok := evt.Object.(*storagev1alpha1.SBOM)
+		objMeta, ok := evt.Object.(metav1.Object)
 		suite.Require().True(ok)
-		addedNames = append(addedNames, sbom.Name)
+		addedNames = append(addedNames, objMeta.GetName())
 	}
 	suite.ElementsMatch([]string{"test1", "test2"}, addedNames)
 
@@ -465,13 +487,14 @@ func (suite *storeTestSuite) TestWatchList() {
 	bookmarkEvent := events[2]
 	suite.Equal(watch.Bookmark, bookmarkEvent.Type)
 
-	bookmarkObj, ok := bookmarkEvent.Object.(*storagev1alpha1.SBOM)
+	bookmarkMeta, ok := bookmarkEvent.Object.(metav1.Object)
 	suite.Require().True(ok)
-	suite.Equal("true", bookmarkObj.Annotations["k8s.io/initial-events-end"])
-	suite.NotEmpty(bookmarkObj.ResourceVersion)
+	suite.Equal("true", bookmarkMeta.GetAnnotations()["k8s.io/initial-events-end"])
+	suite.NotEmpty(bookmarkMeta.GetResourceVersion())
 }
 
-// When a non-Deleted event arrives for an object the store no longer holds, the watcher must still broadcast the payload.
+// When a non-Deleted event arrives for an object the store no longer holds,
+// the watcher must still broadcast the payload.
 func (suite *storeTestSuite) TestHandleMessageNotFoundStillBroadcasts() {
 	ctx, cancel := context.WithCancel(suite.T().Context())
 	defer cancel()
@@ -483,34 +506,30 @@ func (suite *storeTestSuite) TestHandleMessageNotFoundStillBroadcasts() {
 	suite.Require().NoError(suite.watcher.Setup(ctx))
 	go suite.watcher.Start(ctx)
 
-	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ghost",
-			Namespace: "default",
-		},
-	}
-	sbomBytes, err := json.Marshal(sbom)
+	ghost := suite.test.newObj("ghost", "default", nil, nil)
+	ghostBytes, err := json.Marshal(ghost)
 	suite.Require().NoError(err)
 
 	payload, err := json.Marshal(event{
 		EventType: watch.Added,
-		Object:    runtime.RawExtension{Raw: sbomBytes},
+		Object:    runtime.RawExtension{Raw: ghostBytes},
 	})
 	suite.Require().NoError(err)
 
-	suite.Require().NoError(suite.nc.Publish("watch.sboms", payload))
+	suite.Require().NoError(suite.nc.Publish(suite.natsSubject(), payload))
 	suite.Require().NoError(suite.nc.Flush())
 
 	events := mustReadEvents(suite.T(), w, 1)
 	suite.Equal(watch.Added, events[0].Type)
 
-	got, ok := events[0].Object.(*storagev1alpha1.SBOM)
+	gotMeta, ok := events[0].Object.(metav1.Object)
 	suite.Require().True(ok)
-	suite.Equal("ghost", got.Name)
-	suite.Equal("default", got.Namespace)
+	suite.Equal("ghost", gotMeta.GetName())
+	suite.Equal(suite.expectedNamespace("default"), gotMeta.GetNamespace())
 }
 
-// When the store holds a different object at the same namespace/name, the watcher must broadcast the payload, not the refetched object.
+// When the store holds a different object at the same namespace/name,
+// the watcher must broadcast the payload, not the refetched object.
 func (suite *storeTestSuite) TestHandleMessageUIDMismatchBroadcastsPayload() {
 	ctx, cancel := context.WithCancel(suite.T().Context())
 	defer cancel()
@@ -522,38 +541,28 @@ func (suite *storeTestSuite) TestHandleMessageUIDMismatchBroadcastsPayload() {
 	suite.Require().NoError(suite.watcher.Setup(ctx))
 	go suite.watcher.Start(ctx)
 
-	// Populate the store at default/collide. The stale event published next will carry a different UID for the same namespace/name.
+	// Populate the store at <ns>/collide.
+	// The stale event published next will carry a different UID for the same namespace/name.
 	storedUID := types.UID("stored-uid")
-	stored := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "collide",
-			Namespace: "default",
-			UID:       storedUID,
-		},
-		SPDX: runtime.RawExtension{Raw: []byte(`{"stored": true}`)},
-	}
-	key := keyPrefix + "/default/collide"
-	err = suite.store.Create(ctx, key, stored, &storagev1alpha1.SBOM{}, 0)
+	stored := suite.test.newObj("collide", "default", nil, []byte(`{"stored": true}`))
+	suite.test.setUID(stored, storedUID)
+	key := suite.keyFor("collide", "default")
+	err = suite.store.Create(ctx, key, stored, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
 	// Drain the ADDED event produced by the Create above
 	created := mustReadEvents(suite.T(), w, 1)
 	suite.Equal(watch.Added, created[0].Type)
-	createdSBOM, ok := created[0].Object.(*storagev1alpha1.SBOM)
+	createdMeta, ok := created[0].Object.(metav1.Object)
 	suite.Require().True(ok)
-	suite.Equal(storedUID, createdSBOM.UID)
+	suite.Equal(storedUID, createdMeta.GetUID())
 
 	// Publish a stale ADDED carrying a different UID at the same namespace/name
 	staleUID := types.UID("stale-uid")
 	suite.Require().NotEqual(storedUID, staleUID)
 
-	stale := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "collide",
-			Namespace: "default",
-			UID:       staleUID,
-		},
-	}
+	stale := suite.test.newObj("collide", "default", nil, nil)
+	suite.test.setUID(stale, staleUID)
 	staleBytes, err := json.Marshal(stale)
 	suite.Require().NoError(err)
 
@@ -563,156 +572,136 @@ func (suite *storeTestSuite) TestHandleMessageUIDMismatchBroadcastsPayload() {
 	})
 	suite.Require().NoError(err)
 
-	suite.Require().NoError(suite.nc.Publish("watch.sboms", payload))
+	suite.Require().NoError(suite.nc.Publish(suite.natsSubject(), payload))
 	suite.Require().NoError(suite.nc.Flush())
 
 	events := mustReadEvents(suite.T(), w, 1)
 	suite.Equal(watch.Added, events[0].Type)
 
-	got, ok := events[0].Object.(*storagev1alpha1.SBOM)
+	gotMeta, ok := events[0].Object.(metav1.Object)
 	suite.Require().True(ok)
-	suite.Equal(staleUID, got.UID, "expected payload UID, not stored UID")
+	suite.Equal(staleUID, gotMeta.GetUID(), "expected payload UID, not stored UID")
 
 	// Stored object should still be intact and retrievable with its own UID
-	fetched := &storagev1alpha1.SBOM{}
+	fetched := suite.test.newFunc()
 	err = suite.store.Get(ctx, key, k8sstorage.GetOptions{}, fetched)
 	suite.Require().NoError(err)
-	suite.Equal(storedUID, fetched.UID)
+	fetchedMeta, ok := fetched.(metav1.Object)
+	suite.Require().True(ok)
+	suite.Equal(storedUID, fetchedMeta.GetUID())
 }
 
 func (suite *storeTestSuite) TestGetList() {
-	key := keyPrefix + "/default"
-	sbom1 := storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test1",
-			Namespace: "default",
-			Labels: map[string]string{
-				"sbomscanner.kubewarden.io/env": "test",
-			},
-		},
-	}
-	err := suite.store.Create(suite.T().Context(), key+"/test1", &sbom1, nil, 0)
+	obj1 := suite.test.newObj("test1", "default", map[string]string{
+		"sbomscanner.kubewarden.io/env": "test",
+	}, nil)
+	err := suite.store.Create(suite.T().Context(), suite.keyFor("test1", "default"), obj1, nil, 0)
 	suite.Require().NoError(err)
 
-	sbom2 := storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test2",
-			Namespace: "default",
-			Labels: map[string]string{
-				"sbomscanner.kubewarden.io/env": "dev",
-			},
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), key+"/test2", &sbom2, nil, 0)
+	obj2 := suite.test.newObj("test2", "default", map[string]string{
+		"sbomscanner.kubewarden.io/env": "dev",
+	}, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test2", "default"), obj2, nil, 0)
 	suite.Require().NoError(err)
 
-	sbom3 := storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test3",
-			Namespace: "default",
-			Labels: map[string]string{
-				"sbomscanner.kubewarden.io/env":      "prod",
-				"sbomscanner.kubewarden.io/critical": "true",
-			},
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), key+"/test3", &sbom3, nil, 0)
+	obj3 := suite.test.newObj("test3", "default", map[string]string{
+		"sbomscanner.kubewarden.io/env":      "prod",
+		"sbomscanner.kubewarden.io/critical": "true",
+	}, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test3", "default"), obj3, nil, 0)
 	suite.Require().NoError(err)
 
 	tests := []struct {
 		name          string
 		listOptions   k8sstorage.ListOptions
-		expectedItems []storagev1alpha1.SBOM
+		expectedNames []string
 	}{
 		{
 			name:          "list all",
-			expectedItems: []storagev1alpha1.SBOM{sbom1, sbom2, sbom3},
+			expectedNames: []string{"test1", "test2", "test3"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(labels.Everything(), fields.Everything()),
+				Predicate: suite.test.predicateFunc(labels.Everything(), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (=)",
-			expectedItems: []storagev1alpha1.SBOM{sbom1},
+			expectedNames: []string{"test1"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env=test"), fields.Everything()),
+				Predicate: suite.test.predicateFunc(mustParseLabelSelector("sbomscanner.kubewarden.io/env=test"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (!=)",
-			expectedItems: []storagev1alpha1.SBOM{sbom2, sbom3},
+			expectedNames: []string{"test2", "test3"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env!=test"), fields.Everything()),
+				Predicate: suite.test.predicateFunc(mustParseLabelSelector("sbomscanner.kubewarden.io/env!=test"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (in)",
-			expectedItems: []storagev1alpha1.SBOM{sbom2, sbom3},
+			expectedNames: []string{"test2", "test3"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env in (dev,prod)"), fields.Everything()),
+				Predicate: suite.test.predicateFunc(mustParseLabelSelector("sbomscanner.kubewarden.io/env in (dev,prod)"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (notin)",
-			expectedItems: []storagev1alpha1.SBOM{sbom3},
+			expectedNames: []string{"test3"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/env notin (test,dev)"), fields.Everything()),
+				Predicate: suite.test.predicateFunc(mustParseLabelSelector("sbomscanner.kubewarden.io/env notin (test,dev)"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (exists)",
-			expectedItems: []storagev1alpha1.SBOM{sbom3},
+			expectedNames: []string{"test3"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(mustParseLabelSelector("sbomscanner.kubewarden.io/critical"), fields.Everything()),
+				Predicate: suite.test.predicateFunc(mustParseLabelSelector("sbomscanner.kubewarden.io/critical"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list label selector (does not exist)",
-			expectedItems: []storagev1alpha1.SBOM{sbom1, sbom2},
+			expectedNames: []string{"test1", "test2"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(mustParseLabelSelector("!sbomscanner.kubewarden.io/critical"), fields.Everything()),
+				Predicate: suite.test.predicateFunc(mustParseLabelSelector("!sbomscanner.kubewarden.io/critical"), fields.Everything()),
 			},
 		},
 		{
 			name:          "list field selector (=)",
-			expectedItems: []storagev1alpha1.SBOM{sbom1},
+			expectedNames: []string{"test1"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(labels.Everything(), mustParseFieldSelector("metadata.name=test1")),
+				Predicate: suite.test.predicateFunc(labels.Everything(), mustParseFieldSelector("metadata.name=test1")),
 			},
 		},
 		{
 			name:          "list field selector (!=)",
-			expectedItems: []storagev1alpha1.SBOM{sbom2, sbom3},
+			expectedNames: []string{"test2", "test3"},
 			listOptions: k8sstorage.ListOptions{
-				Predicate: matcher(labels.Everything(), mustParseFieldSelector("metadata.name!=test1")),
+				Predicate: suite.test.predicateFunc(labels.Everything(), mustParseFieldSelector("metadata.name!=test1")),
 			},
 		},
 	}
 
 	for _, test := range tests {
 		suite.Run(test.name, func() {
-			sbomList := &storagev1alpha1.SBOMList{}
-			err = suite.store.GetList(suite.T().Context(), key, test.listOptions, sbomList)
+			listObj := suite.test.newListFunc()
+			err = suite.store.GetList(suite.T().Context(), suite.defaultNamespaceKey(), test.listOptions, listObj)
 			suite.Require().NoError(err)
-			suite.ElementsMatch(test.expectedItems, sbomList.Items)
+			suite.ElementsMatch(test.expectedNames, suite.listNames(listObj))
 		})
 	}
 }
 
 func (suite *storeTestSuite) TestGetListWithPagination() {
-	key := keyPrefix + "/default"
-
 	for i := 1; i <= 5; i++ {
-		sbom := &storagev1alpha1.SBOM{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("test%d", i),
-				Namespace: "default",
-				Labels: map[string]string{
-					"sbomscanner.kubewarden.io/env": map[bool]string{true: "prod", false: "dev"}[i%2 == 0],
-				},
+		obj := suite.test.newObj(
+			fmt.Sprintf("test%d", i),
+			"default",
+			map[string]string{
+				"sbomscanner.kubewarden.io/env": map[bool]string{true: "prod", false: "dev"}[i%2 == 0],
 			},
-		}
-		err := suite.store.Create(suite.T().Context(), fmt.Sprintf("%s/test%d", key, i), sbom, nil, 0)
+			nil,
+		)
+		err := suite.store.Create(suite.T().Context(), suite.keyFor(fmt.Sprintf("test%d", i), "default"), obj, nil, 0)
 		suite.Require().NoError(err)
 	}
 
@@ -756,80 +745,45 @@ func (suite *storeTestSuite) TestGetListWithPagination() {
 	for _, test := range tests {
 		suite.Run(test.name, func() {
 			opts := k8sstorage.ListOptions{
-				Predicate: matcher(test.labelSelector, test.fieldSelector),
+				Predicate: suite.test.predicateFunc(test.labelSelector, test.fieldSelector),
 			}
 			opts.Predicate.Limit = test.limit
 
 			for i, expectedNames := range test.expectedPages {
-				sbomList := &storagev1alpha1.SBOMList{}
-				err := suite.store.GetList(suite.T().Context(), key, opts, sbomList)
+				listObj := suite.test.newListFunc()
+				err := suite.store.GetList(suite.T().Context(), suite.defaultNamespaceKey(), opts, listObj)
 				suite.Require().NoError(err)
 
-				var names []string
-				for _, item := range sbomList.Items {
-					names = append(names, item.Name)
-				}
-				suite.Equal(expectedNames, names, "page %d", i+1)
+				suite.Equal(expectedNames, suite.listNames(listObj), "page %d", i+1)
+
+				listMeta, ok := listObj.(metav1.ListInterface)
+				suite.Require().True(ok)
 
 				isLastPage := i == len(test.expectedPages)-1
 				if isLastPage {
-					suite.Empty(sbomList.Continue)
+					suite.Empty(listMeta.GetContinue())
 				} else {
-					suite.NotEmpty(sbomList.Continue)
+					suite.NotEmpty(listMeta.GetContinue())
 				}
 
-				opts.Predicate.Continue = sbomList.Continue
+				opts.Predicate.Continue = listMeta.GetContinue()
 			}
 		})
 	}
 }
 
-func mustParseLabelSelector(selector string) labels.Selector {
-	labelSelector, err := labels.Parse(selector)
-	if err != nil {
-		panic("failed to parse label selector: " + err.Error())
-	}
-
-	return labelSelector
-}
-
-func mustParseFieldSelector(selector string) fields.Selector {
-	fieldSelector, err := fields.ParseSelector(selector)
-	if err != nil {
-		panic("failed to parse field selector: " + err.Error())
-	}
-	return fieldSelector
-}
-
 func (suite *storeTestSuite) TestGetListResourceVersionSemanntics() {
-	key := keyPrefix + "/default"
-
 	// Create some objects to get different RVs
-	sbom1 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test1",
-			Namespace: "default",
-		},
-	}
-	err := suite.store.Create(suite.T().Context(), key+"/test1", sbom1, &storagev1alpha1.SBOM{}, 0)
+	obj1 := suite.test.newObj("test1", "default", nil, nil)
+	err := suite.store.Create(suite.T().Context(), suite.keyFor("test1", "default"), obj1, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	sbom2 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test2",
-			Namespace: "default",
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), key+"/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	obj2 := suite.test.newObj("test2", "default", nil, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test2", "default"), obj2, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	sbom3 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test3",
-			Namespace: "default",
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), key+"/test3", sbom3, &storagev1alpha1.SBOM{}, 0)
+	obj3 := suite.test.newObj("test3", "default", nil, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test3", "default"), obj3, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
 	tests := []struct {
@@ -869,83 +823,76 @@ func (suite *storeTestSuite) TestGetListResourceVersionSemanntics() {
 		suite.Run(test.name, func() {
 			opts := k8sstorage.ListOptions{
 				ResourceVersion: test.resourceVersion,
-				Predicate:       matcher(labels.Everything(), fields.Everything()),
+				Predicate:       suite.test.predicateFunc(labels.Everything(), fields.Everything()),
 			}
 
-			sbomList := &storagev1alpha1.SBOMList{}
-			err := suite.store.GetList(suite.T().Context(), key, opts, sbomList)
+			listObj := suite.test.newListFunc()
+			err := suite.store.GetList(suite.T().Context(), suite.defaultNamespaceKey(), opts, listObj)
 			suite.Require().NoError(err)
 
-			var names []string
-			for _, item := range sbomList.Items {
-				names = append(names, item.Name)
-			}
-			suite.ElementsMatch(test.expectedNames, names)
+			suite.ElementsMatch(test.expectedNames, suite.listNames(listObj))
+
+			listMeta, ok := listObj.(metav1.ListInterface)
+			suite.Require().True(ok)
 
 			if test.expectNewRV {
-				suite.NotEmpty(sbomList.ResourceVersion)
-				listRV, err := strconv.ParseUint(sbomList.ResourceVersion, 10, 64)
+				suite.NotEmpty(listMeta.GetResourceVersion())
+				listRV, err := strconv.ParseUint(listMeta.GetResourceVersion(), 10, 64)
 				suite.Require().NoError(err)
 				suite.Greater(listRV, uint64(3), "list RV should be a newly generated value")
 			}
 
 			if test.expectedListRV != "" {
-				suite.Equal(test.expectedListRV, sbomList.ResourceVersion)
+				suite.Equal(test.expectedListRV, listMeta.GetResourceVersion())
 			}
 		})
 	}
 }
 
 func (suite *storeTestSuite) TestGuaranteedUpdate() {
+	// seedObj is built lazily via a factory,
+	// so each subtest gets a fresh object built from the per-case newObj.
+	type seedFn func() runtime.Object
+
+	uidSeed := func(name string, uid types.UID, spdx []byte) seedFn {
+		return func() runtime.Object {
+			obj := suite.test.newObj(name, "default", nil, spdx)
+			suite.test.setUID(obj, uid)
+			return obj
+		}
+	}
+
+	expectedUpdated := func(name string, uid types.UID, spdx []byte, rv string) runtime.Object {
+		obj := suite.test.newObj(name, "default", nil, spdx)
+		suite.test.setUID(obj, uid)
+		obj.(metav1.Object).SetResourceVersion(rv)
+		return obj
+	}
+
 	tests := []struct {
-		name                string
-		key                 string
-		ignoreNotFound      bool
-		preconditions       *k8sstorage.Preconditions
-		tryUpdate           k8sstorage.UpdateFunc
-		sbom                *storagev1alpha1.SBOM
-		expectedUpdatedSBOM *storagev1alpha1.SBOM
-		expectedError       error
+		name               string
+		key                string
+		ignoreNotFound     bool
+		preconditions      *k8sstorage.Preconditions
+		tryUpdate          k8sstorage.UpdateFunc
+		seed               seedFn
+		expectedUpdatedObj runtime.Object
+		expectedError      error
 	}{
 		{
 			name:          "happy path",
-			key:           keyPrefix + "/default/test1",
+			key:           suite.keyFor("test1", "default"),
 			preconditions: &k8sstorage.Preconditions{},
 			tryUpdate: func(input runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
-				sbom, ok := input.(*storagev1alpha1.SBOM)
-				if !ok {
-					return nil, new(uint64(0)), errors.New("input is not of type *v1alpha1.SBOM")
-				}
-
-				sbom.SPDX.Raw = []byte(`{"foo": "bar"}`)
-
-				return input, new(uint64(0)), nil
+				suite.test.setSPDX(input, []byte(`{"foo": "bar"}`))
+				return input, new(uint64), nil
 			},
-			sbom: &storagev1alpha1.SBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: "default",
-					UID:       "test1-uid",
-				},
-				SPDX: runtime.RawExtension{
-					Raw: []byte("{}"),
-				},
-			},
-			expectedUpdatedSBOM: &storagev1alpha1.SBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "test1",
-					Namespace:       "default",
-					UID:             "test1-uid",
-					ResourceVersion: "2",
-				},
-				SPDX: runtime.RawExtension{
-					Raw: []byte(`{"foo": "bar"}`),
-				},
-			},
+			seed:               uidSeed("test1", types.UID("test1-uid"), []byte("{}")),
+			expectedUpdatedObj: expectedUpdated("test1", types.UID("test1-uid"), []byte(`{"foo": "bar"}`), "2"),
 		},
 		{
 			name: "preconditions failed",
-			key:  keyPrefix + "/default/test2",
+			key:  suite.keyFor("test2", "default"),
 			preconditions: &k8sstorage.Preconditions{
 				UID: ptr.To(types.UID("incorrect-uid")),
 			},
@@ -953,99 +900,84 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 				suite.Fail("tryUpdate should not be called when preconditions fail")
 				return nil, nil, nil
 			},
-			sbom: &storagev1alpha1.SBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test2",
-					Namespace: "default",
-					UID:       "test2-uid",
-				},
-				SPDX: runtime.RawExtension{
-					Raw: []byte("{}"),
-				},
-			},
-			expectedError: k8sstorage.NewInvalidObjError(keyPrefix+"/default/test2",
+			seed: uidSeed("test2", types.UID("test2-uid"), []byte("{}")),
+			expectedError: k8sstorage.NewInvalidObjError(suite.keyFor("test2", "default"),
 				"Precondition failed: UID in precondition: incorrect-uid, UID in object meta: test2-uid"),
 		},
 		{
 			name:          "tryUpdate failed with a non-conflict error",
-			key:           keyPrefix + "/default/test3",
+			key:           suite.keyFor("test3", "default"),
 			preconditions: &k8sstorage.Preconditions{},
 			tryUpdate: func(_ runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 				return nil, nil, k8sstorage.NewInternalError(errors.New("tryUpdate failed"))
 			},
-			sbom: &storagev1alpha1.SBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test3",
-					Namespace: "default",
-					UID:       "test3-uid",
-				},
-				SPDX: runtime.RawExtension{
-					Raw: []byte("{}"),
-				},
-			},
+			seed:          uidSeed("test3", types.UID("test3-uid"), []byte("{}")),
 			expectedError: k8sstorage.NewInternalError(errors.New("tryUpdate failed")),
 		},
 		{
 			name:          "not found",
-			key:           keyPrefix + "/default/notfound",
+			key:           suite.keyFor("notfound", "default"),
 			preconditions: &k8sstorage.Preconditions{},
 			tryUpdate: func(_ runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 				suite.Fail("tryUpdate should not be called when object is not found")
 				return nil, nil, nil
 			},
-			expectedError: k8sstorage.NewKeyNotFoundError(keyPrefix+"/default/notfound", 0),
+			expectedError: k8sstorage.NewKeyNotFoundError(suite.keyFor("notfound", "default"), 0),
 		},
 		{
 			name:          "not found with ignore not found",
-			key:           keyPrefix + "/default/notfound",
+			key:           suite.keyFor("notfound", "default"),
 			preconditions: &k8sstorage.Preconditions{},
 			tryUpdate: func(_ runtime.Object, _ k8sstorage.ResponseMeta) (runtime.Object, *uint64, error) {
 				suite.Fail("tryUpdate should not be called when object is not found")
 				return nil, nil, nil
 			},
-			ignoreNotFound:      true,
-			expectedUpdatedSBOM: &storagev1alpha1.SBOM{},
+			ignoreNotFound:     true,
+			expectedUpdatedObj: suite.test.newFunc(),
 		},
 	}
 
 	for _, test := range tests {
 		suite.Run(test.name, func() {
-			if test.sbom != nil {
-				err := suite.store.Create(suite.T().Context(), test.key, test.sbom, &storagev1alpha1.SBOM{}, 0)
+			var seeded runtime.Object
+			if test.seed != nil {
+				seeded = test.seed()
+				err := suite.store.Create(suite.T().Context(), test.key, seeded, suite.test.newFunc(), 0)
 				suite.Require().NoError(err)
 			}
 
-			destinationSBOM := &storagev1alpha1.SBOM{}
+			destination := suite.test.newFunc()
 			err := suite.store.GuaranteedUpdate(
 				suite.T().Context(),
 				test.key,
-				destinationSBOM,
+				destination,
 				test.ignoreNotFound,
 				test.preconditions,
 				test.tryUpdate,
 				nil,
 			)
 
-			currentSBOM := &storagev1alpha1.SBOM{}
 			if test.expectedError != nil {
 				suite.Require().Error(err)
 				suite.Require().Equal(test.expectedError.Error(), err.Error())
 
-				if test.sbom != nil {
+				if seeded != nil {
 					// If there is an error, the original object should not be updated.
-					err = suite.store.Get(suite.T().Context(), test.key, k8sstorage.GetOptions{}, currentSBOM)
+					current := suite.test.newFunc()
+					err = suite.store.Get(suite.T().Context(), test.key, k8sstorage.GetOptions{}, current)
 					suite.Require().NoError(err)
-					suite.Equal(test.sbom, currentSBOM)
+					suite.Equal(seeded, current)
 				}
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(test.expectedUpdatedSBOM, destinationSBOM)
+				suite.Require().Equal(test.expectedUpdatedObj, destination)
 
 				if !test.ignoreNotFound {
 					// Verify the object was updated in the store.
-					err = suite.store.Get(suite.T().Context(), test.key, k8sstorage.GetOptions{}, currentSBOM)
+					current := suite.test.newFunc()
+					err = suite.store.Get(suite.T().Context(), test.key, k8sstorage.GetOptions{}, current)
 					suite.Require().NoError(err)
-					suite.Equal(test.expectedUpdatedSBOM, currentSBOM)
+					suite.Equal(test.expectedUpdatedObj, current)
 				}
 			}
 		})
@@ -1053,45 +985,43 @@ func (suite *storeTestSuite) TestGuaranteedUpdate() {
 }
 
 func (suite *storeTestSuite) TestCount() {
-	err := suite.store.Create(suite.T().Context(), keyPrefix+"/default/test1", &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test1",
-			Namespace: "default",
-		},
-	}, &storagev1alpha1.SBOM{}, 0)
+	err := suite.store.Create(suite.T().Context(), suite.keyFor("test1", "default"),
+		suite.test.newObj("test1", "default", nil, nil), suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test2", &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test2",
-			Namespace: "default",
-		},
-	}, &storagev1alpha1.SBOM{}, 0)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test2", "default"),
+		suite.test.newObj("test2", "default", nil, nil), suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	err = suite.store.Create(suite.T().Context(), keyPrefix+"/other/test4", &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test4",
-			Namespace: "other",
-		},
-	}, &storagev1alpha1.SBOM{}, 0)
+	// For namespaced resources, drop a third object into a different namespace,
+	// so the per-namespace count differs from the total.
+	// For cluster-scoped resources just use a third distinct name.
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test4", "other"),
+		suite.test.newObj("test4", "other", nil, nil), suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
-	tests := []struct {
+	type countCase struct {
 		name          string
 		key           string
 		expectedCount int64
-	}{
-		{
-			name:          "count entries in default namespace",
-			key:           keyPrefix + "/default",
-			expectedCount: 2,
-		},
+	}
+
+	tests := []countCase{
 		{
 			name:          "count all entries",
-			key:           keyPrefix,
+			key:           suite.test.keyPrefix,
 			expectedCount: 3,
 		},
+	}
+	if !suite.test.clusterScoped {
+		// extractKeyNamespace returns "" for cluster-scoped stores,
+		// and repository.Count drops the namespace WHERE in that case,
+		// so the per-namespace sub-case is only meaningful for namespaced resources.
+		tests = append(tests, countCase{
+			name:          "count entries in default namespace",
+			key:           suite.defaultNamespaceKey(),
+			expectedCount: 2,
+		})
 	}
 
 	for _, test := range tests {
@@ -1113,45 +1043,96 @@ func (suite *storeTestSuite) TestGetCurrentResourceVersion() {
 	suite.Require().NoError(err)
 	suite.Equal(uint64(1), rv, "second call should return same value")
 
-	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "test-registry",
-			RegistryURI: "registry-1.docker.io:5000",
-			Repository:  "kubewarden/rv-test",
-			Tag:         "v1.0.0",
-			Platform:    "linux/amd64",
-			Digest:      "sha256:rv-test",
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test", sbom, &storagev1alpha1.SBOM{}, 0)
+	obj := suite.test.newObj("test", "default", nil, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test", "default"), obj, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
 	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
 	suite.Require().NoError(err)
 	suite.Equal(uint64(2), rv, "resource version should be 2 after creating one object")
 
-	sbom2 := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test2",
-			Namespace: "default",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "test-registry",
-			RegistryURI: "registry-1.docker.io:5000",
-			Repository:  "kubewarden/rv-test-2",
-			Tag:         "v1.0.0",
-			Platform:    "linux/amd64",
-			Digest:      "sha256:rv-test-2",
-		},
-	}
-	err = suite.store.Create(suite.T().Context(), keyPrefix+"/default/test2", sbom2, &storagev1alpha1.SBOM{}, 0)
+	obj2 := suite.test.newObj("test2", "default", nil, nil)
+	err = suite.store.Create(suite.T().Context(), suite.keyFor("test2", "default"), obj2, suite.test.newFunc(), 0)
 	suite.Require().NoError(err)
 
 	rv, err = suite.store.GetCurrentResourceVersion(suite.T().Context())
 	suite.Require().NoError(err)
 	suite.Equal(uint64(3), rv, "resource version should be 3 after creating two objects")
+}
+
+// keyFor builds a storage key appropriate for the configured scope.
+// Namespaced resources produce `<prefix>/<namespace>/<name>`;
+// cluster-scoped resources produce `<prefix>/<name>`.
+func (suite *storeTestSuite) keyFor(name, namespace string) string {
+	if suite.test.clusterScoped {
+		return suite.test.keyPrefix + "/" + name
+	}
+	return suite.test.keyPrefix + "/" + namespace + "/" + name
+}
+
+// defaultNamespaceKey builds the list/count key for the "default" namespace.
+// Cluster-scoped resources collapse to just the prefix.
+func (suite *storeTestSuite) defaultNamespaceKey() string {
+	if suite.test.clusterScoped {
+		return suite.test.keyPrefix
+	}
+	return suite.test.keyPrefix + "/default"
+}
+
+// expectedNamespace is the namespace value that round-trips through storage.
+// Cluster-scoped resources persist with empty namespace regardless of input.
+func (suite *storeTestSuite) expectedNamespace(namespace string) string {
+	if suite.test.clusterScoped {
+		return ""
+	}
+	return namespace
+}
+
+// listItems returns each element of an object list as a runtime.Object,
+// via the same reflection helper the store uses internally.
+func (suite *storeTestSuite) listItems(listObj runtime.Object) []runtime.Object {
+	itemsValue, err := getItems(listObj)
+	suite.Require().NoError(err)
+
+	out := make([]runtime.Object, 0, itemsValue.Len())
+	for i := range itemsValue.Len() {
+		item, ok := itemsValue.Index(i).Addr().Interface().(runtime.Object)
+		suite.Require().True(ok, "list element does not implement runtime.Object")
+		out = append(out, item)
+	}
+	return out
+}
+
+// listNames returns metadata.name for each item in the list.
+func (suite *storeTestSuite) listNames(listObj runtime.Object) []string {
+	items := suite.listItems(listObj)
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		obj, ok := item.(metav1.Object)
+		suite.Require().True(ok, "list element does not implement metav1.Object")
+		names = append(names, obj.GetName())
+	}
+	return names
+}
+
+// natsSubject returns the NATS subject used by the configured resource.
+func (suite *storeTestSuite) natsSubject() string {
+	return "watch." + suite.test.resource
+}
+
+func mustParseLabelSelector(selector string) labels.Selector {
+	labelSelector, err := labels.Parse(selector)
+	if err != nil {
+		panic("failed to parse label selector: " + err.Error())
+	}
+
+	return labelSelector
+}
+
+func mustParseFieldSelector(selector string) fields.Selector {
+	fieldSelector, err := fields.ParseSelector(selector)
+	if err != nil {
+		panic("failed to parse field selector: " + err.Error())
+	}
+	return fieldSelector
 }
