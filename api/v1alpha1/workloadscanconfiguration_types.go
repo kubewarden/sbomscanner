@@ -58,6 +58,7 @@ type WorkloadScanConfigurationSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:metadata:annotations="helm.sh/resource-policy=keep"
 // +kubebuilder:validation:XValidation:rule="self.metadata.name == 'default'",message="WorkloadScanConfiguration name must be 'default'"
 
 // WorkloadScanConfiguration is the Schema for the workloadscanconfigurations API.

@@ -104,6 +104,7 @@ type ScanJobStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations="helm.sh/resource-policy=keep"
 // +kubebuilder:selectablefield:JSONPath=`.spec.registry`
 // +kubebuilder:printcolumn:name="Registry",type="string",JSONPath=".spec.registry",description="Target registry"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.status=='True')].type",description="Current status"

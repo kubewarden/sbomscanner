@@ -43,6 +43,7 @@ type NodeScanConfigurationSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:metadata:annotations="helm.sh/resource-policy=keep"
 // +kubebuilder:validation:XValidation:rule="self.metadata.name == 'default'",message="NodeScanConfiguration name must be 'default'"
 
 // NodeScanConfiguration is the Schema for the nodescanconfigurations API.

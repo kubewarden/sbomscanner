@@ -19,6 +19,7 @@ type VEXHubStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:metadata:annotations="helm.sh/resource-policy=keep"
 
 // VEXHub is the Schema for the vexhubs API
 type VEXHub struct {
