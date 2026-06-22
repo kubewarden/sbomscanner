@@ -147,7 +147,12 @@ If not specified, all the nodes are scanned. + |  | Optional: \{} +
 | *`skipPatterns`* __string array__ | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning. +
 Patterns ending with "/" are treated as directories. +
 All other patterns are treated as files. +
-Glob patterns like "**/vendor/" or "*.min.js" are supported. + |  | Optional: \{} +
+Glob patterns like "**/vendor/" or "*.min.js" are supported. +
+
+Defaults are applied only when this field is omitted from the manifest. +
+To opt out of all defaults (for example, to also scan container-runtime +
+state under /var/lib/containerd/), set "skipPatterns: []" explicitly: +
+the apiserver preserves an explicit empty list and skips defaulting. + | [/var/lib/containerd/ /var/lib/docker/ /var/lib/rancher/k3s/agent/containerd/ /var/lib/rancher/rke2/agent/containerd/ /var/lib/containers/ /run/containerd/ /run/k3s/containerd/] | Optional: \{} +
 
 | *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__ | Platforms allows to specify the list of platforms to scan. +
 If not set, all nodes are scanned regardless of their platform. + |  | Optional: \{} +
