@@ -150,6 +150,7 @@ func (r *Registry) GetRepository(repo string) *Repository {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations="helm.sh/resource-policy=keep"
 // +kubebuilder:printcolumn:name="URI",type=string,JSONPath=`.spec.uri`
 
 // Registry is the Schema for the registries API
