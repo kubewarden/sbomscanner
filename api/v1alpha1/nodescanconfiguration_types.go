@@ -32,13 +32,18 @@ type NodeScanConfigurationSpec struct {
 	// All other patterns are treated as files.
 	// Glob patterns like "**/vendor/" or "*.min.js" are supported.
 	//
-	// Defaults are applied only when this field is omitted from the manifest.
-	// To opt out of all defaults (for example, to also scan container-runtime
-	// state under /var/lib/containerd/), set "skipPatterns: []" explicitly:
-	// the apiserver preserves an explicit empty list and skips defaulting.
+	// If unset, container-runtime state is skipped by default:
+	//   - /var/lib/containerd/
+	//   - /var/lib/docker/
+	//   - /var/lib/rancher/k3s/agent/containerd/
+	//   - /var/lib/rancher/rke2/agent/containerd/
+	//   - /var/lib/containers/
+	//   - /run/containerd/
+	//   - /run/k3s/containerd/
+	// Set to an empty list to scan everything, including the paths above.
 	// +optional
 	// +kubebuilder:default={"/var/lib/containerd/","/var/lib/docker/","/var/lib/rancher/k3s/agent/containerd/","/var/lib/rancher/rke2/agent/containerd/","/var/lib/containers/","/run/containerd/","/run/k3s/containerd/"}
-	SkipPatterns []string `json:"skipPatterns,omitempty"`
+	SkipPatterns *[]string `json:"skipPatterns,omitempty"`
 
 	// Platforms allows to specify the list of platforms to scan.
 	// If not set, all nodes are scanned regardless of their platform.

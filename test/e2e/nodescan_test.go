@@ -36,7 +36,7 @@ func TestNodeScan(t *testing.T) {
 				},
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Enabled: true,
-					SkipPatterns: []string{
+					SkipPatterns: &[]string{
 						// Exclude containerd runtime files since they
 						// can cause issues with file access and are not
 						// relevant for node SBOM generation.

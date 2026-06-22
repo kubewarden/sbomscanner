@@ -202,7 +202,11 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 // generateNodeSBOM generates a fresh SBOM for the given node.
 func (h *GenerateNodeSBOMHandler) generateNodeSBOM(ctx context.Context, node *corev1.Node, message *GenerateNodeSBOMMessage, config *v1alpha1.NodeScanConfiguration) (*storagev1alpha1.NodeSBOM, error) {
 	h.logger.InfoContext(ctx, "Generating new NodeSBOM", "node name", node.Name)
-	spdxBytes, err := h.generateSPDX(ctx, config.Spec.SkipPatterns)
+	var skipPats []string
+	if config.Spec.SkipPatterns != nil {
+		skipPats = *config.Spec.SkipPatterns
+	}
+	spdxBytes, err := h.generateSPDX(ctx, skipPats)
 	if err != nil {
 		return nil, err
 	}

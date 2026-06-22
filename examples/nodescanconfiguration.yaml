@@ -3,9 +3,15 @@ kind: NodeScanConfiguration
 metadata:
   name: default
 spec:
-  # skipPatterns is defaulted by the CRD to skip container-runtime state
-  # (containerd/docker/k3s/rke2/podman). To opt out of all defaults and
-  # scan everything, set skipPatterns explicitly to an empty list:
+  # If unset, skipPatterns defaults to skipping container-runtime state:
+  #   - /var/lib/containerd/
+  #   - /var/lib/docker/
+  #   - /var/lib/rancher/k3s/agent/containerd/
+  #   - /var/lib/rancher/rke2/agent/containerd/
+  #   - /var/lib/containers/
+  #   - /run/containerd/
+  #   - /run/k3s/containerd/
+  # Set to an empty list to scan everything, including the paths above:
   #   skipPatterns: []
   scanInterval: 5m
   nodeSelector:
