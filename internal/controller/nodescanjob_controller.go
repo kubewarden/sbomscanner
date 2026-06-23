@@ -86,23 +86,7 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	// Set the NodeScanConfiguration as the controller owner of the NodeScanJob
-	// if it hasn't been set yet.
-	// User-created NodeScanJobs land here without an owner reference,
-	// and runner-created jobs no longer set it at creation time.
-	if !metav1.IsControlledBy(nodeScanJob, config) {
-		original := nodeScanJob.DeepCopy()
-		if err := controllerutil.SetControllerReference(config, nodeScanJob, r.Scheme); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set owner reference on NodeScanJob: %w", err)
-		}
-		if err := r.Patch(ctx, nodeScanJob, client.MergeFrom(original)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to patch NodeScanJob owner reference: %w", err)
-		}
-		// The patch will trigger another reconcile that publishes the message.
-		return ctrl.Result{}, nil
-	}
-
-	reconcileResult, reconcileErr := r.reconcileNodeScanJob(ctx, nodeScanJob)
+	reconcileResult, reconcileErr := r.reconcileNodeScanJob(ctx, nodeScanJob, config)
 
 	if err := r.Status().Update(ctx, nodeScanJob); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
@@ -163,11 +147,35 @@ func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, j
 }
 
 // reconcileScanJob implements the actual reconciliation logic.
-func (r *NodeScanJobReconciler) reconcileNodeScanJob(ctx context.Context, nodeScanJob *v1alpha1.NodeScanJob) (ctrl.Result, error) {
+func (r *NodeScanJobReconciler) reconcileNodeScanJob(ctx context.Context, nodeScanJob *v1alpha1.NodeScanJob, config *v1alpha1.NodeScanConfiguration) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
 	if err := r.cleanupOldNodeScanJobs(ctx, nodeScanJob); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to cleanup old NodeScanJobs: %w", err)
+	}
+
+	// Only patch if we haven't already set the NodeScanConfiguration annotation
+	// This avoids triggering multiple reconciles while we're still processing
+	if _, hasAnnotation := nodeScanJob.Annotations[v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey]; !hasAnnotation {
+		configData, err := json.Marshal(config)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to marshal NodeScanConfiguration data: %w", err)
+		}
+		original := nodeScanJob.DeepCopy()
+		if err = controllerutil.SetControllerReference(config, nodeScanJob, r.Scheme); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set owner reference on NodeScanJob: %w", err)
+		}
+		if nodeScanJob.Annotations == nil {
+			nodeScanJob.Annotations = map[string]string{}
+		}
+		nodeScanJob.Annotations[v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey] = string(configData)
+		if err = r.Patch(ctx, nodeScanJob, client.MergeFrom(original)); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to patch NodeScanJob with NodeScanConfiguration snapshot: %w", err)
+		}
+		log.V(1).Info("Patched NodeScanJob with NodeScanConfiguration snapshot", "nodeScanJob", nodeScanJob.Name)
+		// Patch triggers a new reconcile, so return early
+		// The next reconcile will publish the message and update status
+		return ctrl.Result{}, nil
 	}
 
 	log.V(1).Info("Publishing GenerateNodeSBOM message for NodeScanJob", "nodescanJob", nodeScanJob.Name)

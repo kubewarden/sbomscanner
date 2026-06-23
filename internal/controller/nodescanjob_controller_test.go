@@ -88,7 +88,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			mockPublisher.On("Publish", mock.Anything, handlers.GenerateNodeSBOMSubject+"."+node.Name, fmt.Sprintf("generateNodeSBOM/%s", nodeScanJob.GetUID()), message).Return(nil)
 
-			By("Reconciling the NodeScanJob once to set the owner reference")
+			By("Reconciling the NodeScanJob")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name: nodeScanJob.Name,
@@ -105,7 +105,14 @@ var _ = Describe("NodeScanJob Controller", func() {
 			By("Verifying the NodeScanConfiguration is set as the controller owner")
 			Expect(metav1.IsControlledBy(updatedJob, &config)).To(BeTrue())
 
-			By("Reconciling again now that the owner reference is set")
+			By("Verifying the NodeScanConfiguration snapshot was stored in annotations")
+			snapshotData, exists := updatedJob.Annotations[v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey]
+			Expect(exists).To(BeTrue())
+			var storedConfig v1alpha1.NodeScanConfiguration
+			Expect(json.Unmarshal([]byte(snapshotData), &storedConfig)).To(Succeed())
+			Expect(storedConfig.Name).To(Equal(config.Name))
+
+			By("Reconciling the NodeScanJob again after the patch")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name: nodeScanJob.Name,
