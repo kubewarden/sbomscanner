@@ -1070,8 +1070,8 @@ github.com/testcontainers/testcontainers-go/modules/k3s v0.37.0 h1:lqwknybf56hBL
 github.com/testcontainers/testcontainers-go/modules/k3s v0.37.0/go.mod h1:RIsXAxAUiaDNfsGsYcZB1TyDn2mqy52lO0HrGFts8cs=
 github.com/testcontainers/testcontainers-go/modules/localstack v0.42.0 h1:UDpC8q/+b99GNPBOK5xFEZxvbNTzW4lPyuk9951e8nE=
 github.com/testcontainers/testcontainers-go/modules/localstack v0.42.0/go.mod h1:+Zn+tlLT6lFWq33ymGA2eTqODLfZkvY6eLedEsTL9MI=
-github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0 h1:GCbb1ndrF7OTDiIvxXyItaDab4qkzTFJ48LKFdM7EIo=
-github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0/go.mod h1:IRPBaI8jXdrNfD0e4Zm7Fbcgaz5shKxOQv4axiL09xs=
+github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0 h1:ShNOFYAF4lKHvdIG258hi69bSxC88uXnxJkJvNs/IVs=
+github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0/go.mod h1:vdq5/RqmGfWeefzyfcVI/pID1rzmc1TDvqXa15bPJks=
 github.com/testcontainers/testcontainers-go/modules/registry v0.43.0 h1:wDywAQEhPw5tY+zqLasxAjHYBQXdMfjpeQiF8bDxe8g=
 github.com/testcontainers/testcontainers-go/modules/registry v0.43.0/go.mod h1:ZPwbACpXDuFg0njyBwldPFOSFvMsE1PXM95vnU8dFcA=
 github.com/tetratelabs/wazero v1.11.0 h1:+gKemEuKCTevU4d7ZTzlsvgd1uaToIDtlQlmNbwqYhA=
