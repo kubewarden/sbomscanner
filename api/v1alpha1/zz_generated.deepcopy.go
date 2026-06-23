@@ -104,8 +104,12 @@ func (in *NodeScanConfigurationSpec) DeepCopyInto(out *NodeScanConfigurationSpec
 	}
 	if in.SkipPatterns != nil {
 		in, out := &in.SkipPatterns, &out.SkipPatterns
-		*out = make([]string, len(*in))
-		copy(*out, *in)
+		*out = new([]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]string, len(*in))
+			copy(*out, *in)
+		}
 	}
 	if in.Platforms != nil {
 		in, out := &in.Platforms, &out.Platforms

@@ -3,8 +3,16 @@ kind: NodeScanConfiguration
 metadata:
   name: default
 spec:
-  skipPatterns:
-    - "/run/k3s/containerd/"
+  # If unset, skipPatterns defaults to skipping container-runtime state:
+  #   - /var/lib/containerd/
+  #   - /var/lib/docker/
+  #   - /var/lib/rancher/k3s/agent/containerd/
+  #   - /var/lib/rancher/rke2/agent/containerd/
+  #   - /var/lib/containers/
+  #   - /run/containerd/
+  #   - /run/k3s/containerd/
+  # Set to an empty list to scan everything, including the paths above:
+  #   skipPatterns: []
   scanInterval: 5m
   nodeSelector:
     matchExpressions:

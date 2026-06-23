@@ -126,11 +126,29 @@ spec:
                 description: ScanInterval is the interval at which nodes are scanned.
                 type: string
               skipPatterns:
+                default:
+                - /var/lib/containerd/
+                - /var/lib/docker/
+                - /var/lib/rancher/k3s/agent/containerd/
+                - /var/lib/rancher/rke2/agent/containerd/
+                - /var/lib/containers/
+                - /run/containerd/
+                - /run/k3s/containerd/
                 description: |-
                   SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning.
                   Patterns ending with "/" are treated as directories.
                   All other patterns are treated as files.
                   Glob patterns like "**/vendor/" or "*.min.js" are supported.
+
+                  If unset, container-runtime state is skipped by default:
+                    - /var/lib/containerd/
+                    - /var/lib/docker/
+                    - /var/lib/rancher/k3s/agent/containerd/
+                    - /var/lib/rancher/rke2/agent/containerd/
+                    - /var/lib/containers/
+                    - /run/containerd/
+                    - /run/k3s/containerd/
+                  Set to an empty list to scan everything, including the paths above.
                 items:
                   type: string
                 type: array

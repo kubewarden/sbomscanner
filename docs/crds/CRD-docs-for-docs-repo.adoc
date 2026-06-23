@@ -144,10 +144,20 @@ If not specified, all the nodes are scanned. + |  | Optional: \{} +
 
 | *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__ | ScanInterval is the interval at which nodes are scanned. + |  | Optional: \{} +
 
-| *`skipPatterns`* __string array__ | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning. +
+| *`skipPatterns`* __string__ | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning. +
 Patterns ending with "/" are treated as directories. +
 All other patterns are treated as files. +
-Glob patterns like "**/vendor/" or "*.min.js" are supported. + |  | Optional: \{} +
+Glob patterns like "**/vendor/" or "*.min.js" are supported. +
+
+If unset, container-runtime state is skipped by default: +
+- /var/lib/containerd/ +
+- /var/lib/docker/ +
+- /var/lib/rancher/k3s/agent/containerd/ +
+- /var/lib/rancher/rke2/agent/containerd/ +
+- /var/lib/containers/ +
+- /run/containerd/ +
+- /run/k3s/containerd/ +
+Set to an empty list to scan everything, including the paths above. + | [/var/lib/containerd/ /var/lib/docker/ /var/lib/rancher/k3s/agent/containerd/ /var/lib/rancher/rke2/agent/containerd/ /var/lib/containers/ /run/containerd/ /run/k3s/containerd/] | Optional: \{} +
 
 | *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__ | Platforms allows to specify the list of platforms to scan. +
 If not set, all nodes are scanned regardless of their platform. + |  | Optional: \{} +
