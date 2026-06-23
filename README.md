@@ -8,19 +8,20 @@
 
 A SBOM-centric security scanner for Kubernetes.
 
-This is still being developed. For additional details, please refer to the [RFC](https://github.com/kubewarden/sbomscanner/tree/main/docs/rfc).
-
 ## Documentation
 
-The full and exhaustive documentation is available at docs.kubewarden.io.
+The full and exhaustive documentation is available on the [SBOMscanner documentation website](https://docs.kubewarden.io/sbom-scanner/latest/).
 
 ### Quickstart
 
-Please refer to our [quickstart](docs.kubewarden.io/sbom-scanner/latest/en/installation/quickstart.html) for more details.
+Please refer to our [quickstart](https://docs.kubewarden.io/sbom-scanner/latest/en/installation/quickstart.html) for more details.
 
 ## Development
 
-- [Contributing guidelines](https://github.com/kubewarden/sbomscanner/blob/main/CONTRIBUTING.md)
+For information about contributing to the project, please refer to the [[Contributing Guidelines](https://github.com/kubewarden/sbomscanner/blob/main/CONTRIBUTING.md)](https://github.com/kubewarden/sbomscanner/blob/main/CONTRIBUTING.md).
+
+
+For architecture and design proposals, please refer to the [[RFCs](https://github.com/kubewarden/sbomscanner/tree/main/docs/rfc)](https://github.com/kubewarden/sbomscanner/tree/main/docs/rfc).
 
 ## Contact
 
