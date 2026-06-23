@@ -18,7 +18,7 @@ Please refer to our [quickstart](https://docs.kubewarden.io/sbom-scanner/latest/
 
 ## Development
 
-For information about contributing to the project, please refer to the [[Contributing Guidelines](https://github.com/kubewarden/sbomscanner/blob/main/CONTRIBUTING.md)](https://github.com/kubewarden/sbomscanner/blob/main/CONTRIBUTING.md).
+For information about contributing to the project, please refer to the [Contributing Guidelines](https://github.com/kubewarden/sbomscanner/blob/main/CONTRIBUTING.md)
 
 
 For architecture and design proposals, please refer to the [[RFCs](https://github.com/kubewarden/sbomscanner/tree/main/docs/rfc)](https://github.com/kubewarden/sbomscanner/tree/main/docs/rfc).
