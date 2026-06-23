@@ -14,12 +14,15 @@ const (
 	IndexNodeScanJobSpecNodeName = "spec.nodeName"
 )
 
-// RegistryAnnotation stores a snapshot of the Registry targeted by the NodeScanJob.
 const (
 	// AnnotationNodeScanJobCreationTimestampKey is used to store the creation timestamp of the NodeScanJob.
 	AnnotationNodeScanJobCreationTimestampKey = "sbomscanner.kubewarden.io/creation-timestamp"
 	// AnnotationNodeScanJobTriggerKey is used to identify the source of the NodeScanJob trigger.
 	AnnotationNodeScanJobTriggerKey = "sbomscanner.kubewarden.io/trigger"
+	// AnnotationNodeScanJobNodeScanConfigurationKey stores a snapshot of the
+	// NodeScanConfiguration targeted by the NodeScanJob,
+	// so the scan runs against a frozen view of the configuration.
+	AnnotationNodeScanJobNodeScanConfigurationKey = "sbomscanner.kubewarden.io/nodescanconfiguration"
 )
 
 const (
