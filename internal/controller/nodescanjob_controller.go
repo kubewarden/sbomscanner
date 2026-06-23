@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
@@ -60,7 +61,20 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	nodeScanJob.InitializeConditions()
 
-	valid, err := r.validateNodeAgainstConfig(ctx, nodeScanJob)
+	config := &v1alpha1.NodeScanConfiguration{}
+	if err := r.Get(ctx, types.NamespacedName{Name: v1alpha1.NodeScanConfigurationName}, config); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("NodeScanConfiguration not found, marking NodeScanJob as failed", "nodeScanJob", nodeScanJob.Name)
+			nodeScanJob.MarkFailed(v1alpha1.ReasonNodeScanJobConfigurationMissing, "NodeScanConfiguration not found: node scanning is not configured")
+			if err := r.Status().Update(ctx, nodeScanJob); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
+			}
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, fmt.Errorf("failed to get NodeScanConfiguration: %w", err)
+	}
+
+	valid, err := r.validateNodeAgainstConfig(ctx, nodeScanJob, config)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -69,6 +83,22 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err := r.Status().Update(ctx, nodeScanJob); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
 		}
+		return ctrl.Result{}, nil
+	}
+
+	// Set the NodeScanConfiguration as the controller owner of the NodeScanJob
+	// if it hasn't been set yet.
+	// User-created NodeScanJobs land here without an owner reference,
+	// and runner-created jobs no longer set it at creation time.
+	if !metav1.IsControlledBy(nodeScanJob, config) {
+		original := nodeScanJob.DeepCopy()
+		if err := controllerutil.SetControllerReference(config, nodeScanJob, r.Scheme); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to set owner reference on NodeScanJob: %w", err)
+		}
+		if err := r.Patch(ctx, nodeScanJob, client.MergeFrom(original)); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to patch NodeScanJob owner reference: %w", err)
+		}
+		// The patch will trigger another reconcile that publishes the message.
 		return ctrl.Result{}, nil
 	}
 
@@ -82,21 +112,11 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return reconcileResult, reconcileErr
 }
 
-// validateNodeAgainstConfig checks the NodeScanConfiguration exists and
-// the node referenced by the job exists and matches the configuration.
-// Returns (true, nil) when the node is valid.
-func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, job *v1alpha1.NodeScanJob) (bool, error) {
+// validateNodeAgainstConfig checks that the node referenced by the job exists
+// and matches the provided NodeScanConfiguration. Returns true when the node
+// is valid.
+func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, job *v1alpha1.NodeScanJob, config *v1alpha1.NodeScanConfiguration) (bool, error) {
 	log := logf.FromContext(ctx)
-
-	var config v1alpha1.NodeScanConfiguration
-	if err := r.Get(ctx, types.NamespacedName{Name: v1alpha1.NodeScanConfigurationName}, &config); err != nil {
-		if errors.IsNotFound(err) {
-			log.Info("NodeScanConfiguration not found, marking NodeScanJob as failed", "nodeScanJob", job.Name)
-			job.MarkFailed(v1alpha1.ReasonNodeScanJobConfigurationMissing, "NodeScanConfiguration not found: node scanning is not configured")
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to get NodeScanConfiguration: %w", err)
-	}
 
 	var node corev1.Node
 	if err := r.Get(ctx, types.NamespacedName{Name: job.Spec.NodeName}, &node); err != nil {

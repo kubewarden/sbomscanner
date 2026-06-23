@@ -88,7 +88,24 @@ var _ = Describe("NodeScanJob Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			mockPublisher.On("Publish", mock.Anything, handlers.GenerateNodeSBOMSubject+"."+node.Name, fmt.Sprintf("generateNodeSBOM/%s", nodeScanJob.GetUID()), message).Return(nil)
 
-			By("Reconciling the NodeScanJob")
+			By("Reconciling the NodeScanJob once to set the owner reference")
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: nodeScanJob.Name,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedJob := &v1alpha1.NodeScanJob{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name: nodeScanJob.Name,
+			}, updatedJob)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the NodeScanConfiguration is set as the controller owner")
+			Expect(metav1.IsControlledBy(updatedJob, &config)).To(BeTrue())
+
+			By("Reconciling again now that the owner reference is set")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name: nodeScanJob.Name,
@@ -97,7 +114,6 @@ var _ = Describe("NodeScanJob Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Verifying the NodeScanJob is marked as scheduled")
-			updatedJob := &v1alpha1.NodeScanJob{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
 				Name: nodeScanJob.Name,
 			}, updatedJob)
