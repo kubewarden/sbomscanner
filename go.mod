@@ -35,7 +35,7 @@ require (
 	k8s.io/code-generator v0.36.2
 	k8s.io/component-base v0.36.2
 	k8s.io/klog/v2 v2.140.0
-	k8s.io/kube-openapi v0.0.0-20260603220949-865597e52e25
+	k8s.io/kube-openapi v0.0.0-20260624041617-8f3fa4921821
 	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2
 	modernc.org/sqlite v1.53.0
 	sigs.k8s.io/controller-runtime v0.24.1
