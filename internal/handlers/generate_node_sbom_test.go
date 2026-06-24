@@ -44,20 +44,26 @@ func TestGenerateNodeSBOMHandler_Handle(t *testing.T) {
 		},
 	}
 
-	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodescanjob",
-			UID:  "test-nodescanjob-uid",
-		},
-		Spec: v1alpha1.NodeScanJobSpec{
-			NodeName: nodeName,
-		},
-	}
-
 	config := &v1alpha1.NodeScanConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: v1alpha1.NodeScanConfigurationName,
 			UID:  "test-config-uid",
+		},
+	}
+
+	configSnapshot, err := json.Marshal(config)
+	require.NoError(t, err)
+
+	nodeScanJob := &v1alpha1.NodeScanJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-nodescanjob",
+			UID:  "test-nodescanjob-uid",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey: string(configSnapshot),
+			},
+		},
+		Spec: v1alpha1.NodeScanJobSpec{
+			NodeName: nodeName,
 		},
 	}
 
@@ -166,6 +172,14 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 		},
 	}
 
+	configSnapshot, err := json.Marshal(config)
+	require.NoError(t, err)
+
+	snapshottedNodeScanJob := nodeScanJob.DeepCopy()
+	snapshottedNodeScanJob.Annotations = map[string]string{
+		v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey: string(configSnapshot),
+	}
+
 	tests := []struct {
 		name            string
 		nodeScanJob     *v1alpha1.NodeScanJob
@@ -186,6 +200,11 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			nodeScanJob:     nodeScanJob,
 			existingObjects: []runtime.Object{nodeScanJob, config},
 		},
+		{
+			name:            "nodescanconfiguration not found",
+			nodeScanJob:     snapshottedNodeScanJob,
+			existingObjects: []runtime.Object{snapshottedNodeScanJob, node},
+		},
 	}
 
 	for _, test := range tests {
@@ -198,6 +217,7 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			k8sClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithRuntimeObjects(test.existingObjects...).
+				WithStatusSubresource(&v1alpha1.NodeScanJob{}).
 				WithIndex(&storagev1alpha1.NodeSBOM{}, storagev1alpha1.IndexNodeMetadataName, func(obj client.Object) []string {
 					sbom, ok := obj.(*storagev1alpha1.NodeSBOM)
 					if !ok {

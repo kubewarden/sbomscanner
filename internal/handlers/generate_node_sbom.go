@@ -133,18 +133,31 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		return fmt.Errorf("failed to update NodeScanJob status to in progress: %w", err)
 	}
 
-	// Get the NodeScanConfiguration to determine where to create the NodeSBOM.
-	nodeScanConfiguration := &v1alpha1.NodeScanConfiguration{}
+	// Fetch the live NodeScanConfiguration only to use it as a stopping condition:
+	// if the configuration was deleted, abort the in-flight scan.
+	// The actual configuration values used for the scan come from the snapshot annotation below,
+	// so edits to the live object mid-flight do not affect this job.
+	liveNodeScanConfiguration := &v1alpha1.NodeScanConfiguration{}
 	err = h.k8sClient.Get(ctx, client.ObjectKey{
 		Name: v1alpha1.NodeScanConfigurationName,
-	}, nodeScanConfiguration)
+	}, liveNodeScanConfiguration)
 	if err != nil {
-		// Stop processing if the scanjob is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanConfiguration not found, stopping NodeSBOM generation", "node name", node.Name)
-			return fmt.Errorf("NodeScanConfiguration %s not found: %w", v1alpha1.NodeScanConfigurationName, err)
+			return nil
 		}
 		return fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
+	}
+
+	// Read the NodeScanConfiguration snapshot the controller stored on the NodeScanJob.
+	// Everything the scan needs (SkipPatterns, owner reference) comes from this frozen view.
+	snapshotData, ok := nodeScanJob.Annotations[v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey]
+	if !ok {
+		return fmt.Errorf("NodeScanJob %s does not have a NodeScanConfiguration snapshot annotation", nodeScanJob.Name)
+	}
+	nodeScanConfiguration := &v1alpha1.NodeScanConfiguration{}
+	if err := json.Unmarshal([]byte(snapshotData), nodeScanConfiguration); err != nil {
+		return fmt.Errorf("cannot unmarshal NodeScanConfiguration snapshot from NodeScanJob %s: %w", nodeScanJob.Name, err)
 	}
 
 	generated, err := h.generateNodeSBOM(ctx, node, generateNodeSBOMMessage, nodeScanConfiguration)

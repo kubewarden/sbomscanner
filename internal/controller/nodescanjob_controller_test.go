@@ -96,8 +96,31 @@ var _ = Describe("NodeScanJob Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Verifying the NodeScanJob is marked as scheduled")
 			updatedJob := &v1alpha1.NodeScanJob{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name: nodeScanJob.Name,
+			}, updatedJob)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the NodeScanConfiguration is set as the controller owner")
+			Expect(metav1.IsControlledBy(updatedJob, &config)).To(BeTrue())
+
+			By("Verifying the NodeScanConfiguration snapshot was stored in annotations")
+			snapshotData, exists := updatedJob.Annotations[v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey]
+			Expect(exists).To(BeTrue())
+			var storedConfig v1alpha1.NodeScanConfiguration
+			Expect(json.Unmarshal([]byte(snapshotData), &storedConfig)).To(Succeed())
+			Expect(storedConfig.Name).To(Equal(config.Name))
+
+			By("Reconciling the NodeScanJob again after the patch")
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: nodeScanJob.Name,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the NodeScanJob is marked as scheduled")
 			err = k8sClient.Get(ctx, types.NamespacedName{
 				Name: nodeScanJob.Name,
 			}, updatedJob)

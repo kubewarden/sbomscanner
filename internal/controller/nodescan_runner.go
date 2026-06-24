@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
@@ -153,7 +152,7 @@ func (r *NodeScanRunner) checkNodeForScan(ctx context.Context, config *v1alpha1.
 		return nil
 	}
 
-	if err := r.createNodeScanJob(ctx, config, node.Name); err != nil {
+	if err := r.createNodeScanJob(ctx, node.Name); err != nil {
 		return fmt.Errorf("failed to create node scan job for node %s: %w", node.Name, err)
 	}
 
@@ -252,7 +251,7 @@ func (r *NodeScanRunner) getLastNodeScanJob(ctx context.Context, nodeName string
 	return &nodeScanJobs.Items[0], nil
 }
 
-func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, config *v1alpha1.NodeScanConfiguration, nodeName string) error {
+func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, nodeName string) error {
 	nodeScanJob := &v1alpha1.NodeScanJob{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("node-%s-", nodeName),
@@ -263,10 +262,6 @@ func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, config *v1alpha1
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: nodeName,
 		},
-	}
-
-	if err := controllerutil.SetControllerReference(config, nodeScanJob, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set owner reference on NodeScanJob: %w", err)
 	}
 
 	if err := r.Create(ctx, nodeScanJob); err != nil {
