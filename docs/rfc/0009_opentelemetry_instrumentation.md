@@ -3,7 +3,7 @@
 | Feature Name | OpenTelemetry instrumentation                              |
 | Start Date   | 2026-06-09                                                 |
 | Category     | Observability                                              |
-| RFC PR       | [#XXX](https://github.com/kubewarden/sbomscanner/pull/XXX) |
+| RFC PR       | [#1221](https://github.com/kubewarden/sbomscanner/pull/1221) |
 | State        | **ACCEPTED**                                               |
 
 # Summary
