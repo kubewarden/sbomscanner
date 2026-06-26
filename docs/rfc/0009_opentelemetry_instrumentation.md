@@ -145,7 +145,7 @@ Metrics:
 
 | Metric                            | Type      | Labels (bounded)                                          | Exemplars                                          |
 | :-------------------------------- | :-------- | :-------------------------------------------------------- | :------------------------------------------------- |
-| `worker.scan.duration`            | Histogram | `stage` (`catalog`/`generate_sbom`/`scan_sbom`), `result` | `trace_id`, `scanjob.name`, `oci.image.ref`        |
+| `worker.scan.duration`            | Histogram | `stage` (`catalog`/`generate_sbom`/`scan_sbom`/`generate_node_sbom`/`node_scan_sbom`), `result` | `trace_id`, `scanjob.name`, `oci.image.ref`        |
 | `worker.images.scanned`           | Counter   | `registry_host`, `result`                                 | `trace_id`, `oci.image.ref`                        |
 | `worker.vulnerabilities.found`    | Counter   | `severity`, `registry_host`                               | `trace_id`, `oci.image.ref`, `vulnerability.id`    |
 | `worker.registry.call.duration`   | Histogram | `registry_host`, `operation`, `http.status_code`          | `trace_id`, `oci.image.ref`                        |
