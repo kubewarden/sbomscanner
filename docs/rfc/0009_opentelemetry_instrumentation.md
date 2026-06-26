@@ -134,8 +134,12 @@ Traces:
 | `Handler CreateCatalog` | NATS consume on `sbomscanner.scanjob.create-catalog`                    | `messaging.system`, `messaging.consumer.name`, `registry.host`, `scanjob.name`, `scanjob.namespace` |
 | `Handler GenerateSBOM`  | NATS consume on `sbomscanner.scanjob.generate-sbom`                     | `messaging.consumer.name`, `oci.image.ref`, `oci.image.platform`, `scanjob.name`                    |
 | `Handler ScanSBOM`      | NATS consume on `sbomscanner.scanjob.scan-sbom`                         | `messaging.consumer.name`, `oci.image.ref`, `vulnerability.count`, `vulnerability.count.critical`   |
+| `Handler ScanJobFailure` | NATS consume on the `ScanJob` failure subject                          | `messaging.consumer.name`, `scanjob.name`, `scanjob.namespace`, `error.type`                        |
+| `Handler GenerateNodeSBOM` | NATS consume on `sbomscanner.nodescanjob.generate-sbom`              | `messaging.consumer.name`, `k8s.node.name`, `nodescanjob.name`                                      |
+| `Handler NodeScanSBOM`  | NATS consume on `sbomscanner.nodescanjob.scan-sbom`                     | `messaging.consumer.name`, `k8s.node.name`, `nodescanjob.name`, `vulnerability.count`, `vulnerability.count.critical` |
+| `Handler NodeScanJobFailure` | NATS consume on the `NodeScanJob` failure subject                  | `messaging.consumer.name`, `nodescanjob.name`, `k8s.node.name`, `error.type`                        |
 | `Registry HTTP`         | `otelhttp.NewTransport` wrapping `go-containerregistry`                 | `http.method`, `http.url`, `http.status_code`, `registry.host`, `registry.operation`                |
-| `Trivy invoke`          | Each Trivy entry point call site in `generate_sbom.go` / `scan_sbom.go` | `trivy.command`, `trivy.target`, `trivy.db.version`, `result`                                       |
+| `Trivy invoke`          | Each Trivy entry point call site in `generate_sbom.go` / `scan_sbom.go` / `generate_node_sbom.go` / `node_scan_sbom.go` | `trivy.command`, `trivy.target`, `trivy.db.version`, `result`                                       |
 
 Metrics:
 
