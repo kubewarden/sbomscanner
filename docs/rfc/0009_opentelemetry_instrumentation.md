@@ -105,10 +105,16 @@ Traces:
 | `Reconcile VulnerabilityReport`     | `VulnerabilityReportReconciler` reconcile call    | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
 | `Reconcile WorkloadScan`            | `WorkloadScanReconciler` reconcile call           | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`, `workload.kind` |
 | `Reconcile ImageWorkloadScan`       | `ImageWorkloadScanReconciler` reconcile call      | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
+| `Reconcile NodeScan`                | `NodeScanReconciler` reconcile call               | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
+| `Reconcile NodeScanConfiguration`   | `NodeScanConfigurationReconciler` reconcile call  | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
+| `Reconcile NodeScanJob`             | `NodeScanJobReconciler` reconcile call            | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `nodescanjob.phase`, `controller.result` |
 | `RegistryScanRunner tick`           | Periodic runner loop                              | `registry.name`, `registry.namespace`, `scan.scheduled`                                            |
+| `NodeScanRunner tick`               | Periodic runner loop                              | `nodescanconfiguration.name`, `nodes.scheduled`                                                    |
 | `Webhook Registry`                  | Validating webhook on `Registry`                  | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
 | `Webhook ScanJob`                   | Validating webhook on `ScanJob`                   | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
 | `Webhook WorkloadScanConfiguration` | Validating webhook on `WorkloadScanConfiguration` | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
+| `Webhook NodeScanConfiguration`     | Validating webhook on `NodeScanConfiguration`     | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
+| `Webhook NodeScanJob`               | Validating webhook on `NodeScanJob`               | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
 
 Metrics:
 
