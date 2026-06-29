@@ -160,8 +160,8 @@ Without the `NodeScanConfiguration`, users cannot apply a `NodeScanJob` independ
 since the `NodeScanConfiguration` holds the configuration used by all `NodeScanJob` resources
 (e.g., `skipPatterns`, `nodeSelector`, `platforms`).
 
-When a new `NodeScanJob` would be created, the runner checks if another `NodeScanJob` is already in progress for the same node.
-If there is an active job, the new job creation is skipped entirely.
+When a new `NodeScanJob` is about to be created, the runner checks whether another `NodeScanJob` is already in progress for the same node.
+If another job is already active, the new job is not created.
 
 ![NodeScanConfiguration and NodeScanJob relationship](./assets/nodescanconfig.png)
 
