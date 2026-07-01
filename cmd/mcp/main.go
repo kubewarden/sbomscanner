@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,6 +16,8 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
 	mcpserver "github.com/kubewarden/sbomscanner/internal/mcp"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
+	"github.com/kubewarden/sbomscanner/internal/version"
 	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 )
@@ -46,9 +49,9 @@ func main() {
 		slogLevel = slog.LevelInfo
 	}
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	logger := slog.New(telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slogLevel,
-	})).With("component", "mcp")
+	}))).With("component", "mcp")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	signalChan := make(chan os.Signal, 1)
@@ -57,6 +60,20 @@ func main() {
 	go func() {
 		<-signalChan
 		cancel()
+	}()
+
+	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-mcp", version.Version)
+	if err != nil {
+		logger.Error("Failed to initialize telemetry", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelShutdown()
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			logger.Error("Telemetry shutdown error", "error", err)
+		}
 	}()
 
 	s := scheme.Scheme

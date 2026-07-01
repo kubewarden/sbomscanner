@@ -20,6 +20,8 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/handlers"
 	"github.com/kubewarden/sbomscanner/internal/handlers/registry"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
+	"github.com/kubewarden/sbomscanner/internal/version"
 	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 	"github.com/nats-io/nats.go"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -72,7 +74,7 @@ func main() {
 	opts := slog.HandlerOptions{
 		Level: slogLevel,
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &opts)).With("component", "worker")
+	logger := slog.New(telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))).With("component", "worker")
 	logger.Info("Starting worker")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -82,6 +84,20 @@ func main() {
 	go func() {
 		<-signalChan
 		cancel()
+	}()
+
+	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-worker", version.Version)
+	if err != nil {
+		logger.Error("Failed to initialize telemetry", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelShutdown()
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			logger.Error("Telemetry shutdown error", "error", err)
+		}
 	}()
 
 	config := ctrl.GetConfigOrDie()
