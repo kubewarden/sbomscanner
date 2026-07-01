@@ -146,7 +146,7 @@ information about the node.
 
 ## Scan Workflow
 
-1. The user applies a `NodeScanConfiguration` with a defined `scanInterval`. Optionally, the user can annotate the resource with `sbomscanner.kubewarden.io/node-rescan-requested: "true"` to trigger an immediate scan.
+1. The user applies a `NodeScanConfiguration` with a defined `scanInterval`. Optionally, the user can annotate the resource with `sbomscanner.kubewarden.io/node-rescan-requested: "true"` to trigger an immediate scan that will be automatically removed after the scan.
 2. The controller creates a `NodeScanJob` for each node matching the `nodeSelector` (or all nodes if no selector is specified).
 3. Each worker subscribes to the NATS subjects `sbomscanner.nodesbom.generate.{node-name}` and `sbomscanner.nodesbom.scan.{node-name}`, and receives the scan job for its node.
 4. The worker executes the scan, generating a `NodeSBOM` and a `NodeVulnerabilityReport` for the node.
