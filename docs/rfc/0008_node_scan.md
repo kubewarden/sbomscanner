@@ -45,17 +45,21 @@ The worker will be provided with these new flags:
 
 This approach will allow for significant code reuse across different scan targets.
 When `--mode=node` is set, the `--node-name` flag must be provided, 
-and the worker will subscribe to the NATS subject `sbomscanner.nodescan.{node-name}` 
-to receive scan jobs specific to that node.
+and the worker will subscribe to the NATS subjects `sbomscanner.nodesbom.generate.{node-name}` 
+and `sbomscanner.nodesbom.scan.{node-name}` to receive scan jobs specific to that node.
 It will sit idle most of the time and perform the job only when requested to do it.
 
 This feature also allows nodes to be excluded from the scan (eg. if they don't have enough resources).
 This can be achieved with the `nodeSelector`, where only nodes matching the selector 
 are considered for scanning. If not specified, all the nodes are going to be scanned.
 
-To trigger a new scan, the user can set the `scanInterval` on the `NodeScanConfiguration`,
-or leave the `scanInterval` not set and apply a `NodeScanJob` manually 
-(with the `NodeScanConfiguration` already applied) as we already do for the `Registry`.
+The `NodeScanConfiguration` is primarily used to schedule periodic scans over time
+through the `scanInterval` attribute.
+
+To trigger an immediate scan outside the regular interval, the user can annotate
+the `NodeScanConfiguration` resource with `sbomscanner.kubewarden.io/node-rescan-requested: "true"`.
+This will trigger a new scan immediately, and the annotation will be automatically
+removed after the scan is completed.
 
 Please, note that `NodeScanConfiguration` is a singleton resource, 
 meaning that there can be only one instance of it in the cluster.
@@ -66,7 +70,6 @@ For this feature we are going to add the following CRDs:
 
 * `NodeScanConfiguration`: Defines the global scan settings.
   * `scanInterval`: Duration between automated scans.
-    If not specified, the `NodeScanJob` doesn't start.
   * `nodeSelector`: Filter which nodes are scanned.
     If not specified, all the nodes are scanned.
   * `skipPatterns`: A list of file/directory paths to be ignored.
@@ -115,6 +118,8 @@ apiVersion: sbomscanner.kubewarden.io/v1alpha1
 kind: NodeScanJob
 metadata:
   name: node-scan-1
+spec:
+  nodeName: k3d-second-node-0
 ```
 
 * `NodeSBOM`: Stores the Software Bill of Materials for a specific node.
@@ -141,21 +146,22 @@ information about the node.
 
 ## Scan Workflow
 
-1. The user applies a `NodeScanConfiguration` with a defined `scanInterval` or applies a `NodeScanJob` manually.
+1. The user applies a `NodeScanConfiguration` with a defined `scanInterval`. Optionally, the user can annotate the resource with `sbomscanner.kubewarden.io/node-rescan-requested: "true"` to trigger an immediate scan that will be automatically removed after the scan.
 2. The controller creates a `NodeScanJob` for each node matching the `nodeSelector` (or all nodes if no selector is specified).
-3. Each worker subscribes to the NATS subject `sbomscanner.nodescan.{node-name}` and receives the scan job for its node.
+3. Each worker subscribes to the NATS subjects `sbomscanner.nodesbom.generate.{node-name}` and `sbomscanner.nodesbom.scan.{node-name}`, and receives the scan job for its node.
 4. The worker executes the scan, generating a `NodeSBOM` and a `NodeVulnerabilityReport` for the node.
 5. The results are stored in the cluster and can be accessed by the user for review and remediation.
 
 To let users easily understand the flow, here's a simple diagram:
 
-![NodeScan Worflow](./assets/nodescan-wf.png)
+![NodeScan Workflow](./assets/nodescan-wf.png)
 
-Without the `NodeScanConfiguration`, users can not run `NodeScanJob` independently,
-since the `NodeScanJob` needs the configurations defined in the `NodeScanConfiguration` to run (eg. the `skip` list).
+Without the `NodeScanConfiguration`, users cannot apply a `NodeScanJob` independently,
+since the `NodeScanConfiguration` holds the configuration used by all `NodeScanJob` resources
+(e.g., `skipPatterns`, `nodeSelector`, `platforms`).
 
-When a new `NodeScanJob` is created, it checks if another `NodeScanJob` is already in progress for the same node.
-If there is an active job, the new job will be marked as `Failed` with the reason `ScanAlreadyInProgress`.
+When a new `NodeScanJob` is about to be created, the runner checks whether another `NodeScanJob` is already in progress for the same node.
+If another job is already active, the new job is not created.
 
 ![NodeScanConfiguration and NodeScanJob relationship](./assets/nodescanconfig.png)
 
@@ -166,7 +172,7 @@ The NodeScan reconciler is responsible for creating `NodeScanJob` resources base
 
 The NodeScanJob reconciler is responsible for managing the lifecycle of `NodeScanJob` resources, 
 including checking for concurrent scans, updating status conditions, and triggering the scan on 
-the node by publishing a message to the NATS subject `sbomscanner.nodescan.{node-name}`.
+the node by publishing a message to the NATS subject `sbomscanner.nodesbom.generate.{node-name}`.
 
 The NodeScan runner (as a [runnable](https://github.com/kubernetes-sigs/controller-runtime/blob/fdc6658a141b99a3fcb733c8a8000f98e6666f48/pkg/manager/manager.go#L269-L277)) is responsible for executing the scan on the node automatically,
 based on the `scanInterval` defined in the `NodeScanConfiguration`, and for processing the results 
@@ -183,18 +189,16 @@ Status: `Scheduled` (The job is created but hasn't started doing actual work)
 * `Pending`: The job is in the queue waiting for resources or an executor to pick it up.
 
 Status: `InProgress` (The job is actively executing)
-* `InProgress`: Generic indicator that execution has started.
-* `NodeScanInProgress`: Currently scanning the node's filesystem and collecting data.
-* `SBOMGenerationInProgress`: Currently parsing dependencies and building the SBOM document.
+* `InProgress`: Currently scanning the node's filesystem and collecting data.
+* `SBOMGenerationInProgress`: Currently running vulnerability analysis on the generated SBOM.
 
 Status: `Complete` (The job finished successfully)
 * `Complete`: Generic success indicator.
-* `NodeScanned`: The node has been successfully scanned, and the SBOM and vulnerability report are generated.
 
 Status: `Failed` (The job encountered a terminal error)
 * `Failed`: Generic failure indicator (e.g., bad user input, invalid target).
-* `InternalError`: Failed due to an unexpected system crash, out-of-memory error, or infrastructure issue.
-* `ScanAlreadyInProgress`: Failed because another scan job is already running for the same node.
+* `NodeScanConfigurationMissing`: Failed because the `NodeScanConfiguration` resource was not found.
+* `NodeNotMatching`: Failed because the node does not match the `NodeScanConfiguration` node selector or platform filter.
 
 As for the `WorkloadScan` status conditions, the mechanism works the same.
 When `Scheduled` is `true`, then all the other conditions are `false` and their reason is `Scheduled`. 
@@ -204,22 +208,22 @@ When `Complete` is `true`, then all the other conditions are also `false` and th
 
 ## NodeScanJob retention
 
-A maximum of X `NodeScanJob` resources per registry will be retained in the system for auditing and historical purposes, with X being a configurable value.
-This logic could be effectively implemented within either the `ValidatingWebhook` or the `ScanJob` reconciler.
+A maximum of X `NodeScanJob` resources per node will be retained in the system for auditing and historical purposes, with X being a configurable value.
+This logic is implemented within the `NodeScanJob` reconciler.
 
 ## Garbage Collection
 
-There are 2 different way we need to take into account for garbage collection: Kubernetes garbage collection and reconciler cleanup.
+There are two different ways we need to take into account for garbage collection: Kubernetes garbage collection and client-side cleanup.
 
-### Kubernetes garbage collection (Node deletion)
+### Kubernetes garbage collection (NodeScanConfiguration deletion)
 
-The owner reference chain is: `Node` → `NodeScanJob`, and `Node` → `NodeSBOM` → `NodeVulnerabilityReport`.
-When a Node is deleted, Kubernetes garbage collection cascades through the owner references and cleans up all node-related resources automatically.
+The owner reference chain is: `NodeScanConfiguration` → `NodeScanJob`, and `NodeScanConfiguration` → `NodeSBOM` → `NodeVulnerabilityReport`.
+When the `NodeScanConfiguration` is deleted, Kubernetes garbage collection cascades through the owner references and cleans up all `NodeScanJob`, `NodeSBOM`, and `NodeVulnerabilityReport` automatically.
 
-### Reconciler cleanup
+### Client cleanup (Node deletion)
 
-When the `NodeScanConfiguration` is disabled or removed, the reconciler must actively clean up `NodeScanJobs` and `NodeSBOMs`.
-`NodeVulnerabilityReports` are cascade-deleted for free since they are owned by their respective `NodeSBOM`.
+When a `Node` is deleted, the controller must actively clean up the `NodeScanJob` and `NodeSBOM` associated with that node using the client.
+`NodeVulnerabilityReport` are cascade-deleted for free since they are owned by their respective `NodeSBOM`.
 
 Garbage collection is crucial to prevent resource orphaning and to maintain a clean cluster state. 
 
