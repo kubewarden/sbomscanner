@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log/slog"
 	"net/http"
@@ -233,7 +234,7 @@ func runHealthServer(logger *slog.Logger) *http.Server {
 
 	go func() {
 		logger.Info("Starting health check server", "addr", ":8081")
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("Health check server error", "error", err)
 		}
 	}()
