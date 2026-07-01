@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"log/slog"
@@ -38,6 +39,8 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/controller"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 	"github.com/kubewarden/sbomscanner/internal/storage"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
+	"github.com/kubewarden/sbomscanner/internal/version"
 	webhookv1alpha1 "github.com/kubewarden/sbomscanner/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -107,11 +110,27 @@ func main() {
 	opts := slog.HandlerOptions{
 		Level: slogLevel,
 	}
-	slogHandler := slog.NewJSONHandler(os.Stdout, &opts)
+	slogHandler := telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))
 	slogger := slog.New(slogHandler)
 	logger := logr.FromSlogHandler(slogHandler).WithValues("component", "controller")
 	ctrl.SetLogger(logger)
 	setupLog := logger.WithName("setup")
+
+	signalHandler := ctrl.SetupSignalHandler()
+
+	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+	shutdownTelemetry, err := telemetry.Setup(signalHandler, "sbomscanner-controller", version.Version)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize telemetry")
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			setupLog.Error(err, "telemetry shutdown error")
+		}
+	}()
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -162,8 +181,6 @@ func main() {
 	utilruntime.Must(storagev1alpha1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
-
-	signalHandler := ctrl.SetupSignalHandler()
 
 	natsOpts := []nats.Option{
 		nats.RootCAs(cfg.NatsCAFile),
