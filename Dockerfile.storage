@@ -15,7 +15,11 @@ COPY api/ api/
 COPY internal/ internal/
 COPY pkg/ pkg/
 
-RUN CGO_ENABLED=0 GOOS=linux GOEXPERIMENT=jsonv2 go build -a -o ./storage ./cmd/storage
+ARG VERSION=dev
+
+RUN CGO_ENABLED=0 GOOS=linux GOEXPERIMENT=jsonv2 go build -a \
+    -ldflags "-X github.com/kubewarden/sbomscanner/internal/version.Version=${VERSION}" \
+    -o ./storage ./cmd/storage
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
