@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
@@ -21,6 +22,8 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/apiserver"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
 	"github.com/kubewarden/sbomscanner/internal/storage"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
+	"github.com/kubewarden/sbomscanner/internal/version"
 )
 
 func main() {
@@ -72,13 +75,26 @@ func run() error {
 		Level: slogLevel,
 	}
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &opts)).With("component", "storage")
+	logger := slog.New(telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))).With("component", "storage")
 	logger.Info("Starting storage")
 
 	// Kubernetes components use klog for logging, so we need to redirect it to our slog logger.
 	klog.SetSlogLogger(logger)
 
 	ctx := genericapiserver.SetupSignalContext()
+
+	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-storage", version.Version)
+	if err != nil {
+		return fmt.Errorf("initializing telemetry: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			logger.Error("Telemetry shutdown error", "error", err)
+		}
+	}()
 
 	maxRequestBodyBytes, err := units.FromHumanSize(maxRequestBodySize)
 	if err != nil {

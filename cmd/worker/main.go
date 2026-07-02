@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,6 +22,8 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/handlers"
 	"github.com/kubewarden/sbomscanner/internal/handlers/registry"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
+	"github.com/kubewarden/sbomscanner/internal/version"
 	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 	"github.com/nats-io/nats.go"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -31,48 +35,58 @@ const (
 	registryMode = "registry"
 )
 
-func main() {
-	var natsURL string
-	var natsCertFile string
-	var natsKeyFile string
-	var natsCAFile string
-	var runDir string
-	var trivyDBRepository string
-	var trivyJavaDBRepository string
-	var installationNamespace string
-	var init bool
-	var logLevel string
-	var mode string
-	var nodeName string
+type Config struct {
+	NatsURL               string
+	NatsCertFile          string
+	NatsKeyFile           string
+	NatsCAFile            string
+	RunDir                string
+	TrivyDBRepository     string
+	TrivyJavaDBRepository string
+	InstallationNamespace string
+	Init                  bool
+	LogLevel              string
+	Mode                  string
+	NodeName              string
+}
 
-	flag.StringVar(&natsURL, "nats-url", "localhost:4222", "The URL of the NATS server.")
-	flag.StringVar(&natsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
-	flag.StringVar(&natsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
-	flag.StringVar(&natsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
-	flag.StringVar(&runDir, "run-dir", "/var/run/worker", "Directory to store temporary files.")
-	flag.StringVar(&trivyDBRepository, "trivy-db-repository", "public.ecr.aws/aquasecurity/trivy-db", "OCI repository to retrieve trivy-db.")
-	flag.StringVar(&trivyJavaDBRepository, "trivy-java-db-repository", "public.ecr.aws/aquasecurity/trivy-java-db", "OCI repository to retrieve trivy-java-db.")
-	flag.StringVar(&installationNamespace, "installation-namespace", "sbomscanner", "The namespace where sbomscanner is installed.")
-	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
-	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
-	flag.StringVar(&mode, "mode", "registry", "Mode of operation ('registry' or 'node').")
-	flag.StringVar(&nodeName, "node-name", "", "The name of the node (required if mode is 'node').")
+func parseFlags() Config {
+	var cfg Config
+
+	flag.StringVar(&cfg.NatsURL, "nats-url", "localhost:4222", "The URL of the NATS server.")
+	flag.StringVar(&cfg.NatsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
+	flag.StringVar(&cfg.NatsKeyFile, "nats-key-file", "/nats/tls/tls.key", "The path to the NATS client key.")
+	flag.StringVar(&cfg.NatsCAFile, "nats-ca-file", "/nats/tls/ca.crt", "The path to the NATS CA certificate.")
+	flag.StringVar(&cfg.RunDir, "run-dir", "/var/run/worker", "Directory to store temporary files.")
+	flag.StringVar(&cfg.TrivyDBRepository, "trivy-db-repository", "public.ecr.aws/aquasecurity/trivy-db", "OCI repository to retrieve trivy-db.")
+	flag.StringVar(&cfg.TrivyJavaDBRepository, "trivy-java-db-repository", "public.ecr.aws/aquasecurity/trivy-java-db", "OCI repository to retrieve trivy-java-db.")
+	flag.StringVar(&cfg.InstallationNamespace, "installation-namespace", "sbomscanner", "The namespace where sbomscanner is installed.")
+	flag.BoolVar(&cfg.Init, "init", false, "Run initialization tasks and exit.")
+	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level.")
+	flag.StringVar(&cfg.Mode, "mode", "registry", "Mode of operation ('registry' or 'node').")
+	flag.StringVar(&cfg.NodeName, "node-name", "", "The name of the node (required if mode is 'node').")
 	flag.Parse()
+	return cfg
+}
 
-	slogLevel, err := cmdutil.ParseLogLevel(logLevel)
-	if err != nil {
-		//nolint:sloglint // Use the global logger since the logger is not yet initialized
-		slog.Error(
-			"error initializing the logger",
-			"error",
-			err,
-		)
+func main() {
+	cfg := parseFlags()
+	if err := run(cfg); err != nil {
+		//nolint:sloglint // No structured logger is available at this scope: run() owns the logger lifecycle.
+		slog.Error("worker exited with error", "error", err)
 		os.Exit(1)
+	}
+}
+
+func run(cfg Config) error {
+	slogLevel, err := cmdutil.ParseLogLevel(cfg.LogLevel)
+	if err != nil {
+		return fmt.Errorf("parsing log level: %w", err)
 	}
 	opts := slog.HandlerOptions{
 		Level: slogLevel,
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &opts)).With("component", "worker")
+	logger := slog.New(telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))).With("component", "worker")
 	logger.Info("Starting worker")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,65 +98,69 @@ func main() {
 		cancel()
 	}()
 
+	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-worker", version.Version)
+	if err != nil {
+		return fmt.Errorf("initializing telemetry: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelShutdown()
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			logger.Error("Telemetry shutdown error", "error", err)
+		}
+	}()
+
 	config := ctrl.GetConfigOrDie()
 	natsOpts := []nats.Option{
-		nats.RootCAs(natsCAFile),
-		nats.ClientCert(natsCertFile, natsKeyFile),
+		nats.RootCAs(cfg.NatsCAFile),
+		nats.ClientCert(cfg.NatsCertFile, cfg.NatsKeyFile),
 	}
 
-	if init {
+	if cfg.Init {
 		logger = logger.With("task", "init")
 
 		if err := cmdutil.WaitForStorageTypes(ctx, config, logger); err != nil {
-			logger.Error("Error waiting for storage types", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("waiting for storage types: %w", err)
 		}
 
-		if err := cmdutil.WaitForJetStream(ctx, natsURL, natsOpts, logger); err != nil {
-			logger.Error("Error waiting for JetStream", "error", err)
-			os.Exit(1)
+		if err := cmdutil.WaitForJetStream(ctx, cfg.NatsURL, natsOpts, logger); err != nil {
+			return fmt.Errorf("waiting for JetStream: %w", err)
 		}
 
 		logger.Info("Initialization tasks completed successfully.")
-		os.Exit(0)
+		return nil
 	}
 
-	if mode == nodeMode && nodeName == "" {
-		logger.Error("Node name must be provided when mode is 'node'")
-		os.Exit(1)
+	if cfg.Mode == nodeMode && cfg.NodeName == "" {
+		return errors.New("node name required in node mode")
 	}
 
-	nc, err := nats.Connect(natsURL,
+	nc, err := nats.Connect(cfg.NatsURL,
 		natsOpts...,
 	)
 	if err != nil {
-		logger.Error("Unable to connect to NATS server", "error", err, "natsURL", natsURL)
-		os.Exit(1)
+		return fmt.Errorf("connecting to NATS server %q: %w", cfg.NatsURL, err)
 	}
 
 	publisher, err := messaging.NewNatsPublisher(ctx, nc, logger)
 	if err != nil {
-		logger.Error("Error creating NATS publisher", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("creating NATS publisher: %w", err)
 	}
 
 	scheme := scheme.Scheme
 	if err = v1alpha1.AddToScheme(scheme); err != nil {
-		logger.Error("Error adding v1alpha1 to scheme", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("adding v1alpha1 to scheme: %w", err)
 	}
 	if err = storagev1alpha1.AddToScheme(scheme); err != nil {
-		logger.Error("Error adding storagev1alpha1 to scheme", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("adding storagev1alpha1 to scheme: %w", err)
 	}
 	if err = k8sscheme.AddToScheme(scheme); err != nil {
-		logger.Error("Error adding kubernetes to scheme", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("adding kubernetes to scheme: %w", err)
 	}
 	k8sClient, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
-		logger.Error("Error creating k8s client", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("creating k8s client: %w", err)
 	}
 	registryClientFactory := func(transport http.RoundTripper) *registry.Client {
 		return registry.NewClient(transport, logger)
@@ -150,26 +168,25 @@ func main() {
 
 	var scanMode messaging.HandlerRegistry
 	durableName := "worker"
-	switch mode {
+	switch cfg.Mode {
 	case registryMode:
 		scanMode = messaging.HandlerRegistry{
-			handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, installationNamespace, logger),
-			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+			handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, cfg.InstallationNamespace, logger),
+			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyJavaDBRepository, publisher, cfg.InstallationNamespace, logger),
+			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyDBRepository, cfg.TrivyJavaDBRepository, logger),
 		}
 	case nodeMode:
 		scanMode = messaging.HandlerRegistry{
-			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, targetDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+			handlers.GenerateNodeSBOMSubject + "." + cfg.NodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, cfg.RunDir, targetDir, cfg.TrivyJavaDBRepository, publisher, cfg.InstallationNamespace, logger),
+			handlers.ScanNodeSBOMSubject + "." + cfg.NodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyDBRepository, cfg.TrivyJavaDBRepository, logger),
 		}
-		durableName = "worker-node-" + nodeName
+		durableName = "worker-node-" + cfg.NodeName
 	default:
-		logger.Error("Invalid scanning mode", "mode", mode)
-		os.Exit(1)
+		return fmt.Errorf("invalid scanning mode: %s", cfg.Mode)
 	}
 
 	var failureHandler messaging.FailureHandler
-	switch mode {
+	switch cfg.Mode {
 	case nodeMode:
 		failureHandler = handlers.NewNodeScanJobFailureHandler(k8sClient, logger)
 	default:
@@ -183,23 +200,21 @@ func main() {
 
 	subscriber, err := messaging.NewNatsSubscriber(ctx, nc, durableName, scanMode, failureHandler, retryConfig, logger)
 	if err != nil {
-		logger.Error("Error creating NATS subscriber", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("creating NATS subscriber: %w", err)
 	}
 
 	healthServer := runHealthServer(logger)
 
 	err = subscriber.Run(ctx)
 	if err != nil {
-		logger.Error("Error running worker subscriber", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("running worker subscriber: %w", err)
 	}
 
 	logger.Debug("Shutting down health server")
 	if err := healthServer.Close(); err != nil {
-		logger.Error("Error shutting down health check server", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("shutting down health check server: %w", err)
 	}
+	return nil
 }
 
 func runHealthServer(logger *slog.Logger) *http.Server {
@@ -217,7 +232,7 @@ func runHealthServer(logger *slog.Logger) *http.Server {
 
 	go func() {
 		logger.Info("Starting health check server", "addr", ":8081")
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("Health check server error", "error", err)
 		}
 	}()
