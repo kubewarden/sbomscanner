@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -22,25 +23,41 @@ import (
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
-func main() {
-	var addr string
-	var credentialsDir string
-	var certFile string
-	var keyFile string
-	var readOnly bool
-	var logLevel string
-	var disableTLS bool
+type Config struct {
+	Addr           string
+	CredentialsDir string
+	CertFile       string
+	KeyFile        string
+	ReadOnly       bool
+	LogLevel       string
+	DisableTLS     bool
+}
 
-	flag.StringVar(&addr, "addr", ":8222", "HTTP listen address.")
-	flag.StringVar(&credentialsDir, "credentials-dir", "/etc/mcp/credentials", "Directory containing username and password files.")
-	flag.StringVar(&certFile, "cert-file", "/tls/tls.crt", "Path to TLS certificate file.")
-	flag.StringVar(&keyFile, "key-file", "/tls/tls.key", "Path to TLS private key file.")
-	flag.BoolVar(&readOnly, "read-only", false, "Run in read-only mode (no create/update/delete tools).")
-	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
-	flag.BoolVar(&disableTLS, "disable-tls", false, "Disable TLS and serve plain HTTP.")
+func parseFlags() Config {
+	var cfg Config
+
+	flag.StringVar(&cfg.Addr, "addr", ":8222", "HTTP listen address.")
+	flag.StringVar(&cfg.CredentialsDir, "credentials-dir", "/etc/mcp/credentials", "Directory containing username and password files.")
+	flag.StringVar(&cfg.CertFile, "cert-file", "/tls/tls.crt", "Path to TLS certificate file.")
+	flag.StringVar(&cfg.KeyFile, "key-file", "/tls/tls.key", "Path to TLS private key file.")
+	flag.BoolVar(&cfg.ReadOnly, "read-only", false, "Run in read-only mode (no create/update/delete tools).")
+	flag.StringVar(&cfg.LogLevel, "log-level", slog.LevelInfo.String(), "Log level.")
+	flag.BoolVar(&cfg.DisableTLS, "disable-tls", false, "Disable TLS and serve plain HTTP.")
 	flag.Parse()
+	return cfg
+}
 
-	slogLevel, err := cmdutil.ParseLogLevel(logLevel)
+func main() {
+	cfg := parseFlags()
+	if err := run(cfg); err != nil {
+		//nolint:sloglint // No structured logger is available at this scope: run() owns the logger lifecycle.
+		slog.Error("mcp exited with error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(cfg Config) error {
+	slogLevel, err := cmdutil.ParseLogLevel(cfg.LogLevel)
 	if err != nil {
 		//nolint:sloglint // Use the global logger since the logger is not yet initialized
 		slog.Error(
@@ -65,8 +82,7 @@ func main() {
 	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
 	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-mcp", version.Version)
 	if err != nil {
-		logger.Error("Failed to initialize telemetry", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("initializing telemetry: %w", err)
 	}
 	defer func() {
 		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
@@ -78,28 +94,24 @@ func main() {
 
 	s := scheme.Scheme
 	if err := v1alpha1.AddToScheme(s); err != nil {
-		logger.Error("Error adding v1alpha1 to scheme", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("adding v1alpha1 to scheme: %w", err)
 	}
 	if err := storagev1alpha1.AddToScheme(s); err != nil {
-		logger.Error("Error adding storagev1alpha1 to scheme", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("adding storagev1alpha1 to scheme: %w", err)
 	}
 	if err := k8sscheme.AddToScheme(s); err != nil {
-		logger.Error("Error adding kubernetes to scheme", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("adding kubernetes to scheme: %w", err)
 	}
 
 	config := ctrl.GetConfigOrDie()
 	k8sClient, err := client.New(config, client.Options{Scheme: s})
 	if err != nil {
-		logger.Error("Error creating k8s client", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("creating k8s client: %w", err)
 	}
 
-	server := mcpserver.NewServer(k8sClient, logger, readOnly)
-	if err := server.Run(ctx, addr, credentialsDir, certFile, keyFile, disableTLS); err != nil {
-		logger.Error("Error running MCP server", "error", err)
-		os.Exit(1)
+	server := mcpserver.NewServer(k8sClient, logger, cfg.ReadOnly)
+	if err := server.Run(ctx, cfg.Addr, cfg.CredentialsDir, cfg.CertFile, cfg.KeyFile, cfg.DisableTLS); err != nil {
+		return fmt.Errorf("running MCP server: %w", err)
 	}
+	return nil
 }
