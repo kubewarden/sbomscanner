@@ -96,7 +96,7 @@ For this feature we are going to add the following CRDs:
 
     A user-supplied list replaces the defaults entirely; there is no merging.
     To scan everything (including the paths above), set `skipPatterns: []` explicitly.
-    An empty list is preserved by the apiserver and disables the defaults.
+    An empty list is preserved by the API server and disables the defaults.
     Here's an example of how to use the `skipPatterns` field:
     ```yaml
     # Gitignore-style patterns to exclude from filesystem scans.
