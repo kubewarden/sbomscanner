@@ -267,7 +267,7 @@ Mounting the host filesystem into a container bridges the isolation boundary and
 introduces significant risk. To mitigate potential host compromise, the `DaemonSet`
 must mount the host root filesystem as `readOnly: true`.
 
-The worker container also needs the `CAP_DAC_READ_SEARCH` Linux capability
+The worker container also needs the `DAC_READ_SEARCH` Linux capability
 (all other capabilities are dropped).
 This capability lets the scanner bypass discretionary access-control read and
 directory-search checks so that Trivy can walk the entire host filesystem.
