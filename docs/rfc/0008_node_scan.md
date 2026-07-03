@@ -74,6 +74,10 @@ meaning that there can be only one instance of it in the cluster.
 For this feature we are going to add the following CRDs:
 
 * `NodeScanConfiguration`: Defines the global scan settings.
+  * `enabled`: Controls whether node scanning is active.
+    Defaults to `true`.
+    When set to `false`, all node scan resources are cleaned up,
+    similarly to what happens when the `NodeScanConfiguration` is deleted.
   * `scanInterval`: Duration between automated scans.
   * `nodeSelector`: Filter which nodes are scanned.
     If not specified, all the nodes are scanned.
