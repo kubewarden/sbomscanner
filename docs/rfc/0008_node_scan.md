@@ -64,7 +64,7 @@ for every node matched by the `nodeSelector`
 (or every node in the cluster if no selector is set).
 Nodes that already have a `NodeScanJob` in progress are skipped
 so an in-flight scan is never duplicated.
-The annotation is automatically removed once the corresponding `NodeScanJob` resources have been created.
+The annotation is automatically removed once the runner has attempted to create the corresponding `NodeScanJob` resources.
 
 Please, note that `NodeScanConfiguration` is a singleton resource, 
 meaning that there can be only one instance of it in the cluster.
