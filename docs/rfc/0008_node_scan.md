@@ -56,10 +56,15 @@ are considered for scanning. If not specified, all the nodes are going to be sca
 The `NodeScanConfiguration` is primarily used to schedule periodic scans over time
 through the `scanInterval` attribute.
 
-To trigger an immediate scan outside the regular interval, the user can annotate
-the `NodeScanConfiguration` resource with `sbomscanner.kubewarden.io/node-rescan-requested: "true"`.
-This will trigger a new scan immediately, and the annotation will be automatically
-removed after the scan is completed.
+To trigger an immediate scan outside the regular interval,
+the user can annotate the `NodeScanConfiguration` resource with
+`sbomscanner.kubewarden.io/node-rescan-requested: "true"`.
+This bypasses the `scanInterval` timer and schedules a new `NodeScanJob`
+for every node matched by the `nodeSelector`
+(or every node in the cluster if no selector is set).
+Nodes that already have a `NodeScanJob` in progress are skipped
+so an in-flight scan is never duplicated.
+The annotation is automatically removed once the runner has attempted to create the corresponding `NodeScanJob` resources.
 
 Please, note that `NodeScanConfiguration` is a singleton resource, 
 meaning that there can be only one instance of it in the cluster.
@@ -69,12 +74,29 @@ meaning that there can be only one instance of it in the cluster.
 For this feature we are going to add the following CRDs:
 
 * `NodeScanConfiguration`: Defines the global scan settings.
+  * `enabled`: Controls whether node scanning is active.
+    Defaults to `true`.
+    When set to `false`, all node scan resources are cleaned up,
+    similarly to what happens when the `NodeScanConfiguration` is deleted.
   * `scanInterval`: Duration between automated scans.
   * `nodeSelector`: Filter which nodes are scanned.
     If not specified, all the nodes are scanned.
   * `skipPatterns`: A list of file/directory paths to be ignored.
-    This can be expressed as .gitignore-like patterns (eg. `**/tmp/**` to ignore all the `tmp` directories).
-    If not specified, no file is ignored.
+    This can be expressed as `.gitignore`-style patterns (e.g., `**/tmp/**` to ignore all `tmp` directories).
+    If the field is left unset, a default list of container-runtime state directories is applied so that
+    OCI image content already covered by registry scanning is not rescanned as raw files on disk.
+    The defaults are:
+    * `/var/lib/containerd/`
+    * `/var/lib/docker/`
+    * `/var/lib/rancher/k3s/agent/containerd/`
+    * `/var/lib/rancher/rke2/agent/containerd/`
+    * `/var/lib/containers/`
+    * `/run/containerd/`
+    * `/run/k3s/containerd/`
+
+    A user-supplied list replaces the defaults entirely; there is no merging.
+    To scan everything (including the paths above), set `skipPatterns: []` explicitly.
+    An empty list is preserved by the API server and disables the defaults.
     Here's an example of how to use the `skipPatterns` field:
     ```yaml
     # Gitignore-style patterns to exclude from filesystem scans.
@@ -241,6 +263,20 @@ Garbage collection is crucial to prevent resource orphaning and to maintain a cl
 
 [drawbacks]: #drawbacks
 
-Mounting the host filesystem into a container bridges the isolation boundary and 
-introduces significant risk. To mitigate potential host compromise, the `DaemonSet` 
+Mounting the host filesystem into a container bridges the isolation boundary and
+introduces significant risk. To mitigate potential host compromise, the `DaemonSet`
 must mount the host root filesystem as `readOnly: true`.
+
+The worker container also needs the `DAC_READ_SEARCH` Linux capability
+(all other capabilities are dropped).
+This capability lets the scanner bypass discretionary access-control read and
+directory-search checks so that Trivy can walk the entire host filesystem.
+Because of this requirement, the worker cannot run in a namespace enforcing the
+`restricted` or `baseline` Pod Security Admission profiles.
+As a future improvement we might consider running the node worker pods in a
+dedicated namespace so that the other components can still run under the
+`restricted` PSA profile.
+
+A further drawback is that the `DaemonSet` runs continuously on every matching node,
+even though the worker only performs actual work when it receives a scan job.
+In future development we can consider a mechanism to run the pod only while a scan is in progress.
