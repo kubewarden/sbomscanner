@@ -82,7 +82,7 @@ For this feature we are going to add the following CRDs:
   * `nodeSelector`: Filter which nodes are scanned.
     If not specified, all the nodes are scanned.
   * `skipPatterns`: A list of file/directory paths to be ignored.
-    This can be expressed as .gitignore-like patterns (eg. `**/tmp/**` to ignore all the `tmp` directories).
+    This can be expressed as `.gitignore`-style patterns (e.g., `**/tmp/**` to ignore all `tmp` directories).
     If the field is left unset, a default list of container-runtime state directories is applied so that
     OCI image content already covered by registry scanning is not rescanned as raw files on disk.
     The defaults are:
