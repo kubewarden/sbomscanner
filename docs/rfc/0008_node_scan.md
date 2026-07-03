@@ -271,6 +271,8 @@ The worker container also needs the `DAC_READ_SEARCH` Linux capability
 (all other capabilities are dropped).
 This capability lets the scanner bypass discretionary access-control read and
 directory-search checks so that Trivy can walk the entire host filesystem.
+Because of this requirement, the worker cannot run in a namespace enforcing the
+`restricted` or `baseline` Pod Security Admission profiles.
 
 A further drawback is that the `DaemonSet` runs continuously on every matching node,
 even though the worker only performs actual work when it receives a scan job.
