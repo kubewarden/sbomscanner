@@ -56,10 +56,15 @@ are considered for scanning. If not specified, all the nodes are going to be sca
 The `NodeScanConfiguration` is primarily used to schedule periodic scans over time
 through the `scanInterval` attribute.
 
-To trigger an immediate scan outside the regular interval, the user can annotate
-the `NodeScanConfiguration` resource with `sbomscanner.kubewarden.io/node-rescan-requested: "true"`.
-This will trigger a new scan immediately, and the annotation will be automatically
-removed after the scan is completed.
+To trigger an immediate scan outside the regular interval,
+the user can annotate the `NodeScanConfiguration` resource with
+`sbomscanner.kubewarden.io/node-rescan-requested: "true"`.
+This bypasses the `scanInterval` timer and schedules a new `NodeScanJob`
+for every node matched by the `nodeSelector`
+(or every node in the cluster if no selector is set).
+Nodes that already have a `NodeScanJob` in progress are skipped
+so an in-flight scan is never duplicated.
+The annotation is automatically removed once the corresponding `NodeScanJob` resources have been created.
 
 Please, note that `NodeScanConfiguration` is a singleton resource, 
 meaning that there can be only one instance of it in the cluster.
