@@ -83,7 +83,20 @@ For this feature we are going to add the following CRDs:
     If not specified, all the nodes are scanned.
   * `skipPatterns`: A list of file/directory paths to be ignored.
     This can be expressed as .gitignore-like patterns (eg. `**/tmp/**` to ignore all the `tmp` directories).
-    If not specified, no file is ignored.
+    If the field is left unset, a default list of container-runtime state directories is applied so that
+    OCI image content already covered by registry scanning is not rescanned as raw files on disk.
+    The defaults are:
+    * `/var/lib/containerd/`
+    * `/var/lib/docker/`
+    * `/var/lib/rancher/k3s/agent/containerd/`
+    * `/var/lib/rancher/rke2/agent/containerd/`
+    * `/var/lib/containers/`
+    * `/run/containerd/`
+    * `/run/k3s/containerd/`
+
+    A user-supplied list replaces the defaults entirely; there is no merging.
+    To scan everything (including the paths above), set `skipPatterns: []` explicitly.
+    An empty list is preserved by the apiserver and disables the defaults.
     Here's an example of how to use the `skipPatterns` field:
     ```yaml
     # Gitignore-style patterns to exclude from filesystem scans.
