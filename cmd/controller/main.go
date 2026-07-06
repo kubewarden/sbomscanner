@@ -280,7 +280,6 @@ func main() {
 		}
 	}
 
-	//nolint: nestif // The node scan controllers and webhook are related and should be grouped together
 	if cfg.NodeScan {
 		if err = (&controller.NodeScanRunner{
 			Client: mgr.GetClient(),
@@ -312,16 +311,16 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "NodeScanJob")
 			os.Exit(1)
 		}
+	}
 
-		if err = webhookv1alpha1.SetupNodeScanConfigurationWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanConfiguration")
-			os.Exit(1)
-		}
+	if err = webhookv1alpha1.SetupNodeScanConfigurationWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanConfiguration")
+		os.Exit(1)
+	}
 
-		if err = webhookv1alpha1.SetupNodeScanJobWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanJob")
-			os.Exit(1)
-		}
+	if err = webhookv1alpha1.SetupNodeScanJobWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanJob")
+		os.Exit(1)
 	}
 
 	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr, cfg.ServiceAccountNamespace, cfg.ServiceAccountName); err != nil {
