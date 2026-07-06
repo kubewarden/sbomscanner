@@ -26,6 +26,8 @@ controller:
   pprof: false
   workloadScan:
     enabled: true
+  nodeScan:
+    enabled: true
   # Seed default VEXHub resources (rancher, aquasecurity) on chart install.
   # Created via a post-install hook and not tracked by Helm afterwards, so
   # users can freely edit, disable, or delete them.
