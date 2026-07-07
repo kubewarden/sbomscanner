@@ -477,7 +477,7 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	mvdan.cc/sh/v3 v3.12.0 // indirect
-	oras.land/oras-go/v2 v2.6.1 // indirect
+	oras.land/oras-go/v2 v2.6.2-0.20260703153412-c463c654ab3e // indirect; head of release branch `v2` (v2.6.1 + fix for GHSA-fxhp-mv3v-67qp), sorts above v2.6.1 so no replace needed, superseded once v2.7.0 is required
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
