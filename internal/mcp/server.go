@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -107,11 +108,11 @@ func (s *Server) Run(ctx context.Context, addr, credentialsDir, certFile, keyFil
 
 	s.logger.InfoContext(ctx, "Listening", "addr", addr, "tls", !disableTLS)
 	if disableTLS {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("listening on %s: %w", addr, err)
 		}
 	} else {
-		if err := srv.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServeTLS(certFile, keyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("listening on %s: %w", addr, err)
 		}
 	}

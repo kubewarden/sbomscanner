@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -38,6 +40,8 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/controller"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 	"github.com/kubewarden/sbomscanner/internal/storage"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
+	"github.com/kubewarden/sbomscanner/internal/version"
 	webhookv1alpha1 "github.com/kubewarden/sbomscanner/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -91,27 +95,44 @@ func parseFlags() Config {
 }
 
 func main() {
-	var tlsOpts []func(*tls.Config)
 	cfg := parseFlags()
+	if err := run(cfg); err != nil {
+		//nolint:sloglint // No structured logger is available at this scope: run() owns the logger lifecycle.
+		slog.Error("controller exited with error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(cfg Config) error {
+	var tlsOpts []func(*tls.Config)
 
 	slogLevel, err := cmdutil.ParseLogLevel(cfg.LogLevel)
 	if err != nil {
-		//nolint:sloglint // Use the global logger since the logger is not yet initialized
-		slog.Error(
-			"error parsing log level",
-			"error",
-			err,
-		)
-		os.Exit(1)
+		return fmt.Errorf("parsing log level: %w", err)
 	}
 	opts := slog.HandlerOptions{
 		Level: slogLevel,
 	}
-	slogHandler := slog.NewJSONHandler(os.Stdout, &opts)
+	slogHandler := telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))
 	slogger := slog.New(slogHandler)
 	logger := logr.FromSlogHandler(slogHandler).WithValues("component", "controller")
 	ctrl.SetLogger(logger)
 	setupLog := logger.WithName("setup")
+
+	signalHandler := ctrl.SetupSignalHandler()
+
+	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+	shutdownTelemetry, err := telemetry.Setup(signalHandler, "sbomscanner-controller", version.Version)
+	if err != nil {
+		return fmt.Errorf("initializing telemetry: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			setupLog.Error(err, "telemetry shutdown error")
+		}
+	}()
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -163,8 +184,6 @@ func main() {
 
 	// +kubebuilder:scaffold:scheme
 
-	signalHandler := ctrl.SetupSignalHandler()
-
 	natsOpts := []nats.Option{
 		nats.RootCAs(cfg.NatsCAFile),
 		nats.ClientCert(cfg.NatsCertFile, cfg.NatsKeyFile),
@@ -175,29 +194,25 @@ func main() {
 		slogger = slogger.With("task", "init")
 
 		if err := cmdutil.WaitForStorageTypes(signalHandler, ctrl.GetConfigOrDie(), slogger); err != nil {
-			slogger.Error("Storage types are not available.", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("waiting for storage types: %w", err)
 		}
 
 		if err := cmdutil.WaitForJetStream(signalHandler, cfg.NatsURL, natsOpts, slogger); err != nil {
-			slogger.Error("JetStream is not available.", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("waiting for JetStream: %w", err)
 		}
 
 		slogger.Info("Initialization tasks completed successfully.")
-		os.Exit(0)
+		return nil
 	}
 
 	nc, err := nats.Connect(cfg.NatsURL, natsOpts...)
 	if err != nil {
-		setupLog.Error(err, "unable to connect to NATS server", "natsURL", cfg.NatsURL)
-		os.Exit(1)
+		return fmt.Errorf("connecting to NATS server %q: %w", cfg.NatsURL, err)
 	}
 
 	publisher, err := messaging.NewNatsPublisher(signalHandler, nc, slogger)
 	if err != nil {
-		setupLog.Error(err, "unable to create NATS publisher")
-		os.Exit(1)
+		return fmt.Errorf("creating NATS publisher: %w", err)
 	}
 
 	cacheByObject := buildCacheByObject(cfg)
@@ -230,13 +245,11 @@ func main() {
 		},
 	})
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		return fmt.Errorf("creating manager: %w", err)
 	}
 
 	if err := controller.SetupIndexer(signalHandler, mgr); err != nil {
-		setupLog.Error(err, "unable to set up indexer")
-		os.Exit(1)
+		return fmt.Errorf("setting up indexer: %w", err)
 	}
 
 	if err := (&controller.ScanJobReconciler{
@@ -244,116 +257,116 @@ func main() {
 		Scheme:    mgr.GetScheme(),
 		Publisher: publisher,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScanJob")
-		os.Exit(1)
+		return fmt.Errorf("creating ScanJob controller: %w", err)
 	}
 
 	if err := (&controller.VulnerabilityReportReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VulnerabilityReport")
-		os.Exit(1)
+		return fmt.Errorf("creating VulnerabilityReport controller: %w", err)
 	}
 
 	if err := (&controller.RegistryScanRunner{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create runner", "runner", "RegistryScanRunner")
-		os.Exit(1)
+		return fmt.Errorf("creating RegistryScanRunner: %w", err)
 	}
 
 	if cfg.WorkloadScan {
-		if err := (&controller.WorkloadScanReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "WorkloadScan")
-			os.Exit(1)
-		}
-
-		if err := (&controller.ImageWorkloadScanReconciler{
-			Client: mgr.GetClient(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ImageWorkloadScan")
-			os.Exit(1)
+		if err := setupWorkloadScanControllers(mgr); err != nil {
+			return err
 		}
 	}
 
 	if cfg.NodeScan {
-		if err = (&controller.NodeScanRunner{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create runner", "runner", "NodeScanRunner")
-			os.Exit(1)
-		}
-
-		if err = (&controller.NodeScanReconciler{
-			Client: mgr.GetClient(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "NodeScan")
-			os.Exit(1)
-		}
-
-		if err = (&controller.NodeScanConfigurationReconciler{
-			Client: mgr.GetClient(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "NodeScanConfiguration")
-			os.Exit(1)
-		}
-
-		if err = (&controller.NodeScanJobReconciler{
-			Client:    mgr.GetClient(),
-			Scheme:    mgr.GetScheme(),
-			Publisher: publisher,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "NodeScanJob")
-			os.Exit(1)
+		if err := setupNodeScanControllers(mgr, publisher); err != nil {
+			return err
 		}
 	}
 
+	// Node scan webhooks are registered even when node scan is disabled, so that
+	// requests to node scan resources are still validated.
 	if err = webhookv1alpha1.SetupNodeScanConfigurationWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanConfiguration")
-		os.Exit(1)
+		return fmt.Errorf("creating NodeScanConfiguration webhook: %w", err)
 	}
 
 	if err = webhookv1alpha1.SetupNodeScanJobWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "NodeScanJob")
-		os.Exit(1)
+		return fmt.Errorf("creating NodeScanJob webhook: %w", err)
 	}
 
 	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr, cfg.ServiceAccountNamespace, cfg.ServiceAccountName); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Registry")
-		os.Exit(1)
+		return fmt.Errorf("creating Registry webhook: %w", err)
 	}
 
 	if err = webhookv1alpha1.SetupScanJobWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "ScanJob")
-		os.Exit(1)
+		return fmt.Errorf("creating ScanJob webhook: %w", err)
 	}
 
 	if err = webhookv1alpha1.SetupWorkloadScanConfigurationWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "WorkloadScanConfiguration")
-		os.Exit(1)
+		return fmt.Errorf("creating WorkloadScanConfiguration webhook: %w", err)
 	}
 
 	// +kubebuilder:scaffold:builder
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
+		return fmt.Errorf("adding healthz check: %w", err)
 	}
 	if err = mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+		return fmt.Errorf("adding readyz check: %w", err)
 	}
 
 	setupLog.Info("starting manager")
 	if err = mgr.Start(signalHandler); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+		return fmt.Errorf("running manager: %w", err)
 	}
+	return nil
+}
+
+func setupWorkloadScanControllers(mgr ctrl.Manager) error {
+	if err := (&controller.WorkloadScanReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("creating WorkloadScan controller: %w", err)
+	}
+
+	if err := (&controller.ImageWorkloadScanReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("creating ImageWorkloadScan controller: %w", err)
+	}
+	return nil
+}
+
+func setupNodeScanControllers(mgr ctrl.Manager, publisher *messaging.NatsPublisher) error {
+	if err := (&controller.NodeScanRunner{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("creating NodeScanRunner: %w", err)
+	}
+
+	if err := (&controller.NodeScanReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("creating NodeScan controller: %w", err)
+	}
+
+	if err := (&controller.NodeScanConfigurationReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("creating NodeScanConfiguration controller: %w", err)
+	}
+
+	if err := (&controller.NodeScanJobReconciler{
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Publisher: publisher,
+	}).SetupWithManager(mgr); err != nil {
+		return fmt.Errorf("creating NodeScanJob controller: %w", err)
+	}
+	return nil
 }
 
 func buildCacheByObject(cfg Config) map[client.Object]cache.ByObject {
