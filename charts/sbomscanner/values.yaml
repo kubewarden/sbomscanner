@@ -43,7 +43,7 @@ controller:
 storage:
   image:
     repository: kubewarden/sbomscanner/storage
-    tag: v0.12.0
+    tag: v0.13.0-alpha.1
     pullPolicy: IfNotPresent
   replicas: 3
   logLevel: "info"
