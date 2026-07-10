@@ -14,6 +14,8 @@ rules:
   - scanjobs
   - workloadscanconfigurations
   - vexhubs
+  - nodescanconfigurations
+  - nodescanjobs
   verbs:
   - get
   - list
@@ -38,6 +40,8 @@ rules:
   - sboms
   - vulnerabilityreports
   - workloadscanreports
+  - nodesboms
+  - nodevulnerabilityreports
   verbs:
   - get
   - list
