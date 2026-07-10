@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/avast/retry-go/v4"
+	"github.com/avast/retry-go/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"k8s.io/client-go/discovery"
@@ -28,19 +28,16 @@ func WaitForStorageTypes(ctx context.Context, config *rest.Config, logger *slog.
 	}
 
 	gv := storagev1alpha1.SchemeGroupVersion.String()
-	err = retry.Do(
-		func() error {
-			logger.InfoContext(ctx, "Checking for storage types availability", "groupVersion", gv)
-			_, err := discoveryClient.ServerResourcesForGroupVersion(gv)
-			if err != nil {
-				return fmt.Errorf("group version not available: %s: %w", gv, err)
-			}
-			return nil
-		},
-		retryOptions(ctx, func(n uint, err error) {
-			logger.InfoContext(ctx, "Checking for storage types failed, retrying", "attempt", n+1, "error", err)
-		})...,
-	)
+	err = newRetrier(ctx, func(n uint, err error) {
+		logger.InfoContext(ctx, "Checking for storage types failed, retrying", "attempt", n+1, "error", err)
+	}).Do(func() error {
+		logger.InfoContext(ctx, "Checking for storage types availability", "groupVersion", gv)
+		_, err := discoveryClient.ServerResourcesForGroupVersion(gv)
+		if err != nil {
+			return fmt.Errorf("group version not available: %s: %w", gv, err)
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("timeout while waiting for storage types: %w", err)
 	}
@@ -51,20 +48,17 @@ func WaitForStorageTypes(ctx context.Context, config *rest.Config, logger *slog.
 
 // WaitForNATS waits until NATS is available.
 func WaitForNATS(ctx context.Context, url string, opts []nats.Option, logger *slog.Logger) error {
-	err := retry.Do(
-		func() error {
-			logger.InfoContext(ctx, "Checking for NATS availability")
-			nc, err := nats.Connect(url, opts...)
-			if err != nil {
-				return fmt.Errorf("failed to connect to NATS: %w", err)
-			}
-			nc.Close()
-			return nil
-		},
-		retryOptions(ctx, func(n uint, err error) {
-			logger.InfoContext(ctx, "Checking for NATS failed, retrying", "attempt", n+1, "error", err)
-		})...,
-	)
+	err := newRetrier(ctx, func(n uint, err error) {
+		logger.InfoContext(ctx, "Checking for NATS failed, retrying", "attempt", n+1, "error", err)
+	}).Do(func() error {
+		logger.InfoContext(ctx, "Checking for NATS availability")
+		nc, err := nats.Connect(url, opts...)
+		if err != nil {
+			return fmt.Errorf("failed to connect to NATS: %w", err)
+		}
+		nc.Close()
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("timeout while waiting for NATS: %w", err)
 	}
@@ -75,31 +69,28 @@ func WaitForNATS(ctx context.Context, url string, opts []nats.Option, logger *sl
 
 // WaitForJetStream waits until JetStream is available on the NATS server.
 func WaitForJetStream(ctx context.Context, url string, opts []nats.Option, logger *slog.Logger) error {
-	err := retry.Do(
-		func() error {
-			logger.InfoContext(ctx, "Checking for JetStream availability")
-			nc, err := nats.Connect(url, opts...)
-			if err != nil {
-				return fmt.Errorf("failed to connect to NATS: %w", err)
-			}
-			defer nc.Close()
+	err := newRetrier(ctx, func(n uint, err error) {
+		logger.InfoContext(ctx, "Checking for JetStream failed, retrying", "attempt", n+1, "error", err)
+	}).Do(func() error {
+		logger.InfoContext(ctx, "Checking for JetStream availability")
+		nc, err := nats.Connect(url, opts...)
+		if err != nil {
+			return fmt.Errorf("failed to connect to NATS: %w", err)
+		}
+		defer nc.Close()
 
-			js, err := nc.JetStream()
-			if err != nil {
-				return fmt.Errorf("JetStream not available: %w", err)
-			}
+		js, err := nc.JetStream()
+		if err != nil {
+			return fmt.Errorf("JetStream not available: %w", err)
+		}
 
-			_, err = js.AccountInfo()
-			if err != nil {
-				return fmt.Errorf("failed to get JetStream account info: %w", err)
-			}
+		_, err = js.AccountInfo()
+		if err != nil {
+			return fmt.Errorf("failed to get JetStream account info: %w", err)
+		}
 
-			return nil
-		},
-		retryOptions(ctx, func(n uint, err error) {
-			logger.InfoContext(ctx, "Checking for JetStream failed, retrying", "attempt", n+1, "error", err)
-		})...,
-	)
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("timeout while waiting for JetStream: %w", err)
 	}
@@ -109,19 +100,16 @@ func WaitForJetStream(ctx context.Context, url string, opts []nats.Option, logge
 }
 
 func WaitForPostgres(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger) error {
-	err := retry.Do(
-		func() error {
-			logger.InfoContext(ctx, "Checking for Postgres availability")
-			err := db.Ping(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to ping database: %w", err)
-			}
-			return nil
-		},
-		retryOptions(ctx, func(n uint, err error) {
-			logger.InfoContext(ctx, "Checking for Postgres failed, retrying", "attempt", n+1, "error", err)
-		})...,
-	)
+	err := newRetrier(ctx, func(n uint, err error) {
+		logger.InfoContext(ctx, "Checking for Postgres failed, retrying", "attempt", n+1, "error", err)
+	}).Do(func() error {
+		logger.InfoContext(ctx, "Checking for Postgres availability")
+		err := db.Ping(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to ping database: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("timeout while waiting for Postgres: %w", err)
 	}
@@ -130,14 +118,14 @@ func WaitForPostgres(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger)
 	return nil
 }
 
-func retryOptions(ctx context.Context, onRetry retry.OnRetryFunc) []retry.Option {
-	return []retry.Option{
+func newRetrier(ctx context.Context, onRetry retry.OnRetryFunc) *retry.Retrier {
+	return retry.New(
 		retry.Context(ctx),
 		retry.Attempts(20),
-		retry.Delay(2 * time.Second),
+		retry.Delay(2*time.Second),
 		retry.DelayType(retry.BackOffDelay),
-		retry.MaxDelay(10 * time.Second),
+		retry.MaxDelay(10*time.Second),
 		retry.LastErrorOnly(true),
 		retry.OnRetry(onRetry),
-	}
+	)
 }
