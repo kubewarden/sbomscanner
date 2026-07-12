@@ -3,19 +3,19 @@ module github.com/kubewarden/sbomscanner
 go 1.26.5
 
 require (
-	github.com/aquasecurity/trivy v0.71.2
+	github.com/aquasecurity/trivy v0.72.0
 	github.com/aquasecurity/trivy-db v0.0.0-20260609121853-15b95f443bfa
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/docker/cli v29.6.1+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/go-logr/logr v1.4.3
-	github.com/google/cel-go v0.28.1
+	github.com/google/cel-go v0.29.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.21.7
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
-	github.com/nats-io/nats-server/v2 v2.14.2
+	github.com/nats-io/nats-server/v2 v2.14.3
 	github.com/nats-io/nats.go v1.52.0
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
@@ -26,7 +26,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/registry v0.43.0
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/sync v0.21.0
+	golang.org/x/sync v0.22.0
 	golang.org/x/time v0.15.0
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
