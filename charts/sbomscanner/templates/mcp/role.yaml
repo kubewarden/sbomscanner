@@ -36,11 +36,8 @@ rules:
 - apiGroups:
   - storage.sbomscanner.kubewarden.io
   resources:
-  - images
-  - sboms
   - vulnerabilityreports
   - workloadscanreports
-  - nodesboms
   - nodevulnerabilityreports
   verbs:
   - get
