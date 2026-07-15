@@ -128,8 +128,10 @@ spec:
         values:
           - k3d-second-node-0
   platforms:
-    - linux/amd64
-    - linux/arm64
+    - arch: "amd64"
+      os: "linux"
+    - arch: "arm64"
+      os: "linux"
 ```
 
 * `NodeScanJob`: Represents a single execution of a node scan.
