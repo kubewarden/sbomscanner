@@ -27,6 +27,7 @@ rules:
   - registries
   - scanjobs
   - vexhubs
+  - nodescanjobs
   verbs:
   - create
   - update
