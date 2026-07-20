@@ -36,6 +36,13 @@ const (
 	ToolListWorkloads                   = "list_workloads"
 	ToolGetWorkloadVulnerabilities      = "get_workload_vulnerabilities"
 	ToolGetWorkloadVulnerabilitySummary = "get_workload_vulnerability_summary"
+	ToolGetNodeScanConfiguration        = "get_nodescan_configuration"
+	ToolCreateNodeScanJobs              = "create_nodescanjobs"
+	ToolListNodeScanJobs                = "list_nodescanjobs"
+	ToolGetNodeScanJob                  = "get_nodescanjob"
+	ToolListNodes                       = "list_nodes"
+	ToolGetNodeVulnerabilities          = "get_node_vulnerabilities"
+	ToolGetNodeVulnerabilitySummary     = "get_node_vulnerability_summary"
 )
 
 func (s *Server) registerReadTools() {
@@ -103,6 +110,36 @@ func (s *Server) registerReadTools() {
 		Name:        ToolGetWorkloadVulnerabilities,
 		Description: "Advanced: Get the COMPLETE simplified CVE list for all containers in a workload (deduplicated by CVE ID per container, with top CVSS v3 score, severity, fix availability, and first reference link). Pass the reportName from list_workloads as the 'name' argument. WARNING: This returns a very large response that may exceed context limits. In most cases, use get_workload_vulnerability_summary instead. Only use this tool if the user explicitly requests the full vulnerability list beyond the top 10.",
 	}, s.getWorkloadVulnerabilities)
+
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        ToolGetNodeScanConfiguration,
+		Description: `Get the cluster-scoped singleton NodeScanConfiguration (always named "default"). Controls automatic scanning of cluster nodes: whether node scanning is enabled, which nodes are selected (nodeSelector), the scan interval, skip patterns, and target platforms.`,
+	}, s.getNodeScanConfiguration)
+
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        ToolListNodeScanJobs,
+		Description: "List NodeScanJob resources (cluster-scoped). A NodeScanJob scans a single cluster node; they can be created automatically by the controller from the NodeScanConfiguration or manually for on-demand scans. Check status conditions to track progress: Scheduled, InProgress, Complete, or Failed. Use spec.nodeName to identify which node each job targets.",
+	}, s.listNodeScanJobs)
+
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        ToolGetNodeScanJob,
+		Description: "Get a specific NodeScanJob by name (cluster-scoped). Returns the target node (spec.nodeName) and status with conditions (Scheduled, InProgress, Complete, Failed) and timing (startTime, completionTime).",
+	}, s.getNodeScanJob)
+
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        ToolListNodes,
+		Description: "List scanned cluster nodes with vulnerability counts. Returns for each node its name, platform, total vulnerability count, and severity breakdown (critical, high, medium, low, unknown, suppressed). Use this to assess node security posture or find the most vulnerable nodes.",
+	}, s.listNodes)
+
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        ToolGetNodeVulnerabilitySummary,
+		Description: "Get vulnerabilities for a scanned cluster node by name. This is the DEFAULT tool for any node vulnerability query. Use list_nodes first to find the node name. Returns severity counts (critical, high, medium, low, unknown, suppressed) and the top 10 most severe CVEs.",
+	}, s.getNodeVulnerabilitySummary)
+
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        ToolGetNodeVulnerabilities,
+		Description: "Advanced: Get the COMPLETE simplified CVE list for a cluster node (deduplicated by CVE ID, with top CVSS v3 score, severity, fix availability, and first reference link). WARNING: This returns a very large response that may exceed context limits. In most cases, use get_node_vulnerability_summary instead. Only use this tool if the user explicitly requests the full vulnerability list beyond the top 10.",
+	}, s.getNodeVulnerabilities)
 }
 
 func (s *Server) listRegistries(ctx context.Context, _ *mcp.CallToolRequest, args namespacedListArgs) (*mcp.CallToolResult, any, error) {
@@ -293,6 +330,99 @@ func (s *Server) getWorkloadVulnerabilities(ctx context.Context, _ *mcp.CallTool
 	})
 }
 
+func (s *Server) getNodeScanConfiguration(ctx context.Context, _ *mcp.CallToolRequest, _ emptyArgs) (*mcp.CallToolResult, any, error) {
+	return getClusterScoped(ctx, s, &v1alpha1.NodeScanConfiguration{}, v1alpha1.NodeScanConfigurationName)
+}
+
+func (s *Server) createNodeScanJobs(ctx context.Context, _ *mcp.CallToolRequest, args nodeScanJobCreateArgs) (*mcp.CallToolResult, any, error) {
+	nodescanjob := &v1alpha1.NodeScanJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: args.Name,
+		},
+		Spec: v1alpha1.NodeScanJobSpec{
+			NodeName: args.NodeName,
+		},
+	}
+	if err := s.client.Create(ctx, nodescanjob); err != nil {
+		return toolError("creating NodeScanJobs: %v", err)
+	}
+	return jsonResult(nodescanjob)
+}
+
+func (s *Server) listNodeScanJobs(ctx context.Context, _ *mcp.CallToolRequest, _ emptyArgs) (*mcp.CallToolResult, any, error) {
+	list := &v1alpha1.NodeScanJobList{}
+	if err := s.client.List(ctx, list); err != nil {
+		return toolError("listing NodeScanJobs: %v", err)
+	}
+	return jsonResult(list)
+}
+
+func (s *Server) getNodeScanJob(ctx context.Context, _ *mcp.CallToolRequest, args clusterGetArgs) (*mcp.CallToolResult, any, error) {
+	return getClusterScoped(ctx, s, &v1alpha1.NodeScanJob{}, args.Name)
+}
+
+func (s *Server) listNodes(ctx context.Context, _ *mcp.CallToolRequest, _ emptyArgs) (*mcp.CallToolResult, any, error) {
+	list := &storagev1alpha1.NodeVulnerabilityReportList{}
+	if err := s.client.List(ctx, list); err != nil {
+		return toolError("listing node vulnerability reports: %v", err)
+	}
+
+	items := make([]nodeListItem, 0, len(list.Items))
+	for _, report := range list.Items {
+		sum := report.Report.Summary
+		items = append(items, nodeListItem{
+			Name:     report.NodeMetadata.Name,
+			Platform: report.NodeMetadata.Platform,
+			Total:    sum.Critical + sum.High + sum.Medium + sum.Low + sum.Unknown,
+			Summary:  sum,
+		})
+	}
+	return jsonResult(items)
+}
+
+func (s *Server) getNodeVulnerabilitySummary(ctx context.Context, _ *mcp.CallToolRequest, args clusterGetArgs) (*mcp.CallToolResult, any, error) {
+	report := &storagev1alpha1.NodeVulnerabilityReport{}
+	if err := s.client.Get(ctx, k8stypes.NamespacedName{Name: args.Name}, report); err != nil {
+		return toolError("getting node vulnerability report: %v", err)
+	}
+
+	vulnerabilities, err := collectSimplifiedVulnerabilitiesFromReport(report.Report)
+	if err != nil {
+		return toolError("collecting vulnerabilities: %v", err)
+	}
+	topVulnerabilities := vulnerabilities
+	if len(topVulnerabilities) > 10 {
+		topVulnerabilities = topVulnerabilities[:10]
+	}
+
+	sum := report.Report.Summary
+	return jsonResult(nodeVulnerabilitySummaryResponse{
+		Node:               report.NodeMetadata.Name,
+		Platform:           report.NodeMetadata.Platform,
+		Total:              sum.Critical + sum.High + sum.Medium + sum.Low + sum.Unknown,
+		Summary:            sum,
+		TopVulnerabilities: topVulnerabilities,
+	})
+}
+
+func (s *Server) getNodeVulnerabilities(ctx context.Context, _ *mcp.CallToolRequest, args clusterGetArgs) (*mcp.CallToolResult, any, error) {
+	report := &storagev1alpha1.NodeVulnerabilityReport{}
+	if err := s.client.Get(ctx, k8stypes.NamespacedName{Name: args.Name}, report); err != nil {
+		return toolError("getting node vulnerability report: %v", err)
+	}
+
+	vulnerabilities, err := collectSimplifiedVulnerabilitiesFromReport(report.Report)
+	if err != nil {
+		return toolError("collecting vulnerabilities: %v", err)
+	}
+
+	return jsonResult(nodeVulnerabilitiesResponse{
+		Node:            report.NodeMetadata.Name,
+		Platform:        report.NodeMetadata.Platform,
+		Vulnerabilities: vulnerabilities,
+	})
+}
+
 func (s *Server) registerWriteTools() {
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
 		Name: ToolCreateRegistry,
@@ -347,6 +477,11 @@ CEL expression reference:
 		Name:        ToolDeleteScanJob,
 		Description: "Delete a ScanJob. Scan results (Images, SBOMs, VulnerabilityReports) produced by the job are not deleted.",
 	}, s.deleteScanJob)
+
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        ToolCreateNodeScanJobs,
+		Description: "Create NodeScanJob resources (cluster-scoped). A NodeScanJob scans a single cluster node; they can be created automatically by the controller from the NodeScanConfiguration or manually for on-demand scans. Use spec.nodeName to define which node the job targets.",
+	}, s.createNodeScanJobs)
 
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
 		Name:        ToolCreateVEXHub,

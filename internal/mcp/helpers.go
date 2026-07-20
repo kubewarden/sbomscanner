@@ -59,8 +59,13 @@ func simplifyVulnerability(vulnerability storagev1alpha1.Vulnerability) (simplif
 
 // collectSimplifiedVulnerabilities flattens, deduplicates, and sorts vulnerabilities from a report.
 func collectSimplifiedVulnerabilities(report *storagev1alpha1.VulnerabilityReport) ([]simplifiedVulnerability, error) {
+	return collectSimplifiedVulnerabilitiesFromReport(report.Report)
+}
+
+// collectSimplifiedVulnerabilitiesFromReport flattens, deduplicates, and sorts vulnerabilities from a raw Report.
+func collectSimplifiedVulnerabilitiesFromReport(report storagev1alpha1.Report) ([]simplifiedVulnerability, error) {
 	seen := make(map[string]simplifiedVulnerability)
-	for _, result := range report.Report.Results {
+	for _, result := range report.Results {
 		for _, vulnerability := range result.Vulnerabilities {
 			if _, exists := seen[vulnerability.CVE]; exists {
 				continue

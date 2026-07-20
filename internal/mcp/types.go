@@ -75,6 +75,32 @@ type workloadListItem struct {
 	Summary      storagev1alpha1.Summary `json:"summary"`
 }
 
+type nodeScanJobCreateArgs struct {
+	Name     string `json:"name" jsonschema:"name of the node scan job"`
+	NodeName string `json:"nodeName" jsonschema:"name of the node to scan"`
+}
+
+type nodeListItem struct {
+	Name     string                  `json:"name"`
+	Platform string                  `json:"platform"`
+	Total    int                     `json:"total"`
+	Summary  storagev1alpha1.Summary `json:"summary"`
+}
+
+type nodeVulnerabilitiesResponse struct {
+	Node            string                    `json:"node"`
+	Platform        string                    `json:"platform"`
+	Vulnerabilities []simplifiedVulnerability `json:"vulnerabilities"`
+}
+
+type nodeVulnerabilitySummaryResponse struct {
+	Node               string                    `json:"node"`
+	Platform           string                    `json:"platform"`
+	Total              int                       `json:"total"`
+	Summary            storagev1alpha1.Summary   `json:"summary"`
+	TopVulnerabilities []simplifiedVulnerability `json:"topVulnerabilities"`
+}
+
 type simplifiedVulnerability struct {
 	CVE          string  `json:"cve"`
 	Link         string  `json:"link"`

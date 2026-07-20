@@ -79,6 +79,82 @@ func (s *ServerSuite) SetupSuite() {
 		},
 	}
 
+	nodeScanConfiguration := &v1alpha1.NodeScanConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: v1alpha1.NodeScanConfigurationName,
+		},
+		Spec: v1alpha1.NodeScanConfigurationSpec{
+			Enabled: true,
+		},
+	}
+
+	nodeScanJob := &v1alpha1.NodeScanJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-nodescanjob",
+		},
+		Spec: v1alpha1.NodeScanJobSpec{
+			NodeName: "test-node",
+		},
+	}
+
+	nodeVulnerabilityReport := &storagev1alpha1.NodeVulnerabilityReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-node",
+		},
+		NodeMetadata: storagev1alpha1.NodeMetadata{
+			Name:     "test-node",
+			Platform: "linux/amd64",
+		},
+		Report: storagev1alpha1.Report{
+			Summary: storagev1alpha1.Summary{
+				Critical: 1,
+				High:     1,
+				Medium:   1,
+			},
+			Results: []storagev1alpha1.Result{
+				{
+					Target: "test-node (debian 12.0)",
+					Class:  storagev1alpha1.ClassOSPackages,
+					Type:   "debian",
+					Vulnerabilities: []storagev1alpha1.Vulnerability{
+						{
+							CVE:              "CVE-2024-0001",
+							Severity:         storagev1alpha1.SeverityCritical,
+							PackageName:      "openssl",
+							InstalledVersion: "1.1.1k-1",
+							FixedVersions:    []string{"1.1.1l-1"},
+							CVSS: map[string]storagev1alpha1.CVSS{
+								"nvd": {V3Score: "9.8"},
+							},
+							References: []string{"https://nvd.nist.gov/vuln/detail/CVE-2024-0001"},
+						},
+						{
+							CVE:              "CVE-2024-0002",
+							Severity:         storagev1alpha1.SeverityHigh,
+							PackageName:      "curl",
+							InstalledVersion: "7.74.0-1",
+							FixedVersions:    []string{"7.74.0-2"},
+							CVSS: map[string]storagev1alpha1.CVSS{
+								"nvd": {V3Score: "8.1"},
+							},
+							References: []string{"https://nvd.nist.gov/vuln/detail/CVE-2024-0002"},
+						},
+						{
+							CVE:              "CVE-2024-0003",
+							Severity:         storagev1alpha1.SeverityMedium,
+							PackageName:      "zlib",
+							InstalledVersion: "1.2.11-4",
+							CVSS: map[string]storagev1alpha1.CVSS{
+								"nvd": {V3Score: "4.2"},
+							},
+							References: []string{"https://nvd.nist.gov/vuln/detail/CVE-2024-0003"},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	imageMetadata := storagev1alpha1.ImageMetadata{
 		Registry:    "test-registry",
 		RegistryURI: "https://registry.example.com",
@@ -240,7 +316,7 @@ func (s *ServerSuite) SetupSuite() {
 
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(registry, scanJob, workloadScanConfiguration, vexHub, vulnerabilityReport, workloadScanReport).
+		WithObjects(registry, scanJob, workloadScanConfiguration, vexHub, vulnerabilityReport, workloadScanReport, nodeScanConfiguration, nodeScanJob, nodeVulnerabilityReport).
 		Build()
 
 	server := NewServer(k8sClient, slog.Default(), false)
@@ -353,6 +429,9 @@ func (s *ServerSuite) TestListTools() {
 		"create_vexhub", "update_vexhub", "delete_vexhub",
 		"list_images", "get_image_vulnerabilities", "get_image_vulnerability_summary",
 		"list_workloads", "get_workload_vulnerability_summary", "get_workload_vulnerabilities",
+		"get_nodescan_configuration",
+		"create_nodescanjobs", "list_nodescanjobs", "get_nodescanjob",
+		"list_nodes", "get_node_vulnerability_summary", "get_node_vulnerabilities",
 	}
 	s.Require().ElementsMatch(expected, names)
 }
@@ -456,6 +535,154 @@ func (s *ServerSuite) TestCallTool_GetVEXHub() {
 	s.Require().NoError(json.Unmarshal([]byte(text), &got))
 	s.Require().Equal("test-vexhub", got.Name)
 	s.Require().Equal("https://vexhub.example.com", got.Spec.URL)
+}
+
+func (s *ServerSuite) TestCallTool_GetNodeScanConfiguration() {
+	result, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "get_nodescan_configuration",
+	})
+	s.Require().NoError(err)
+	s.Require().False(result.IsError)
+
+	text := result.Content[0].(*mcp.TextContent).Text
+
+	var got v1alpha1.NodeScanConfiguration
+	s.Require().NoError(json.Unmarshal([]byte(text), &got))
+	s.Require().Equal(v1alpha1.NodeScanConfigurationName, got.Name)
+	s.Require().True(got.Spec.Enabled)
+}
+
+func (s *ServerSuite) TestCallTool_ListNodeScanJobs() {
+	result, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "list_nodescanjobs",
+	})
+	s.Require().NoError(err)
+	s.Require().False(result.IsError)
+	s.Require().Len(result.Content, 1)
+
+	text := result.Content[0].(*mcp.TextContent).Text
+
+	var list v1alpha1.NodeScanJobList
+	s.Require().NoError(json.Unmarshal([]byte(text), &list))
+	s.Require().NotEmpty(list.Items)
+
+	var found bool
+	for _, item := range list.Items {
+		if item.Name == "test-nodescanjob" {
+			s.Require().Equal("test-node", item.Spec.NodeName)
+			found = true
+			break
+		}
+	}
+	s.Require().True(found, "test-nodescanjob not found in list")
+}
+
+func (s *ServerSuite) TestCallTool_GetNodeScanJob() {
+	result, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "get_nodescanjob",
+		Arguments: map[string]any{
+			"name": "test-nodescanjob",
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().False(result.IsError)
+
+	text := result.Content[0].(*mcp.TextContent).Text
+
+	var got v1alpha1.NodeScanJob
+	s.Require().NoError(json.Unmarshal([]byte(text), &got))
+	s.Require().Equal("test-nodescanjob", got.Name)
+	s.Require().Equal("test-node", got.Spec.NodeName)
+}
+
+func (s *ServerSuite) TestCallTool_CreateNodeScanJobs() {
+	result, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "create_nodescanjobs",
+		Arguments: map[string]any{
+			"name":     "new-nodescanjob",
+			"nodeName": "new-node",
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().False(result.IsError)
+
+	// Verify via get
+	getResult, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "get_nodescanjob",
+		Arguments: map[string]any{
+			"name": "new-nodescanjob",
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().False(getResult.IsError)
+
+	text := getResult.Content[0].(*mcp.TextContent).Text
+	var got v1alpha1.NodeScanJob
+	s.Require().NoError(json.Unmarshal([]byte(text), &got))
+	s.Require().Equal("new-nodescanjob", got.Name)
+	s.Require().Equal("new-node", got.Spec.NodeName)
+}
+
+func (s *ServerSuite) TestCallTool_ListNodes() {
+	result, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "list_nodes",
+	})
+	s.Require().NoError(err)
+	s.Require().False(result.IsError)
+	s.Require().Len(result.Content, 1)
+
+	text := result.Content[0].(*mcp.TextContent).Text
+
+	var items []nodeListItem
+	s.Require().NoError(json.Unmarshal([]byte(text), &items))
+	s.Require().Len(items, 1)
+	s.Require().Equal("test-node", items[0].Name)
+	s.Require().Equal("linux/amd64", items[0].Platform)
+	s.Require().Equal(3, items[0].Total)
+	s.Require().Equal(1, items[0].Summary.Critical)
+	s.Require().Equal(1, items[0].Summary.High)
+	s.Require().Equal(1, items[0].Summary.Medium)
+}
+
+func (s *ServerSuite) TestCallTool_GetNodeVulnerabilitySummary() {
+	result, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "get_node_vulnerability_summary",
+		Arguments: map[string]any{
+			"name": "test-node",
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().False(result.IsError)
+
+	text := result.Content[0].(*mcp.TextContent).Text
+
+	var got nodeVulnerabilitySummaryResponse
+	s.Require().NoError(json.Unmarshal([]byte(text), &got))
+	s.Require().Equal("test-node", got.Node)
+	s.Require().Equal("linux/amd64", got.Platform)
+	s.Require().Equal(3, got.Total)
+	s.Require().Len(got.TopVulnerabilities, 3)
+	s.Require().Equal("CVE-2024-0001", got.TopVulnerabilities[0].CVE)
+}
+
+func (s *ServerSuite) TestCallTool_GetNodeVulnerabilities() {
+	result, err := s.session.CallTool(s.T().Context(), &mcp.CallToolParams{
+		Name: "get_node_vulnerabilities",
+		Arguments: map[string]any{
+			"name": "test-node",
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().False(result.IsError)
+
+	text := result.Content[0].(*mcp.TextContent).Text
+
+	var got nodeVulnerabilitiesResponse
+	s.Require().NoError(json.Unmarshal([]byte(text), &got))
+	s.Require().Equal("test-node", got.Node)
+	s.Require().Equal("linux/amd64", got.Platform)
+	s.Require().Len(got.Vulnerabilities, 3)
+	s.Require().Equal("CVE-2024-0001", got.Vulnerabilities[0].CVE)
 }
 
 func (s *ServerSuite) TestCallTool_ListImages() {
@@ -1000,6 +1227,7 @@ func (s *ReadOnlyServerSuite) TestListTools_ReadOnly() {
 		"create_registry", "update_registry", "delete_registry",
 		"create_scanjob", "delete_scanjob",
 		"create_vexhub", "update_vexhub", "delete_vexhub",
+		"create_nodescanjobs",
 	}
 	for _, wt := range writeTools {
 		s.Require().NotContains(names, wt, "write tool %q should not be present in read-only mode", wt)
@@ -1013,6 +1241,9 @@ func (s *ReadOnlyServerSuite) TestListTools_ReadOnly() {
 		"list_vexhubs", "get_vexhub",
 		"list_images", "get_image_vulnerabilities", "get_image_vulnerability_summary",
 		"list_workloads", "get_workload_vulnerability_summary", "get_workload_vulnerabilities",
+		"get_nodescan_configuration",
+		"list_nodescanjobs", "get_nodescanjob",
+		"list_nodes", "get_node_vulnerability_summary", "get_node_vulnerabilities",
 	}
 	for _, rt := range readTools {
 		s.Require().Contains(names, rt, "read tool %q should be present in read-only mode", rt)
