@@ -111,13 +111,34 @@ file. This layout is deliberate and gives us two properties:
 * **Minimal transfer**: when the worker pulls an updated artifact, only the layers whose
   digests changed are downloaded. Unchanged files cost nothing on the wire.
 
+Before being added to the artifact, every data file is **packed and compressed as `tar.gz`**,
+independently of its input format. Whether the source is JSON, CSV, or anything else, the file
+is first archived and gzipped (e.g. `kev.json` becomes `kev.tar.gz`) and that `tar.gz` is what
+becomes the layer blob. This gives a uniform packaging step for all data types and reduces the
+on-the-wire and at-rest size of each layer.
+
+Using `tar` (and not just `gzip`) is a deliberate design decision: a database is not necessarily
+a single file. When a data source is made up of multiple files, `tar` lets us bundle them into
+one archive so that a layer always maps to exactly **one** `tar.gz` blob. This keeps the
+one-layer-per-database model uniform regardless of how many files a given database contains.
+
+The `tar.gz` is built **reproducibly**: owner/group, timestamps, and any other environment-
+dependent metadata are normalized (zeroed/fixed) so that the same input file always produces a
+byte-identical archive. This is what makes the layer digest stable across rebuilds: without it,
+a metadata change alone would alter the digest and defeat the content-addressed deduplication
+the OCI format gives us. With it, an unchanged data file yields the same digest build after
+build, so the registry and workers reuse the existing blob instead of re-transferring it.
+
 Each layer carries a media type that records the file's format so the worker knows how to
 handle it, e.g.:
 
 ```
-application/vnd.sbomscanner.db.file.v1+json   # KEV feed
-application/vnd.sbomscanner.db.file.v1+csv    # EPSS feed
+application/vnd.sbomscanner.db.file.v1.json+gzip   # KEV feed  (kev.json  -> kev.tar.gz)
+application/vnd.sbomscanner.db.file.v1.csv+gzip    # EPSS feed (epss.csv -> epss.tar.gz)
 ```
+
+The media type still records the underlying file format so the worker knows how to parse the
+file after decompressing the layer; the `+gzip` suffix reflects the `tar.gz` packaging.
 
 The artifact is **format-agnostic**: adding a new data type is a matter of adding a file and
 declaring its media type; no structural change to the artifact is required.
@@ -176,8 +197,8 @@ The worker stores the OCI artifact **locally**, so that lookups against the data
 
 The worker is responsible for:
 
-* **Initial pull**: on startup, pulling the artifact and unpacking its layers to local
-  storage.
+* **Initial pull**: on startup, pulling the artifact and unpacking its layers (decompressing
+  each `tar.gz` layer back to its original file) to local storage.
 * **Scan-triggered freshness check**: the worker verifies freshness only when a new scan is
   requested. It reads `nextUpdate` from the **locally cached manifest** (the manifest of the
   last pulled artifact) and compares it against the current time. While `now < nextUpdate` the
@@ -198,7 +219,8 @@ The worker is responsible for:
 3. If `now < nextUpdate`, the current local artifact is still considered fresh and the worker
    uses it as-is. If `now >= nextUpdate`, a newer artifact is expected, so the worker pulls the
    updated artifact from the registry before the scan, downloading only the changed layers.
-4. The worker unpacks the layers into its local cache directory.
+4. The worker unpacks the layers, decompressing each `tar.gz` back to its original file, into
+   its local cache directory.
 5. During a scan, the worker enriches results using the locally stored data (KEV, EPSS, …)
    with no additional network requests.
 
@@ -221,7 +243,8 @@ A new standalone CLI, distinct from the SBOMScanner/worker binary, used primaril
 build and publish, and available for local inspection and debugging. Proposed commands:
 
 * `sbomscannerdb build`: assemble the OCI artifact from a directory/manifest of data files,
-  one layer per file, assigning media types by format and computing the freshness annotations.
+  packing and gzipping each file as `tar.gz` (one layer per file), assigning media types by
+  format and computing the freshness annotations.
 * `sbomscannerdb push`: push the built artifact to the configured registry/tag.
 * `sbomscannerdb pull`: pull the artifact (used by tooling and for verification).
 * `sbomscannerdb inspect`: print the manifest, layers, media types, and annotations.
