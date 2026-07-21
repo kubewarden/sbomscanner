@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/go-logr/logr"
 
@@ -15,6 +16,24 @@ import (
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
+
+// defaultSkipPatterns mirrors the +kubebuilder:default marker on
+// NodeScanConfigurationSpec.SkipPatterns. It is used to detect when the user
+// has overridden the defaults so we can warn about the consequences.
+var defaultSkipPatterns = []string{
+	"/var/lib/containerd/",
+	"/var/lib/docker/",
+	"/var/lib/rancher/k3s/agent/containerd/",
+	"/var/lib/rancher/rke2/agent/containerd/",
+	"/var/lib/containers/",
+	"/run/containerd/",
+	"/run/k3s/containerd/",
+}
+
+const skipPatternsOverrideWarning = "spec.skipPatterns overrides the default skip patterns. " +
+	"The defaults exclude container-runtime state (e.g. /run/containerd, /run/k3s/containerd) " +
+	"which exposes the procfs of running containers on the node. " +
+	"Scanning those paths may cause the node scan to fail."
 
 // SetupNodeScanConfigurationWebhookWithManager registers the webhook for NodeScanConfiguration in the manager.
 func SetupNodeScanConfigurationWebhookWithManager(mgr ctrl.Manager) error {
@@ -50,7 +69,7 @@ func (v *NodeScanConfigurationCustomValidator) ValidateCreate(_ context.Context,
 		)
 	}
 
-	return nil, nil
+	return nodeScanConfigurationWarnings(config), nil
 }
 
 func (v *NodeScanConfigurationCustomValidator) ValidateUpdate(_ context.Context, _, config *v1alpha1.NodeScanConfiguration) (admission.Warnings, error) {
@@ -66,7 +85,30 @@ func (v *NodeScanConfigurationCustomValidator) ValidateUpdate(_ context.Context,
 		)
 	}
 
-	return nil, nil
+	return nodeScanConfigurationWarnings(config), nil
+}
+
+// nodeScanConfigurationWarnings aggregates all admission warnings for a
+// NodeScanConfiguration. Add new field warnings here.
+func nodeScanConfigurationWarnings(config *v1alpha1.NodeScanConfiguration) admission.Warnings {
+	var warnings admission.Warnings
+
+	warnings = append(warnings, skipPatternsWarnings(config)...)
+
+	return warnings
+}
+
+// skipPatternsWarnings returns a warning when the user overrides the default
+// skipPatterns, since removing the container-runtime paths can make the node
+// scan fail while walking a running container's procfs.
+func skipPatternsWarnings(config *v1alpha1.NodeScanConfiguration) admission.Warnings {
+	if config.Spec.SkipPatterns == nil {
+		return nil
+	}
+	if slices.Equal(*config.Spec.SkipPatterns, defaultSkipPatterns) {
+		return nil
+	}
+	return admission.Warnings{skipPatternsOverrideWarning}
 }
 
 func (v *NodeScanConfigurationCustomValidator) ValidateDelete(_ context.Context, config *v1alpha1.NodeScanConfiguration) (admission.Warnings, error) {
