@@ -189,6 +189,24 @@ If another job is already active, the new job is not created.
 
 ![NodeScanConfiguration and NodeScanJob relationship](./assets/nodescanconfig.png)
 
+## Webhook Validation
+
+The `nodeSelector` and `platform` filters defined in the `NodeScanConfiguration`
+do not trigger the execution of a manually created `NodeScanJob` for a node that
+does not match them.
+
+In most cases, this is enforced by a validating webhook: when a user creates a
+`NodeScanJob`, the webhook checks the target node against the current
+`NodeScanConfiguration` `nodeSelector` and `platform` filters and rejects the
+request if the node does not match.
+
+However, the webhook is not the only line of defense. In case a request reaches
+the controller anyway (e.g., the webhook is bypassed or unavailable, or the node
+stopped matching between admission and reconciliation), the controller performs
+an additional validation check. If the node no longer matches the
+`NodeScanConfiguration`, the controller sets the `NodeScanJob` status to
+`NodeNotMatching`.
+
 ## Reconcilers
 
 The NodeScan reconciler is responsible for creating `NodeScanJob` resources based on the 
