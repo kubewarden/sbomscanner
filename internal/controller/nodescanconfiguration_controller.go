@@ -18,6 +18,8 @@ import (
 // configuration is missing or has scanning disabled.
 type NodeScanConfigurationReconciler struct {
 	client.Client
+
+	Instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=nodescanconfigurations,verbs=get;list;watch
@@ -69,7 +71,7 @@ func (r *NodeScanConfigurationReconciler) SetupWithManager(manager ctrl.Manager)
 	err := ctrl.NewControllerManagedBy(manager).
 		Named("nodescanconfiguration-controller").
 		For(&v1alpha1.NodeScanConfiguration{}).
-		Complete(r)
+		Complete(instrumentReconciler(r.Instrumentation, "NodeScanConfiguration", "NodeScanConfiguration", r))
 	if err != nil {
 		return fmt.Errorf("failed to create nodescanconfiguration controller: %w", err)
 	}
