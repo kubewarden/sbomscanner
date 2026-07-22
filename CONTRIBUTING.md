@@ -66,6 +66,16 @@ If you need authentication, set `use_private_registry: true` in your [`tilt-sett
 - Tag images with the `localhost:5000/` prefix to push them to this registry
 - Check out [`examples/registry.yaml`](examples/registry.yaml) for a sample `Registry` resource configured for this development setup
 
+### Telemetry stack
+
+To test the OpenTelemetry instrumentation, set `telemetry: true` in your [`tilt-settings.yaml`](tilt-settings.yaml) file.
+
+Tilt then deploys an OpenTelemetry Collector, Jaeger, Prometheus, and Grafana (manifests in [`hack/telemetry.yaml`](hack/telemetry.yaml)) and points the instrumented components at the collector via the `observability.otel.endpoint` chart value. Traces are forwarded to Jaeger; metrics are pushed to Prometheus's native OTLP receiver.
+
+- Jaeger UI: `http://localhost:16686`
+- Prometheus UI: `http://localhost:9090`
+- Grafana UI: `http://localhost:3000` (anonymous admin access, Prometheus and Jaeger datasources preprovisioned, and the [`examples/dashboards/sbomscanner.json`](examples/dashboards/sbomscanner.json) dashboard loaded at startup)
+
 ## Generate code
 
 When you make changes to the CRDs in `/api` or rbac rules annotations, you need to regenerate the code.
