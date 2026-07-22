@@ -60,10 +60,45 @@ The package provides:
 - A `Setup` function each `cmd/*/main.go` calls once at startup to install the global providers (or no-ops when telemetry is disabled).
 - An `slog.Handler` wrapper that decorates every log record with `trace_id` and `span_id` for log-to-trace correlation, while leaving the existing JSON-on-stdout pipeline intact so `kubectl logs`, Loki, and Datadog continue to work unchanged.
 - A NATS header carrier that propagates the W3C `traceparent` over JetStream headers so a single trace survives the producer-to-consumer hop.
+- An annotation carrier that stores the W3C `traceparent` in the `sbomscanner.kubewarden.io/traceparent` object annotation, so a job trace survives hops between processes that communicate through the Kubernetes API (see [Job trace propagation](#job-trace-propagation)).
 - `Tracer` and `Meter` helpers that take a package directory (e.g. `internal/handlers`) and produce instances whose [instrumentation scope](https://opentelemetry.io/docs/specs/otel/common/instrumentation-scope/) is the full Go import path of the calling package.
 
 Tracers and meters are passed through constructors as struct fields, the same way `*slog.Logger` is already threaded through the codebase.
 There are no package-level globals: the constructor-injection style keeps instrumentation testable and matches the maintainer guidance in [OpenTelemetry Go discussion #4532](https://github.com/open-telemetry/opentelemetry-go/discussions/4532).
+
+## Span naming convention
+
+Span names follow the `Component.Operation` convention, so every span name states the acting component:
+
+- Reconcilers: `<Kind>Reconciler.Reconcile` (e.g. `ScanJobReconciler.Reconcile`).
+- Runners: `RegistryScanRunner.CreateScanJob`, `NodeScanRunner.CreateNodeScanJob`.
+- Webhooks use the Kubernetes-facing webhook kinds:
+  `<Kind>ValidatingWebhook.<Verb>` and `<Kind>MutatingWebhook.<Verb>`
+  with the admission verb (`Create` / `Update` / `Delete`), e.g. `ScanJobValidatingWebhook.Create`.
+
+Names are static and low-cardinality, per the
+[OpenTelemetry span name guidance](https://opentelemetry.io/docs/specs/otel/trace/api/#span)
+("the most general string that identifies a (statistically) interesting class of Spans");
+identities (object name, namespace, operation, outcome) live in attributes.
+[Tekton names its reconcile spans the same way](https://github.com/tektoncd/pipeline/blob/main/pkg/reconciler/pipelinerun/tracing.go)
+(`PipelineRun:Reconciler`).
+
+## Job trace propagation
+
+[job-trace-propagation]: #job-trace-propagation
+
+A scan is a finite workflow that crosses process boundaries through a custom resource (`ScanJob` / `NodeScanJob`).
+To keep every actor's spans in one trace, the trace context travels on the object itself:
+the `sbomscanner.kubewarden.io/traceparent` annotation holds the W3C [`traceparent`](https://www.w3.org/TR/trace-context/#traceparent-header) of the job trace.
+Only the job kinds carry it: long-lived objects (`Registry`, the configuration singletons) have no lifecycle to trace.
+
+The annotation is written exactly once, when the job is created:
+by the runner for scheduled jobs, or by the mutating webhook for jobs created any other way (kubectl, GitOps, MCP).
+An existing annotation is never overwritten,
+so a client that is already traced (e.g. a CI pipeline creating a `ScanJob`) can pre-set it
+and adopt the whole scan into its own trace.
+Reconcilers only ever read the annotation,
+so the instrumentation cannot retrigger the reconcile loops it observes.
 
 ## Metric label cardinality
 
@@ -90,6 +125,19 @@ Per-workload metrics (`worker.workload.*`) keep the owning controller's `kind`, 
 Cardinality grows with the number of scanned workloads in the cluster, not over time: workload names are operator-set and only change on intentional rename.
 This matches the label shape used by [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and by the [trivy-operator `trivy_image_vulnerabilities`](https://aquasecurity.github.io/trivy-operator/latest/tutorials/integrations/metrics/) family, so the metrics join cleanly against existing dashboards without rewrites.
 
+## Histograms
+
+Histograms are exported as
+[base2 exponential histograms](https://opentelemetry.io/docs/specs/otel/metrics/sdk/#base2-exponential-bucket-histogram-aggregation)
+by default:
+bucket resolution adapts to the recorded values,
+matching the native histograms the Prometheus bridge already emits for the controller-runtime metrics.
+The default is applied in the shared telemetry setup only when the standard
+[`OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION`](https://opentelemetry.io/docs/specs/otel/metrics/sdk_exporters/otlp/) environment variable is unset,
+so the variable keeps its standard behaviour:
+setting it to `explicit_bucket_histogram` restores classic histograms
+for pipelines without exponential-histogram support.
+
 ## Traces and metrics catalogue
 
 The traces and metrics listed below are illustrative and will evolve with the project.
@@ -99,31 +147,45 @@ They show the current direction per component, not a frozen contract.
 
 Traces:
 
-| Span                                | Triggered by                                      | Key attributes                                                                                     |
-| :---------------------------------- | :------------------------------------------------ | :------------------------------------------------------------------------------------------------- |
-| `Reconcile ScanJob`                 | `ScanJobReconciler` reconcile call                | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `scanjob.phase`, `controller.result` |
-| `Reconcile VulnerabilityReport`     | `VulnerabilityReportReconciler` reconcile call    | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile WorkloadScan`            | `WorkloadScanReconciler` reconcile call           | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`, `workload.kind` |
-| `Reconcile ImageWorkloadScan`       | `ImageWorkloadScanReconciler` reconcile call      | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile NodeScan`                | `NodeScanReconciler` reconcile call               | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile NodeScanConfiguration`   | `NodeScanConfigurationReconciler` reconcile call  | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile NodeScanJob`             | `NodeScanJobReconciler` reconcile call            | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `nodescanjob.phase`, `controller.result` |
-| `RegistryScanRunner tick`           | Periodic runner loop                              | `registry.name`, `registry.namespace`, `scan.scheduled`                                            |
-| `NodeScanRunner tick`               | Periodic runner loop                              | `nodescanconfiguration.name`, `nodes.scheduled`                                                    |
-| `Webhook Registry`                  | Validating webhook on `Registry`                  | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook ScanJob`                   | Validating webhook on `ScanJob`                   | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook WorkloadScanConfiguration` | Validating webhook on `WorkloadScanConfiguration` | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook NodeScanConfiguration`     | Validating webhook on `NodeScanConfiguration`     | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook NodeScanJob`               | Validating webhook on `NodeScanJob`               | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
+| Span                               | Triggered by                                                                                                   | Key attributes                                                                                                                                             |
+| :--------------------------------- | :------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<Kind>Reconciler.Reconcile`       | Each reconcile (ScanJob, VulnerabilityReport, WorkloadScan, ImageWorkloadScan, NodeScan, NodeScanConfiguration, NodeScanJob) | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`; the job reconcilers add `scanjob.status` / `nodescanjob.status`           |
+| `RegistryScanRunner.CreateScanJob` | `RegistryScanRunner` creating a job                                                                             | `scanjob.trigger=runner`, `registry.name`, `registry.namespace`, `k8s.object.name`                                                                            |
+| `NodeScanRunner.CreateNodeScanJob` | `NodeScanRunner` creating a job                                                                                 | `nodescanjob.trigger=runner`, `k8s.node.name`, `k8s.object.name`                                                                                              |
+| `<Kind>ValidatingWebhook.<Verb>`   | Validating admission (Registry, ScanJob, WorkloadScanConfiguration, NodeScanConfiguration, NodeScanJob)         | `webhook.type=validating`, `webhook.kind`, `webhook.operation`, `webhook.request.uid`, `webhook.allowed`, `webhook.reason`, `k8s.namespace.name`, `k8s.object.name` |
+| `<Kind>MutatingWebhook.<Verb>`     | Mutating admission (Registry, ScanJob, NodeScanJob)                                                             | `webhook.type=mutating`, plus the validating-webhook attributes                                                                                               |
+
+Each reconcile emits exactly one span,
+parented into the job trace when the object carries the traceparent annotation
+(see [Job trace propagation](#job-trace-propagation)) and standalone otherwise.
+Webhook spans join the job trace the same way.
+
+The runner spans are the roots of fresh job traces, one trace per job.
+Jobs created by users (kubectl, GitOps, MCP) have no runner span:
+their trace roots at the `<Kind>MutatingWebhook.Create` span that injected the traceparent,
+so the root span name tells the job's origin apart at a glance,
+backed by the bounded `scanjob.trigger` / `nodescanjob.trigger` attribute.
 
 Metrics:
 
-| Metric                           | Type      | Labels (bounded)                         | Exemplars                                         |
-| :------------------------------- | :-------- | :--------------------------------------- | :------------------------------------------------ |
-| `controller.reconcile.duration`  | Histogram | `kind`, `controller`, `result`           | `trace_id`, `namespace`, `name`                   |
-| `controller.reconcile.errors`    | Counter   | `kind`, `controller`, `error.type`       | `trace_id`, `namespace`, `name`                   |
-| `controller.webhook.decisions`   | Counter   | `kind`, `operation`, `allowed`, `reason` | `trace_id`, `request.uid`                         |
-| `controller.registry_scan.ticks` | Counter   | `result`                                 | `trace_id`, `registry.name`, `registry.namespace` |
+| Metric                           | Type    | Labels (bounded)                                                   | Exemplars                 |
+| :------------------------------- | :------ | :------------------------------------------------------------------ | :------------------------ |
+| `controller.webhook.decisions`   | Counter | `type` (`validating` / `mutating`), `kind`, `operation`, `allowed`, `reason` | `trace_id`, `request.uid` |
+| `controller.registry_scan.ticks` | Counter | `result`                                                             | `trace_id`                |
+| `controller.node_scan.ticks`     | Counter | `result`                                                             | `trace_id`                |
+| `sbomscanner.scanjobs`           | Counter | `result` (`complete` / `failed`), `source` (`registry` / `workload`) | `trace_id`                |
+| `sbomscanner.nodescanjobs`       | Counter | `result` (`complete` / `failed`)                                     | `trace_id`                |
+
+Reconcile durations and error counts are deliberately not duplicated here:
+controller-runtime already exports them, along with the workqueue, rest-client, webhook-server,
+and Go runtime families
+(see the [kubebuilder metrics reference](https://book.kubebuilder.io/reference/metrics-reference)).
+Instead, the controller bridges its whole controller-runtime Prometheus registry over OTLP with the
+[Prometheus bridge](https://pkg.go.dev/go.opentelemetry.io/contrib/bridges/prometheus),
+so one OTLP stream carries the built-in and the first-party metrics
+(including controller-runtime's native histograms, translated to exponential histograms),
+while the [controller-runtime metrics server](https://book.kubebuilder.io/reference/metrics)
+keeps serving them for users on Prometheus pull.
 
 ### Worker
 
