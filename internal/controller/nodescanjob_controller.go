@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +30,9 @@ import (
 type NodeScanJobReconciler struct {
 	client.Client
 
-	Scheme    *runtime.Scheme
-	Publisher messaging.Publisher
+	Scheme          *runtime.Scheme
+	Publisher       messaging.Publisher
+	Instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=nodescanjobs,verbs=get;list;watch;create;update;patch;delete
@@ -48,6 +51,8 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		return ctrl.Result{}, fmt.Errorf("unable to get NodeScanJob: %w", err)
 	}
+
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("nodescanjob.status", jobStatus(nodeScanJob)))
 
 	if !nodeScanJob.DeletionTimestamp.IsZero() {
 		log.V(1).Info("NodeScanJob is being deleted, skipping reconciliation", "nodeScanJob", req.NamespacedName)
@@ -250,12 +255,21 @@ func (r *NodeScanJobReconciler) cleanupOldNodeScanJobs(ctx context.Context, curr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NodeScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(mgr).
+	// Count job completions on the controller's informer, observing every status writer.
+	informer, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.NodeScanJob{})
+	if err != nil {
+		return fmt.Errorf("failed to get NodeScanJob informer: %w", err)
+	}
+	if _, err := informer.AddEventHandler(r.Instrumentation.nodeScanJobTransitions()); err != nil {
+		return fmt.Errorf("failed to register NodeScanJob transitions handler: %w", err)
+	}
+
+	err = ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.NodeScanJob{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
-		Complete(r)
+		Complete(instrumentReconcilerWithTraceparent(r.Instrumentation, "NodeScanJob", "NodeScanJob", r.Client, &v1alpha1.NodeScanJob{}, r))
 	if err != nil {
 		return fmt.Errorf("failed to create NodeScanJob controller: %w", err)
 	}

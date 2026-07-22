@@ -21,6 +21,8 @@ import (
 // ImageWorkloadScanReconciler reconciles Image status based on WorkloadScanReport references.
 type ImageWorkloadScanReconciler struct {
 	client.Client
+
+	Instrumentation *Instrumentation
 }
 
 func (r *ImageWorkloadScanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -99,7 +101,7 @@ func (r *ImageWorkloadScanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&storagev1alpha1.WorkloadScanReport{},
 			handler.EnqueueRequestsFromMapFunc(mapWorkloadScanReportToImages(mgr.GetClient())),
 		).
-		Complete(r)
+		Complete(instrumentReconciler(r.Instrumentation, "ImageWorkloadScan", "Image", r))
 	if err != nil {
 		return fmt.Errorf("failed to setup image-workloadscan controller: %w", err)
 	}
