@@ -13,19 +13,41 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/webhook"
 )
 
 // SetupNodeScanJobWebhookWithManager registers the webhook for NodeScanJob in the manager.
-func SetupNodeScanJobWebhookWithManager(mgr ctrl.Manager) error {
+func SetupNodeScanJobWebhookWithManager(mgr ctrl.Manager, instrumentation *webhook.Instrumentation) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.NodeScanJob{}).
-		WithValidator(&NodeScanJobCustomValidator{
+		WithValidator(webhook.InstrumentValidator(instrumentation, "NodeScanJob", &NodeScanJobCustomValidator{
 			client: mgr.GetClient(),
 			logger: mgr.GetLogger().WithName("NodeScanJob_validator"),
-		}).
+		})).
+		WithDefaulter(webhook.InstrumentDefaulterWithTraceparent(instrumentation, "NodeScanJob", &NodeScanJobCustomDefaulter{
+			logger: mgr.GetLogger().WithName("NodeScanJob_defaulter"),
+		})).
 		Complete()
 	if err != nil {
 		return fmt.Errorf("failed to setup NodeScanJob webhook: %w", err)
 	}
+	return nil
+}
+
+// +kubebuilder:webhook:path=/mutate-sbomscanner-kubewarden-io-v1alpha1-nodescanjob,mutating=true,failurePolicy=fail,sideEffects=None,groups=sbomscanner.kubewarden.io,resources=nodescanjobs,verbs=create,versions=v1alpha1,name=mnodescanjob.sbomscanner.kubewarden.io,admissionReviewVersions=v1
+
+// NodeScanJobCustomDefaulter has no defaults to apply:
+// it exists to register the mutating webhook that the tracing wrapper uses
+// to persist the job traceparent at creation (see webhook.InstrumentDefaulterWithTraceparent).
+type NodeScanJobCustomDefaulter struct {
+	logger logr.Logger
+}
+
+var _ admission.Defaulter[*v1alpha1.NodeScanJob] = &NodeScanJobCustomDefaulter{}
+
+// Default implements admission.Defaulter.
+func (d *NodeScanJobCustomDefaulter) Default(_ context.Context, job *v1alpha1.NodeScanJob) error {
+	d.logger.Info("Defaulting NodeScanJob", "name", job.GetName())
+
 	return nil
 }
 
