@@ -40,7 +40,8 @@ var _ = Describe("ImageWorkloadScan Controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		reconciler := ImageWorkloadScanReconciler{
-			Client: mgr.GetClient(),
+			Client:          mgr.GetClient(),
+			Instrumentation: newNoopInstrumentation(),
 		}
 		mgrClient = mgr.GetClient()
 

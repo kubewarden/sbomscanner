@@ -22,6 +22,8 @@ import (
 // when a Node is deleted.
 type NodeScanReconciler struct {
 	client.Client
+
+	Instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=storage.sbomscanner.kubewarden.io,resources=nodesboms,verbs=list;watch;delete
@@ -97,7 +99,7 @@ func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager) error {
 				GenericFunc: func(_ event.GenericEvent) bool { return false },
 			}),
 		).
-		Complete(r)
+		Complete(instrumentReconciler(r.Instrumentation, "NodeScan", "Node", r))
 	if err != nil {
 		return fmt.Errorf("failed to create nodescan controller: %w", err)
 	}
