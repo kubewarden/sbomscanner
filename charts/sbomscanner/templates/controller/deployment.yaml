@@ -41,6 +41,10 @@ spec:
           env:
             - name: KUBE_FEATURE_WatchListClient
               value: "true"
+            {{- if .Values.observability.otel.endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.observability.otel.endpoint | quote }}
+            {{- end }}
           args:
             - -leader-elect
             - -health-probe-bind-address=:8081
