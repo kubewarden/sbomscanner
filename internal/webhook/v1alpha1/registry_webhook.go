@@ -14,6 +14,7 @@ import (
 
 	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/webhook"
 )
 
 const (
@@ -23,16 +24,16 @@ const (
 var availableCatalogTypes = []string{v1alpha1.CatalogTypeNoCatalog, v1alpha1.CatalogTypeOCIDistribution}
 
 // SetupRegistryWebhookWithManager registers the webhook for Registry in the manager.
-func SetupRegistryWebhookWithManager(mgr ctrl.Manager, serviceAccountNamespace, serviceAccountName string) error {
+func SetupRegistryWebhookWithManager(mgr ctrl.Manager, serviceAccountNamespace, serviceAccountName string, instrumentation *webhook.Instrumentation) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.Registry{}).
-		WithValidator(&RegistryCustomValidator{
+		WithValidator(webhook.InstrumentValidator(instrumentation, "Registry", &RegistryCustomValidator{
 			serviceAccountNamespace: serviceAccountNamespace,
 			serviceAccountName:      serviceAccountName,
 			logger:                  mgr.GetLogger().WithName("registry_validator"),
-		}).
-		WithDefaulter(&RegistryCustomDefaulter{
+		})).
+		WithDefaulter(webhook.InstrumentDefaulter(instrumentation, "Registry", &RegistryCustomDefaulter{
 			logger: mgr.GetLogger().WithName("registry_defaulter"),
-		}).
+		})).
 		Complete()
 	if err != nil {
 		return fmt.Errorf("failed to setup Registry webhook: %w", err)
