@@ -51,6 +51,8 @@ require (
 	sigs.k8s.io/structured-merge-diff/v7 v7.0.0
 )
 
+require go.opentelemetry.io/contrib/bridges/prometheus v0.69.0
+
 require (
 	cel.dev/expr v0.25.2 // indirect
 	cloud.google.com/go v0.123.0 // indirect
