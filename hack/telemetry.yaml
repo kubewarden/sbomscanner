@@ -1,0 +1,280 @@
+# Telemetry dev stack for Tilt: OpenTelemetry Collector + Jaeger + Prometheus + Grafana.
+# Enabled with `telemetry: true` in tilt-settings.yaml (see Tiltfile).
+#
+# The collector is the single OTLP sink for all sbomscanner components:
+# traces are forwarded to Jaeger, metrics are pushed to Prometheus's native OTLP
+# receiver, which ingests exponential histograms as native histograms directly
+# (controller-runtime enables native histograms, exported by the Prometheus bridge).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: telemetry
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: telemetry
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+    processors:
+      batch: {}
+    exporters:
+      otlp/jaeger:
+        endpoint: jaeger:4317
+        tls:
+          insecure: true
+      otlphttp/prometheus:
+        endpoint: http://prometheus:9090/api/v1/otlp
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlp/jaeger]
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlphttp/prometheus]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: telemetry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.139.0
+          args:
+            - --config=/etc/otelcol/config.yaml
+          ports:
+            - containerPort: 4317
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: telemetry
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: telemetry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/jaeger:2.19.0
+          ports:
+            - containerPort: 16686
+            - containerPort: 4317
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: telemetry
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - name: ui
+      port: 16686
+    - name: otlp-grpc
+      port: 4317
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: telemetry
+data:
+  prometheus.yaml: |
+    # No scrape configs: metrics arrive through Prometheus's OTLP receiver
+    # (--web.enable-otlp-receiver), pushed by the collector.
+    global: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: telemetry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v3.13.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yaml
+            - --web.enable-otlp-receiver
+            - --enable-feature=native-histograms,exemplar-storage
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: telemetry
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - name: ui
+      port: 9090
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: telemetry
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        jsonData:
+          # Metrics arrive via OTLP push on the SDK's default 60s export interval;
+          # $__rate_interval must know the real cadence or rate() windows
+          # can end up holding a single sample and return nothing.
+          timeInterval: 60s
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: jaeger
+      - name: Jaeger
+        uid: jaeger
+        type: jaeger
+        access: proxy
+        url: http://jaeger:16686
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: telemetry
+data:
+  provider.yaml: |
+    apiVersion: 1
+    providers:
+      - name: sbomscanner
+        folder: ""
+        type: file
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
+# NOTE: the grafana-dashboards ConfigMap is generated by the Tiltfile
+# from the user-facing dashboard in examples/dashboards/, so it can be edited
+# (or exported from the Grafana UI) as a plain file.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: telemetry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:13.1.0
+          env:
+            # Anonymous admin access: this stack is a local dev tool only.
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: Admin
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: telemetry
+spec:
+  selector:
+    app: grafana
+  ports:
+    - name: ui
+      port: 3000

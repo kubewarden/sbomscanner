@@ -18,6 +18,56 @@ k8s_resource(
     port_forwards=5000,
 )
 
+# Telemetry dev stack: OTel Collector + Jaeger + Prometheus + Grafana.
+# Enable with `telemetry: true` in tilt-settings.yaml.
+telemetry_enabled = settings.get("telemetry", False)
+if telemetry_enabled:
+    k8s_yaml("./hack/telemetry.yaml")
+
+    k8s_yaml(encode_yaml({
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {"name": "grafana-dashboards", "namespace": "telemetry"},
+        "data": {
+            "sbomscanner.json": str(read_file("./examples/dashboards/sbomscanner.json")),
+        },
+    }))
+
+    # The namespace is anchored to the otel-collector resource, and the other
+    # components depend on it, so nothing is applied before the namespace exists.
+    k8s_resource(
+        "otel-collector",
+        objects=[
+            "telemetry:namespace",
+            "otel-collector-config:configmap",
+        ],
+        labels=["telemetry"],
+    )
+    k8s_resource(
+        "jaeger",
+        port_forwards="16686:16686",
+        resource_deps=["otel-collector"],
+        labels=["telemetry"],
+    )
+    k8s_resource(
+        "prometheus",
+        objects=["prometheus-config:configmap"],
+        port_forwards="9090:9090",
+        resource_deps=["otel-collector"],
+        labels=["telemetry"],
+    )
+    k8s_resource(
+        "grafana",
+        objects=[
+            "grafana-datasources:configmap",
+            "grafana-dashboard-provider:configmap",
+            "grafana-dashboards:configmap",
+        ],
+        port_forwards="3000:3000",
+        resource_deps=["otel-collector"],
+        labels=["telemetry"],
+    )
+
 # Install cert-manager
 #
 # Note: We are not using the tilt cert-manager extension, since it creates a namespace to test cert-manager,
@@ -100,7 +150,9 @@ yaml = helm(
         "mcp.logLevel=debug",
         "mcp.disableTLS=true",
         "mcp.auth.secretName=sbomscanner-mcp-credentials",
-    ],
+    ] + ([
+        "observability.otel.endpoint=http://otel-collector.telemetry.svc.cluster.local:4317",
+    ] if telemetry_enabled else []),
 )
 
 objects = decode_yaml_stream(yaml)
