@@ -17,19 +17,6 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
-// defaultSkipPatterns mirrors the +kubebuilder:default marker on
-// NodeScanConfigurationSpec.SkipPatterns. It is used to detect when the user
-// has overridden the defaults so we can warn about the consequences.
-var defaultSkipPatterns = []string{
-	"/var/lib/containerd/",
-	"/var/lib/docker/",
-	"/var/lib/rancher/k3s/agent/containerd/",
-	"/var/lib/rancher/rke2/agent/containerd/",
-	"/var/lib/containers/",
-	"/run/containerd/",
-	"/run/k3s/containerd/",
-}
-
 const skipPatternsOverrideWarning = "spec.skipPatterns overrides the default skip patterns. " +
 	"The defaults exclude container-runtime state (e.g. /run/containerd, /run/k3s/containerd) " +
 	"which exposes the procfs of running containers on the node. " +
@@ -105,7 +92,7 @@ func skipPatternsWarnings(config *v1alpha1.NodeScanConfiguration) admission.Warn
 	if config.Spec.SkipPatterns == nil {
 		return nil
 	}
-	if slices.Equal(*config.Spec.SkipPatterns, defaultSkipPatterns) {
+	if slices.Equal(*config.Spec.SkipPatterns, v1alpha1.DefaultSkipPatterns) {
 		return nil
 	}
 	return admission.Warnings{skipPatternsOverrideWarning}
