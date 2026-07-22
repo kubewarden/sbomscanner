@@ -35,7 +35,7 @@ const (
 	registryMode = "registry"
 )
 
-type Config struct {
+type config struct {
 	NatsURL               string
 	NatsCertFile          string
 	NatsKeyFile           string
@@ -50,8 +50,8 @@ type Config struct {
 	NodeName              string
 }
 
-func parseFlags() Config {
-	var cfg Config
+func parseFlags() config {
+	var cfg config
 
 	flag.StringVar(&cfg.NatsURL, "nats-url", "localhost:4222", "The URL of the NATS server.")
 	flag.StringVar(&cfg.NatsCertFile, "nats-cert-file", "/nats/tls/tls.crt", "The path to the NATS client certificate.")
@@ -78,7 +78,7 @@ func main() {
 	}
 }
 
-func run(cfg Config) error {
+func run(cfg config) error {
 	slogLevel, err := cmdutil.ParseLogLevel(cfg.LogLevel)
 	if err != nil {
 		return fmt.Errorf("parsing log level: %w", err)
@@ -86,7 +86,8 @@ func run(cfg Config) error {
 	opts := slog.HandlerOptions{
 		Level: slogLevel,
 	}
-	logger := slog.New(telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))).With("component", "worker")
+	slogHandler := telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))
+	logger := slog.New(slogHandler).With("component", "worker")
 	logger.Info("Starting worker")
 
 	ctx, cancel := context.WithCancel(context.Background())

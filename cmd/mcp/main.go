@@ -23,7 +23,7 @@ import (
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
-type Config struct {
+type config struct {
 	Addr           string
 	CredentialsDir string
 	CertFile       string
@@ -33,8 +33,8 @@ type Config struct {
 	DisableTLS     bool
 }
 
-func parseFlags() Config {
-	var cfg Config
+func parseFlags() config {
+	var cfg config
 
 	flag.StringVar(&cfg.Addr, "addr", ":8222", "HTTP listen address.")
 	flag.StringVar(&cfg.CredentialsDir, "credentials-dir", "/etc/mcp/credentials", "Directory containing username and password files.")
@@ -56,7 +56,7 @@ func main() {
 	}
 }
 
-func run(cfg Config) error {
+func run(cfg config) error {
 	slogLevel, err := cmdutil.ParseLogLevel(cfg.LogLevel)
 	if err != nil {
 		//nolint:sloglint // Use the global logger since the logger is not yet initialized
@@ -66,9 +66,10 @@ func run(cfg Config) error {
 		slogLevel = slog.LevelInfo
 	}
 
-	logger := slog.New(telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	slogHandler := telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slogLevel,
-	}))).With("component", "mcp")
+	}))
+	logger := slog.New(slogHandler).With("component", "mcp")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	signalChan := make(chan os.Signal, 1)
