@@ -57,6 +57,21 @@ func TestSetup_WithEndpoint(t *testing.T) {
 	_ = shutdown(shutdownCtx)
 }
 
+// TestHistogramAggregationSelector asserts histograms aggregate as base2 exponential histograms
+// while every other instrument kind keeps the SDK default.
+func TestHistogramAggregationSelector(t *testing.T) {
+	assert.Equal(t,
+		sdkmetric.AggregationBase2ExponentialHistogram{MaxSize: 160, MaxScale: 20},
+		histogramAggregationSelector(sdkmetric.InstrumentKindHistogram))
+
+	assert.Equal(t,
+		sdkmetric.DefaultAggregationSelector(sdkmetric.InstrumentKindCounter),
+		histogramAggregationSelector(sdkmetric.InstrumentKindCounter))
+	assert.Equal(t,
+		sdkmetric.DefaultAggregationSelector(sdkmetric.InstrumentKindGauge),
+		histogramAggregationSelector(sdkmetric.InstrumentKindGauge))
+}
+
 // TestBuildResource_ServiceAttrs checks that service.name and service.version end up on the resource.
 func TestBuildResource_ServiceAttrs(t *testing.T) {
 	// Clear inherited env to keep the test deterministic.
@@ -128,7 +143,7 @@ func TestBuildResource_PartialFromMalformedEnv(t *testing.T) {
 func attributesAsMap(attrs []attribute.KeyValue) map[string]string {
 	out := make(map[string]string, len(attrs))
 	for _, kv := range attrs {
-		out[string(kv.Key)] = kv.Value.Emit()
+		out[string(kv.Key)] = kv.Value.String()
 	}
 	return out
 }
