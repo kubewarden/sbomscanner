@@ -24,7 +24,8 @@ import (
 type WorkloadScanReconciler struct {
 	client.Client
 
-	Scheme *runtime.Scheme
+	Scheme          *runtime.Scheme
+	Instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=storage.sbomscanner.kubewarden.io,resources=workloadscanreports,verbs=get;list;watch;create;update;patch;delete
@@ -185,7 +186,7 @@ func (r *WorkloadScanReconciler) SetupWithManager(manager ctrl.Manager) error {
 		Watches(&corev1.Namespace{},
 			handler.EnqueueRequestsFromMapFunc(mapNamespace),
 			builder.OnlyMetadata).
-		Complete(r)
+		Complete(instrumentReconciler(r.Instrumentation, "WorkloadScan", "Namespace", r))
 	if err != nil {
 		return fmt.Errorf("failed to create workloadscan controller: %w", err)
 	}
