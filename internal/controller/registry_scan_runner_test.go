@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
@@ -28,7 +29,8 @@ var _ = Describe("RegistryScanRunner", func() {
 		BeforeEach(func() {
 			By("Setting up the RegistryScanRunner")
 			runner = &RegistryScanRunner{
-				Client: k8sClient,
+				Client:          k8sClient,
+				Instrumentation: newNoopInstrumentation(),
 			}
 		})
 
@@ -70,6 +72,36 @@ var _ = Describe("RegistryScanRunner", func() {
 				By("Checking the scan job has correct registry and trigger annotation")
 				Expect(scanJobs.Items[0].Spec.Registry).To(Equal(registry.Name))
 				Expect(scanJobs.Items[0].Annotations).To(HaveKeyWithValue(v1alpha1.AnnotationScanJobTriggerKey, "runner"))
+			})
+
+			It("Should label scan jobs created for workloadscan-managed registries", func(ctx context.Context) {
+				By("Creating a workloadscan-managed Registry")
+				managedRegistry := &v1alpha1.Registry{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.New().String(),
+						Namespace: "default",
+						Labels: map[string]string{
+							api.LabelManagedByKey:    api.LabelManagedByValue,
+							api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
+						},
+					},
+					Spec: v1alpha1.RegistrySpec{
+						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
+					},
+				}
+				Expect(k8sClient.Create(ctx, managedRegistry)).To(Succeed())
+
+				By("Running the registry scanner")
+				Expect(runner.scanRegistries(ctx)).To(Succeed())
+
+				By("Verifying the created scan job carries the workloadscan label")
+				scanJobs := &v1alpha1.ScanJobList{}
+				Expect(k8sClient.List(ctx, scanJobs,
+					client.InNamespace("default"),
+					client.MatchingFields{v1alpha1.IndexScanJobSpecRegistry: managedRegistry.Name},
+				)).To(Succeed())
+				Expect(scanJobs.Items).To(HaveLen(1))
+				Expect(scanJobs.Items[0].Labels).To(HaveKeyWithValue(api.LabelWorkloadScanKey, api.LabelWorkloadScanValue))
 			})
 
 			It("Should not create a new job when one is already running", func(ctx context.Context) {

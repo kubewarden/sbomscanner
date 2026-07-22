@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +20,7 @@ import (
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/filters"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 const nodeScanRunnerPeriod = 10 * time.Second
@@ -26,7 +29,8 @@ const nodeScanRunnerPeriod = 10 * time.Second
 type NodeScanRunner struct {
 	client.Client
 
-	Scheme *runtime.Scheme
+	Scheme          *runtime.Scheme
+	Instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=nodescanconfigurations,verbs=get;list;watch;update
@@ -47,9 +51,12 @@ func (r *NodeScanRunner) Start(ctx context.Context) error {
 
 			return nil
 		case <-ticker.C:
+			result := resultSuccess
 			if err := r.scanNodes(ctx); err != nil {
+				result = resultError
 				log.Error(err, "Failed to scan nodes")
 			}
+			r.Instrumentation.recordNodeScanTick(ctx, result)
 		}
 	}
 }
@@ -251,7 +258,14 @@ func (r *NodeScanRunner) getLastNodeScanJob(ctx context.Context, nodeName string
 	return &nodeScanJobs.Items[0], nil
 }
 
+// createNodeScanJob creates a new NodeScanJob for the given node.
 func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, nodeName string) error {
+	jobCtx, jobSpan := r.Instrumentation.startJobTrace(ctx, "NodeScanRunner.CreateNodeScanJob",
+		attribute.String("nodescanjob.trigger", "runner"),
+		attribute.String("k8s.node.name", nodeName),
+	)
+	defer jobSpan.End()
+
 	nodeScanJob := &v1alpha1.NodeScanJob{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("node-%s-", nodeName),
@@ -263,10 +277,15 @@ func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, nodeName string)
 			NodeName: nodeName,
 		},
 	}
+	telemetry.InjectAnnotations(jobCtx, nodeScanJob.Annotations)
 
-	if err := r.Create(ctx, nodeScanJob); err != nil {
+	if err := r.Create(jobCtx, nodeScanJob); err != nil {
+		jobSpan.RecordError(err)
+		jobSpan.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("failed to create NodeScanJob: %w", err)
 	}
+
+	jobSpan.SetAttributes(attribute.String("k8s.object.name", nodeScanJob.Name))
 
 	return nil
 }

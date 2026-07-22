@@ -27,8 +27,9 @@ var _ = Describe("NodeScanRunner", func() {
 
 		BeforeEach(func() {
 			runner = &NodeScanRunner{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				Client:          k8sClient,
+				Scheme:          k8sClient.Scheme(),
+				Instrumentation: newNoopInstrumentation(),
 			}
 		})
 
