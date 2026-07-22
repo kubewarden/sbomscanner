@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/nats-io/nats.go"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -42,6 +44,7 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/storage"
 	"github.com/kubewarden/sbomscanner/internal/telemetry"
 	"github.com/kubewarden/sbomscanner/internal/version"
+	internalwebhook "github.com/kubewarden/sbomscanner/internal/webhook"
 	webhookv1alpha1 "github.com/kubewarden/sbomscanner/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -122,7 +125,12 @@ func run(cfg Config) error {
 	signalHandler := ctrl.SetupSignalHandler()
 
 	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
-	shutdownTelemetry, err := telemetry.Setup(signalHandler, "sbomscanner-controller", version.Version)
+	// The Prometheus bridge exports the controller-runtime metrics
+	// (controller_runtime_*, workqueue_*, rest_client_*, ...) over OTLP alongside our own;
+	// the controller-runtime metrics server keeps serving them for users on legacy Prometheus pull.
+	shutdownTelemetry, err := telemetry.Setup(signalHandler, "sbomscanner-controller", version.Version,
+		telemetry.WithMetricProducer(prombridge.NewMetricProducer(prombridge.WithGatherer(ctrlmetrics.Registry))),
+	)
 	if err != nil {
 		return fmt.Errorf("initializing telemetry: %w", err)
 	}
@@ -147,6 +155,14 @@ func run(cfg Config) error {
 
 	if !cfg.EnableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
+	}
+
+	webhookInstrumentation, err := internalwebhook.NewInstrumentation(
+		telemetry.Tracer("internal/webhook"),
+		telemetry.Meter("internal/webhook"),
+	)
+	if err != nil {
+		return fmt.Errorf("creating webhook instrumentation: %w", err)
 	}
 
 	webhookServer := webhook.NewServer(webhook.Options{
@@ -215,6 +231,14 @@ func run(cfg Config) error {
 		return fmt.Errorf("creating NATS publisher: %w", err)
 	}
 
+	controllerInstrumentation, err := controller.NewInstrumentation(
+		telemetry.Tracer("internal/controller"),
+		telemetry.Meter("internal/controller"),
+	)
+	if err != nil {
+		return fmt.Errorf("creating controller instrumentation: %w", err)
+	}
+
 	cacheByObject := buildCacheByObject(cfg)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -253,57 +277,60 @@ func run(cfg Config) error {
 	}
 
 	if err := (&controller.ScanJobReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Publisher: publisher,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Publisher:       publisher,
+		Instrumentation: controllerInstrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating ScanJob controller: %w", err)
 	}
 
 	if err := (&controller.VulnerabilityReportReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Instrumentation: controllerInstrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating VulnerabilityReport controller: %w", err)
 	}
 
 	if err := (&controller.RegistryScanRunner{
-		Client: mgr.GetClient(),
+		Client:          mgr.GetClient(),
+		Instrumentation: controllerInstrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating RegistryScanRunner: %w", err)
 	}
 
 	if cfg.WorkloadScan {
-		if err := setupWorkloadScanControllers(mgr); err != nil {
+		if err := setupWorkloadScanControllers(mgr, controllerInstrumentation); err != nil {
 			return err
 		}
 	}
 
 	if cfg.NodeScan {
-		if err := setupNodeScanControllers(mgr, publisher); err != nil {
+		if err := setupNodeScanControllers(mgr, publisher, controllerInstrumentation); err != nil {
 			return err
 		}
 	}
 
 	// Node scan webhooks are registered even when node scan is disabled, so that
 	// requests to node scan resources are still validated.
-	if err = webhookv1alpha1.SetupNodeScanConfigurationWebhookWithManager(mgr); err != nil {
+	if err = webhookv1alpha1.SetupNodeScanConfigurationWebhookWithManager(mgr, webhookInstrumentation); err != nil {
 		return fmt.Errorf("creating NodeScanConfiguration webhook: %w", err)
 	}
 
-	if err = webhookv1alpha1.SetupNodeScanJobWebhookWithManager(mgr); err != nil {
+	if err = webhookv1alpha1.SetupNodeScanJobWebhookWithManager(mgr, webhookInstrumentation); err != nil {
 		return fmt.Errorf("creating NodeScanJob webhook: %w", err)
 	}
 
-	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr, cfg.ServiceAccountNamespace, cfg.ServiceAccountName); err != nil {
+	if err = webhookv1alpha1.SetupRegistryWebhookWithManager(mgr, cfg.ServiceAccountNamespace, cfg.ServiceAccountName, webhookInstrumentation); err != nil {
 		return fmt.Errorf("creating Registry webhook: %w", err)
 	}
 
-	if err = webhookv1alpha1.SetupScanJobWebhookWithManager(mgr); err != nil {
+	if err = webhookv1alpha1.SetupScanJobWebhookWithManager(mgr, webhookInstrumentation); err != nil {
 		return fmt.Errorf("creating ScanJob webhook: %w", err)
 	}
 
-	if err = webhookv1alpha1.SetupWorkloadScanConfigurationWebhookWithManager(mgr); err != nil {
+	if err = webhookv1alpha1.SetupWorkloadScanConfigurationWebhookWithManager(mgr, webhookInstrumentation); err != nil {
 		return fmt.Errorf("creating WorkloadScanConfiguration webhook: %w", err)
 	}
 
@@ -323,46 +350,52 @@ func run(cfg Config) error {
 	return nil
 }
 
-func setupWorkloadScanControllers(mgr ctrl.Manager) error {
+func setupWorkloadScanControllers(mgr ctrl.Manager, instrumentation *controller.Instrumentation) error {
 	if err := (&controller.WorkloadScanReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Instrumentation: instrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating WorkloadScan controller: %w", err)
 	}
 
 	if err := (&controller.ImageWorkloadScanReconciler{
-		Client: mgr.GetClient(),
+		Client:          mgr.GetClient(),
+		Instrumentation: instrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating ImageWorkloadScan controller: %w", err)
 	}
 	return nil
 }
 
-func setupNodeScanControllers(mgr ctrl.Manager, publisher *messaging.NatsPublisher) error {
+func setupNodeScanControllers(mgr ctrl.Manager, publisher *messaging.NatsPublisher, instrumentation *controller.Instrumentation) error {
 	if err := (&controller.NodeScanRunner{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Instrumentation: instrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating NodeScanRunner: %w", err)
 	}
 
 	if err := (&controller.NodeScanReconciler{
-		Client: mgr.GetClient(),
+		Client:          mgr.GetClient(),
+		Instrumentation: instrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating NodeScan controller: %w", err)
 	}
 
 	if err := (&controller.NodeScanConfigurationReconciler{
-		Client: mgr.GetClient(),
+		Client:          mgr.GetClient(),
+		Instrumentation: instrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating NodeScanConfiguration controller: %w", err)
 	}
 
 	if err := (&controller.NodeScanJobReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Publisher: publisher,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Publisher:       publisher,
+		Instrumentation: instrumentation,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("creating NodeScanJob controller: %w", err)
 	}
