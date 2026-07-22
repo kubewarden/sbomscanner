@@ -14,17 +14,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/webhook"
 )
 
-func SetupScanJobWebhookWithManager(mgr ctrl.Manager) error {
+func SetupScanJobWebhookWithManager(mgr ctrl.Manager, instrumentation *webhook.Instrumentation) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.ScanJob{}).
-		WithValidator(&ScanJobCustomValidator{
+		WithValidator(webhook.InstrumentValidator(instrumentation, "ScanJob", &ScanJobCustomValidator{
 			client: mgr.GetAPIReader(),
 			logger: mgr.GetLogger().WithName("scanjob_validator"),
-		}).
-		WithDefaulter(&ScanJobCustomDefaulter{
+		})).
+		WithDefaulter(webhook.InstrumentDefaulterWithTraceparent(instrumentation, "ScanJob", &ScanJobCustomDefaulter{
 			logger: mgr.GetLogger().WithName("scanjob_defaulter"),
-		}).
+		})).
 		Complete()
 	if err != nil {
 		return fmt.Errorf("failed to setup ScanJob webhook: %w", err)
