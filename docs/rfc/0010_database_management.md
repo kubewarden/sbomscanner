@@ -343,4 +343,8 @@ Why should we **not** do this?
   artifact. The worker would then query the database directly rather than parsing raw JSON/CSV,
   improving lookup performance and reducing parsing complexity, while preserving the
   one-file-per-layer deduplication model.
+* **Per-database update cadence.** Allow each data source to declare its own update cadence, so that
+  the worker can pull only when a given database is expected to have changed, rather than
+  rebuilding the entire artifact on the shortest cadence. This would require a more complex
+  manifest and per-layer freshness tracking.
 
