@@ -235,6 +235,33 @@ func TestNodeScanConfigurationCustomValidator_SkipPatternsWarnings(t *testing.T)
 			wantWarning:  false,
 		},
 		{
+			name:         "no warning when skipPatterns reorders the defaults",
+			skipPatterns: &[]string{
+				"/run/k3s/containerd/",
+				"/var/lib/docker/",
+				"/var/lib/containerd/",
+				"/var/lib/rancher/k3s/agent/containerd/",
+				"/var/lib/rancher/rke2/agent/containerd/",
+				"/var/lib/containers/",
+				"/run/containerd/",
+			},
+			wantWarning: false,
+		},
+		{
+			name: "no warning when skipPatterns is a superset of the defaults",
+			skipPatterns: &[]string{
+				"/var/lib/containerd/",
+				"/var/lib/docker/",
+				"/var/lib/rancher/k3s/agent/containerd/",
+				"/var/lib/rancher/rke2/agent/containerd/",
+				"/var/lib/containers/",
+				"/run/containerd/",
+				"/run/k3s/containerd/",
+				"/custom/path/",
+			},
+			wantWarning: false,
+		},
+		{
 			name:         "warning when skipPatterns is an empty list",
 			skipPatterns: new([]string{}),
 			wantWarning:  true,
@@ -245,7 +272,7 @@ func TestNodeScanConfigurationCustomValidator_SkipPatternsWarnings(t *testing.T)
 			wantWarning:  true,
 		},
 		{
-			name:         "warning when skipPatterns reorders the defaults",
+			name:         "warning when skipPatterns drops a default pattern",
 			skipPatterns: new([]string{"/var/lib/docker/", "/var/lib/containerd/"}),
 			wantWarning:  true,
 		},
@@ -274,11 +301,11 @@ func TestNodeScanConfigurationCustomValidator_SkipPatternsWarnings(t *testing.T)
 			require.NoError(t, err)
 
 			if test.wantWarning {
-				assert.Contains(t, createWarnings, skipPatternsOverrideWarning)
-				assert.Contains(t, updateWarnings, skipPatternsOverrideWarning)
+				assert.Contains(t, createWarnings, missingDefaultSkipPatternsWarning())
+				assert.Contains(t, updateWarnings, missingDefaultSkipPatternsWarning())
 			} else {
-				assert.NotContains(t, createWarnings, skipPatternsOverrideWarning)
-				assert.NotContains(t, updateWarnings, skipPatternsOverrideWarning)
+				assert.NotContains(t, createWarnings, missingDefaultSkipPatternsWarning())
+				assert.NotContains(t, updateWarnings, missingDefaultSkipPatternsWarning())
 			}
 		})
 	}
