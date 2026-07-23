@@ -241,6 +241,22 @@ own. A pull failure therefore never blocks a scan:
   data and logs the registry download failure. The scan still completes; it simply produces an
   unenriched report.
 
+## Signing and verification
+
+Because the artifact is published to a mutable, versionless tag rather than pinned by digest,
+a worker cannot rely on the reference alone to prove the data it pulled came from CI and was
+not tampered with. To close that gap, CI signs the artifact after every rebuild and the worker
+verifies the signature before consuming any data. The intended mechanism is `cosign`, which
+stores the signature as an OCI referrer alongside the artifact on the same tag, so signing adds
+no new distribution channel and composes with the single-tag model described above.
+
+On the worker side, verification is a mandatory step that runs before layers are unpacked into
+the local cache. If verification fails, the worker refuses to consume the pulled artifact and
+keeps serving the last known-good local cache, mirroring the pull-failure behavior above: a
+compromised or unverifiable update degrades to stale-but-trusted data rather than blocking
+scans. The trust policy is configured on the SBOMScanner CRD — either an identity and issuer
+for keyless signing, or a reference to a public-key `Secret` for key-pair signing.
+
 # Implementation Details
 
 ## CLI (`sbomscannerdb`)
@@ -314,9 +330,6 @@ Why should we **not** do this?
 * **Fetch each data source directly from its upstream at scan time.** Removes the packaging
   layer but introduces per-worker, per-scan network dependencies on many third-party
   endpoints, with no deduplication and inconsistent availability.
-* **A dedicated database service that workers query over the network.** Centralizes the data
-  but adds a network round trip per lookup and a new stateful component to operate; the
-  local-copy approach keeps lookups fast and workers self-sufficient.
 * **Versioned/tagged artifacts.** Would allow rollback but adds version negotiation and
   cleanup overhead; rejected in favor of single-tag simplicity plus freshness annotations.
 
@@ -328,14 +341,6 @@ Why should we **not** do this?
   artifact. The worker would then query the database directly rather than parsing raw JSON/CSV,
   improving lookup performance and reducing parsing complexity, while preserving the
   one-file-per-layer deduplication model.
-* **Signing and verification.** Sign the artifact and verify signatures in the worker before
-  consuming data. Because the artifact is published to a mutable tag, signing (rather than
-  digest-pinning) is what lets a worker prove the data came from CI and was not tampered with.
-  A likely approach is `cosign`, which stores the signature as an OCI referrer alongside the
-  artifact on the same tag. On the worker side this means a verification step before layers 
-  are unpacked into the local cache (verification failure → refuse to consume and keep serving 
-  the last known-good cache), and configuration on the SBOMScanner CRD for the trust policy 
-  (identity + issuer for keyless, or a public-key `Secret` reference for key-pair).
 
 # Unresolved questions
 
