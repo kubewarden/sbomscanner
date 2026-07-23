@@ -92,7 +92,7 @@ func skipPatternsWarnings(config *v1alpha1.NodeScanConfiguration) admission.Warn
 	if config.Spec.SkipPatterns == nil {
 		return nil
 	}
-	if slices.Equal(*config.Spec.SkipPatterns, v1alpha1.DefaultSkipPatterns) {
+	if sets.New(*config.Spec.SkipPatterns...).HasAll(v1alpha1.DefaultSkipPattern...) {
 		return nil
 	}
 	return admission.Warnings{skipPatternsOverrideWarning}
