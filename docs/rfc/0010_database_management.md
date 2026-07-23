@@ -344,17 +344,3 @@ Why should we **not** do this?
   improving lookup performance and reducing parsing complexity, while preserving the
   one-file-per-layer deduplication model.
 
-# Unresolved questions
-
-[unresolved]: #unresolved-questions
-
-<!---
-- What are the unknowns?
---->
-
-* Exact registry reference and tag naming, and whether it is configurable per deployment.
-* How the per-file update cadence (used to compute `nextUpdate`) is supplied to the CLI,
-  whether via a configuration file or otherwise. This will be decided during development based
-  on the data actually added to the OCI artifact.
-* Signing/verification mechanism and key distribution.
-* Behavior when a pull fails mid-update and how long a worker may serve a stale local copy.
