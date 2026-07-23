@@ -17,11 +17,11 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
-const skipPatternsOverrideWarning = "spec.skipPatterns overrides the default skip patterns. " +
-	"The defaults exclude container-runtime state (e.g. /run/containerd, /run/k3s/containerd) " +
-	"which exposes the procfs of running containers on the node. " +
-	"Scanning those paths may cause the node scan to fail."
-
+  func missingDefaultSkipPatternsWarning() string {
+        return fmt.Sprintf("spec.skipPatterns does not include all of the default skip patterns (%s). "+
+                "The defaults exclude container-runtime state directories; scanning those paths may cause the node scan to fail.
+                strings.Join(v1alpha1.DefaultSkipPatterns, ", "))
+  }
 // SetupNodeScanConfigurationWebhookWithManager registers the webhook for NodeScanConfiguration in the manager.
 func SetupNodeScanConfigurationWebhookWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.NodeScanConfiguration{}).
