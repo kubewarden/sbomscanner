@@ -150,7 +150,7 @@ so publishing a new file never breaks existing workers.
 
 ### Update annotations
 
-The artifact manifest carries OCI annotations that describe its freshness window:
+The artifact manifest carries OCI annotations that describe its update window:
 
 ```
 org.opencontainers.image.lastUpdate=2024-06-01T00:00:00Z
