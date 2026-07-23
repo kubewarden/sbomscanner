@@ -73,6 +73,12 @@ when it is actually stale, so that I do not waste network bandwidth or registry 
 As a developer, I want to add a new data source to the database with minimal effort, so that
 enriching scan results with new context is a low-friction operation.
 
+### User story #4
+
+As a SBOMScanner operator, I want the ability to enrich scan results with auxiliary data
+(KEV, EPSS, …) when it is available, but I do not want a failed pull to block scans,
+so that I can continue to operate even if the registry is temporarily unavailable.
+
 # Detailed design
 
 [design]: #detailed-design
@@ -305,8 +311,6 @@ Why should we **not** do this?
 - What is the impact of not doing this?
 --->
 
-* **Embed data in the SBOMScanner release.** Simple, but couples data freshness to the release
-  cadence, unacceptable for daily-updating feeds like EPSS.
 * **Fetch each data source directly from its upstream at scan time.** Removes the packaging
   layer but introduces per-worker, per-scan network dependencies on many third-party
   endpoints, with no deduplication and inconsistent availability.
