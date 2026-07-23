@@ -188,6 +188,8 @@ so there is no version negotiation, no version pinning, and no cleanup of stale 
 manage. Freshness is expressed entirely through the annotations and layer digests, not
 through tags.
 
+This follows the same approach used by Trivy with their vulnerability database: https://github.com/aquasecurity/trivy-db
+
 ## Rebuild cadence
 
 CI rebuilds and pushes the artifact on a fixed interval. The interval is the **shortest**
