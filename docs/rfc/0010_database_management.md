@@ -148,7 +148,7 @@ simply appears in the worker's cache directory, but the worker just ignores file
 The new data is therefore not consumed until SBOMScanner is updated with support for that format, 
 so publishing a new file never breaks existing workers.
 
-### Freshness annotations
+### Update annotations
 
 The artifact manifest carries OCI annotations that describe its freshness window:
 
