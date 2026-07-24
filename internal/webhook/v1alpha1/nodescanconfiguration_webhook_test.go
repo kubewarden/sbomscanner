@@ -235,7 +235,7 @@ func TestNodeScanConfigurationCustomValidator_SkipPatternsWarnings(t *testing.T)
 			wantWarning:  false,
 		},
 		{
-			name:         "no warning when skipPatterns reorders the defaults",
+			name: "no warning when skipPatterns reorders the defaults",
 			skipPatterns: &[]string{
 				"/run/k3s/containerd/",
 				"/var/lib/docker/",
