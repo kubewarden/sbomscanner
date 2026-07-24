@@ -218,6 +218,99 @@ func TestNodeScanConfigurationCustomValidator_ValidateUpdate(t *testing.T) {
 	}
 }
 
+func TestNodeScanConfigurationCustomValidator_SkipPatternsWarnings(t *testing.T) {
+	tests := []struct {
+		name         string
+		skipPatterns *[]string
+		wantWarning  bool
+	}{
+		{
+			name:         "no warning when skipPatterns is nil",
+			skipPatterns: nil,
+			wantWarning:  false,
+		},
+		{
+			name:         "no warning when skipPatterns equals the defaults",
+			skipPatterns: new(v1alpha1.DefaultSkipPatterns),
+			wantWarning:  false,
+		},
+		{
+			name: "no warning when skipPatterns reorders the defaults",
+			skipPatterns: &[]string{
+				"/run/k3s/containerd/",
+				"/var/lib/docker/",
+				"/var/lib/containerd/",
+				"/var/lib/rancher/k3s/agent/containerd/",
+				"/var/lib/rancher/rke2/agent/containerd/",
+				"/var/lib/containers/",
+				"/run/containerd/",
+			},
+			wantWarning: false,
+		},
+		{
+			name: "no warning when skipPatterns is a superset of the defaults",
+			skipPatterns: &[]string{
+				"/var/lib/containerd/",
+				"/var/lib/docker/",
+				"/var/lib/rancher/k3s/agent/containerd/",
+				"/var/lib/rancher/rke2/agent/containerd/",
+				"/var/lib/containers/",
+				"/run/containerd/",
+				"/run/k3s/containerd/",
+				"/custom/path/",
+			},
+			wantWarning: false,
+		},
+		{
+			name:         "warning when skipPatterns is an empty list",
+			skipPatterns: new([]string{}),
+			wantWarning:  true,
+		},
+		{
+			name:         "warning when skipPatterns is a custom override",
+			skipPatterns: new([]string{"/custom/path/"}),
+			wantWarning:  true,
+		},
+		{
+			name:         "warning when skipPatterns drops a default pattern",
+			skipPatterns: new([]string{"/var/lib/docker/", "/var/lib/containerd/"}),
+			wantWarning:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			validator := &NodeScanConfigurationCustomValidator{
+				logger: logr.Discard(),
+			}
+
+			config := &v1alpha1.NodeScanConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "default",
+				},
+				Spec: v1alpha1.NodeScanConfigurationSpec{
+					SkipPatterns: test.skipPatterns,
+				},
+			}
+
+			createWarnings, err := validator.ValidateCreate(t.Context(), config)
+			require.NoError(t, err)
+
+			old := &v1alpha1.NodeScanConfiguration{}
+			updateWarnings, err := validator.ValidateUpdate(t.Context(), old, config)
+			require.NoError(t, err)
+
+			if test.wantWarning {
+				assert.Contains(t, createWarnings, missingDefaultSkipPatternsWarning())
+				assert.Contains(t, updateWarnings, missingDefaultSkipPatternsWarning())
+			} else {
+				assert.NotContains(t, createWarnings, missingDefaultSkipPatternsWarning())
+				assert.NotContains(t, updateWarnings, missingDefaultSkipPatternsWarning())
+			}
+		})
+	}
+}
+
 func TestNodeScanConfigurationCustomValidator_ValidateDelete(t *testing.T) {
 	t.Run("should return warning on delete", func(t *testing.T) {
 		validator := &NodeScanConfigurationCustomValidator{

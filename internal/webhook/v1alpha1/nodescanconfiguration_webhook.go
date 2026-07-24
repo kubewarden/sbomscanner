@@ -3,18 +3,33 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1validation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
+
+// missingDefaultSkipPatternsWarning builds the admission warning emitted when a
+// user-supplied skipPatterns list drops one or more of the default patterns.
+// The default list is rendered from v1alpha1.DefaultSkipPatterns so the message
+// can never drift out of sync with the actual defaults.
+func missingDefaultSkipPatternsWarning() string {
+	return fmt.Sprintf(
+		"spec.skipPatterns does not include all of the default skip patterns. "+
+			"The defaults exclude container-runtime state directories; scanning those paths may cause the node scan to fail. "+
+			"Default skip patterns: %s.",
+		strings.Join(v1alpha1.DefaultSkipPatterns, ", "),
+	)
+}
 
 // SetupNodeScanConfigurationWebhookWithManager registers the webhook for NodeScanConfiguration in the manager.
 func SetupNodeScanConfigurationWebhookWithManager(mgr ctrl.Manager) error {
@@ -50,7 +65,7 @@ func (v *NodeScanConfigurationCustomValidator) ValidateCreate(_ context.Context,
 		)
 	}
 
-	return nil, nil
+	return nodeScanConfigurationWarnings(config), nil
 }
 
 func (v *NodeScanConfigurationCustomValidator) ValidateUpdate(_ context.Context, _, config *v1alpha1.NodeScanConfiguration) (admission.Warnings, error) {
@@ -66,7 +81,31 @@ func (v *NodeScanConfigurationCustomValidator) ValidateUpdate(_ context.Context,
 		)
 	}
 
-	return nil, nil
+	return nodeScanConfigurationWarnings(config), nil
+}
+
+// nodeScanConfigurationWarnings aggregates all admission warnings for a
+// NodeScanConfiguration. Add new field warnings here.
+func nodeScanConfigurationWarnings(config *v1alpha1.NodeScanConfiguration) admission.Warnings {
+	var warnings admission.Warnings
+
+	warnings = append(warnings, skipPatternsWarnings(config)...)
+
+	return warnings
+}
+
+// skipPatternsWarnings returns a warning when the user-supplied skipPatterns
+// list drops one or more of the default patterns, since removing the
+// container-runtime paths can make the node scan fail while walking a running
+// container's directory tree.
+func skipPatternsWarnings(config *v1alpha1.NodeScanConfiguration) admission.Warnings {
+	if config.Spec.SkipPatterns == nil {
+		return nil
+	}
+	if sets.New(*config.Spec.SkipPatterns...).HasAll(v1alpha1.DefaultSkipPatterns...) {
+		return nil
+	}
+	return admission.Warnings{missingDefaultSkipPatternsWarning()}
 }
 
 func (v *NodeScanConfigurationCustomValidator) ValidateDelete(_ context.Context, config *v1alpha1.NodeScanConfiguration) (admission.Warnings, error) {
