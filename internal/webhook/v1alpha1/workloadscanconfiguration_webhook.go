@@ -14,14 +14,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/webhook"
 )
 
 // SetupWorkloadScanConfigurationWebhookWithManager registers the webhook for WorkloadScanConfiguration in the manager.
-func SetupWorkloadScanConfigurationWebhookWithManager(mgr ctrl.Manager) error {
+func SetupWorkloadScanConfigurationWebhookWithManager(mgr ctrl.Manager, instrumentation *webhook.Instrumentation) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.WorkloadScanConfiguration{}).
-		WithValidator(&WorkloadScanConfigurationCustomValidator{
+		WithValidator(webhook.InstrumentValidator(instrumentation, "WorkloadScanConfiguration", &WorkloadScanConfigurationCustomValidator{
 			logger: mgr.GetLogger().WithName("WorkloadScanConfiguration_validator"),
-		}).
+		})).
 		Complete()
 	if err != nil {
 		return fmt.Errorf("failed to setup WorkloadScanConfiguration webhook: %w", err)

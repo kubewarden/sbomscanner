@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,7 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // registryScanRunnerPeriod is the interval between registry scan checks.
@@ -27,6 +31,8 @@ const registryScanRunnerPeriod = 10 * time.Second
 // RegistryScanRunner handles periodic scanning of registries based on their scan intervals.
 type RegistryScanRunner struct {
 	client.Client
+
+	Instrumentation *Instrumentation
 }
 
 // Start implements the Runnable interface.
@@ -44,11 +50,22 @@ func (r *RegistryScanRunner) Start(ctx context.Context) error {
 
 			return nil
 		case <-ticker.C:
-			if err := r.scanRegistries(ctx); err != nil {
-				log.Error(err, "Failed to scan registries")
-			}
+			r.tick(ctx)
 		}
 	}
+}
+
+// tick runs one scan cycle.
+func (r *RegistryScanRunner) tick(ctx context.Context) {
+	log := log.FromContext(ctx)
+
+	result := resultSuccess
+	if err := r.scanRegistries(ctx); err != nil {
+		result = resultError
+		log.Error(err, "Failed to scan registries")
+	}
+
+	r.Instrumentation.recordRegistryScanTick(ctx, result)
 }
 
 // scanRegistries checks all registries and creates ScanJobs for those that need scanning.
@@ -313,6 +330,13 @@ func (r *RegistryScanRunner) getLastScanJob(ctx context.Context, registry *v1alp
 // createScanJob creates a new ScanJob for the given registry.
 // When repositories is non-empty, the ScanJob targets only that subset.
 func (r *RegistryScanRunner) createScanJob(ctx context.Context, registry *v1alpha1.Registry, repositories []v1alpha1.ScanJobRepository) error {
+	jobCtx, jobSpan := r.Instrumentation.startJobTrace(ctx, "RegistryScanRunner.CreateScanJob",
+		attribute.String("scanjob.trigger", "runner"),
+		attribute.String("registry.name", registry.Name),
+		attribute.String("registry.namespace", registry.Namespace),
+	)
+	defer jobSpan.End()
+
 	scanJob := &v1alpha1.ScanJob{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", registry.Name),
@@ -326,10 +350,23 @@ func (r *RegistryScanRunner) createScanJob(ctx context.Context, registry *v1alph
 			Repositories: repositories,
 		},
 	}
+	// Jobs originating from workload scanning carry the same label as their managed Registry,
+	// so they are distinguishable in metrics and via kubectl label selectors.
+	if registry.Labels[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue {
+		scanJob.Labels = map[string]string{api.LabelWorkloadScanKey: api.LabelWorkloadScanValue}
+	}
+	telemetry.InjectAnnotations(jobCtx, scanJob.Annotations)
 
-	if err := r.Create(ctx, scanJob); err != nil {
+	if err := r.Create(jobCtx, scanJob); err != nil {
+		jobSpan.RecordError(err)
+		jobSpan.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("failed to create ScanJob: %w", err)
 	}
+
+	jobSpan.SetAttributes(
+		attribute.String("k8s.object.name", scanJob.Name),
+		attribute.String("k8s.namespace.name", scanJob.Namespace),
+	)
 
 	return nil
 }

@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sort"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,8 +31,9 @@ const (
 type ScanJobReconciler struct {
 	client.Client
 
-	Scheme    *runtime.Scheme
-	Publisher messaging.Publisher
+	Scheme          *runtime.Scheme
+	Publisher       messaging.Publisher
+	Instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=scanjobs,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +53,8 @@ func (r *ScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, fmt.Errorf("unable to get ScanJob: %w", err)
 	}
+
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("scanjob.status", jobStatus(scanJob)))
 
 	if !scanJob.DeletionTimestamp.IsZero() {
 		log.V(1).Info("ScanJob is being deleted, skipping reconciliation", "scanJob", req.NamespacedName)
@@ -220,12 +225,21 @@ func validateScanJobTargets(scanJob *v1alpha1.ScanJob, registry *v1alpha1.Regist
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(mgr).
+	// Count job completions on the controller's informer, observing every status writer.
+	informer, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.ScanJob{})
+	if err != nil {
+		return fmt.Errorf("failed to get ScanJob informer: %w", err)
+	}
+	if _, err := informer.AddEventHandler(r.Instrumentation.scanJobTransitions()); err != nil {
+		return fmt.Errorf("failed to register ScanJob transitions handler: %w", err)
+	}
+
+	err = ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ScanJob{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
-		Complete(r)
+		Complete(instrumentReconcilerWithTraceparent(r.Instrumentation, "ScanJob", "ScanJob", r.Client, &v1alpha1.ScanJob{}, r))
 	if err != nil {
 		return fmt.Errorf("failed to create ScanJob controller: %w", err)
 	}

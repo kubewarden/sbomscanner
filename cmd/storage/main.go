@@ -75,7 +75,8 @@ func run() error {
 		Level: slogLevel,
 	}
 
-	logger := slog.New(telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))).With("component", "storage")
+	slogHandler := telemetry.NewTraceContextHandler(slog.NewJSONHandler(os.Stdout, &opts))
+	logger := slog.New(slogHandler).With("component", "storage")
 	logger.Info("Starting storage")
 
 	// Kubernetes components use klog for logging, so we need to redirect it to our slog logger.
