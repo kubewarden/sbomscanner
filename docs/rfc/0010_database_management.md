@@ -151,16 +151,16 @@ declaring its media type; no structural change to the artifact is required.
 
 Adding a new file to the artifact is **backward-compatible**: on the next pull the new layer
 simply appears in the worker's cache directory, but the worker just ignores files unknown to it.
-The new data is therefore not consumed until SBOMScanner is updated with support for that format, 
-so publishing a new file never breaks existing workers.
+The new data is therefore not consumed until SBOMScanner is updated with support for that format.
+Publishing a new file never breaks existing workers.
 
 ### Update annotations
 
 The artifact manifest carries OCI annotations that describe its update window:
 
 ```
-org.opencontainers.image.lastUpdate=2024-06-01T00:00:00Z
-org.opencontainers.image.nextUpdate=2024-06-02T00:00:00Z
+io.kubewarden.sbomscanner.db.lastUpdate=2026-07-16T00:00:00Z
+io.kubewarden.sbomscanner.db.nextUpdate=2026-07-17T00:00:00Z
 ```
 
 * `lastUpdate`: when the artifact was last rebuilt and pushed.
