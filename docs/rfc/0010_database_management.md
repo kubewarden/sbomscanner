@@ -1,10 +1,10 @@
-|              |                                 |
-| :----------- | :------------------------------ |
-| Feature Name | Database Management             |
-| Start Date   | July 16th, 2026                 |
-| Category     | Architecture                    |
-| RFC PR       | [fill this in after opening PR] |
-| State        | **ACCEPTED**                    |
+|              |                                   |
+| :----------- | :-------------------------------- |
+| Feature Name | Enrichment Vulnerability Database |
+| Start Date   | July 16th, 2026                   |
+| Category     | Architecture                      |
+| RFC PR       | https://github.com/kubewarden/sbomscanner/pull/1289 |
+| State        | **ACCEPTED**                      |
 
 # Summary
 
