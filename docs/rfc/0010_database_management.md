@@ -300,8 +300,8 @@ New code in the worker to:
 * On each incoming scan, read `nextUpdate` from the locally cached manifest and pull a new
   artifact only when `now >= nextUpdate`; otherwise use the current local content unchanged.
 * Expose an internal lookup interface over the locally stored data for use during scans.
-* For each new data file, add a new adapter implementation that knows how to parse the file 
-  format (eg. KEV adapter, EPSS adapter) and provide a uniform lookup API to the worker.
+* For each new data file, add a new adapter implementation that knows how to parse the file
+  format (e.g. KEV adapter, EPSS adapter) and provide a uniform lookup API to the worker.
 
 # Drawbacks
 
