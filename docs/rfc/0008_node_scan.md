@@ -191,9 +191,9 @@ If another job is already active, the new job is not created.
 
 ## Webhook Validation
 
-The `nodeSelector` and `platform` filters defined in the `NodeScanConfiguration`
-do not trigger the execution of a manually created `NodeScanJob` for a node that
-does not match them.
+The `nodeSelector` and `platforms` filters defined in the `NodeScanConfiguration`
+are enforced for manually created `NodeScanJob` resources, so users cannot run a scan
+against a node that does not match them.
 
 In most cases, this is enforced by a validating webhook: when a user creates a
 `NodeScanJob`, the webhook checks the target node against the current
