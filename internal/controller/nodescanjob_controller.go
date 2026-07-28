@@ -30,9 +30,8 @@ import (
 type NodeScanJobReconciler struct {
 	client.Client
 
-	Scheme          *runtime.Scheme
-	Publisher       messaging.Publisher
-	Instrumentation *Instrumentation
+	Scheme    *runtime.Scheme
+	Publisher messaging.Publisher
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=nodescanjobs,verbs=get;list;watch;create;update;patch;delete
@@ -252,13 +251,13 @@ func (r *NodeScanJobReconciler) cleanupOldNodeScanJobs(ctx context.Context, curr
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *NodeScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *NodeScanJobReconciler) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
 	// Count job completions on the controller's informer, observing every status writer.
 	informer, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.NodeScanJob{})
 	if err != nil {
 		return fmt.Errorf("failed to get NodeScanJob informer: %w", err)
 	}
-	if _, err := informer.AddEventHandler(r.Instrumentation.nodeScanJobTransitions()); err != nil {
+	if _, err := informer.AddEventHandler(instrumentation.nodeScanJobTransitions()); err != nil {
 		return fmt.Errorf("failed to register NodeScanJob transitions handler: %w", err)
 	}
 
@@ -267,7 +266,7 @@ func (r *NodeScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
-		Complete(instrumentReconcilerWithTraceparent(r.Instrumentation, "NodeScanJob", "NodeScanJob", r.Client, &v1alpha1.NodeScanJob{}, r))
+		Complete(instrumentReconcilerWithTraceparent(instrumentation, "NodeScanJob", "NodeScanJob", r.Client, &v1alpha1.NodeScanJob{}, r))
 	if err != nil {
 		return fmt.Errorf("failed to create NodeScanJob controller: %w", err)
 	}
