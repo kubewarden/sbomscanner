@@ -31,9 +31,8 @@ const (
 type ScanJobReconciler struct {
 	client.Client
 
-	Scheme          *runtime.Scheme
-	Publisher       messaging.Publisher
-	Instrumentation *Instrumentation
+	Scheme    *runtime.Scheme
+	Publisher messaging.Publisher
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=scanjobs,verbs=get;list;watch;create;update;patch;delete
@@ -222,13 +221,13 @@ func validateScanJobTargets(scanJob *v1alpha1.ScanJob, registry *v1alpha1.Regist
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ScanJobReconciler) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
 	// Count job completions on the controller's informer, observing every status writer.
 	informer, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.ScanJob{})
 	if err != nil {
 		return fmt.Errorf("failed to get ScanJob informer: %w", err)
 	}
-	if _, err := informer.AddEventHandler(r.Instrumentation.scanJobTransitions()); err != nil {
+	if _, err := informer.AddEventHandler(instrumentation.scanJobTransitions()); err != nil {
 		return fmt.Errorf("failed to register ScanJob transitions handler: %w", err)
 	}
 
@@ -237,7 +236,7 @@ func (r *ScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
-		Complete(instrumentReconcilerWithTraceparent(r.Instrumentation, "ScanJob", "ScanJob", r.Client, &v1alpha1.ScanJob{}, r))
+		Complete(instrumentReconcilerWithTraceparent(instrumentation, "ScanJob", "ScanJob", r.Client, &v1alpha1.ScanJob{}, r))
 	if err != nil {
 		return fmt.Errorf("failed to create ScanJob controller: %w", err)
 	}
