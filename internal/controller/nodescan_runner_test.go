@@ -29,7 +29,7 @@ var _ = Describe("NodeScanRunner", func() {
 			runner = &NodeScanRunner{
 				Client:          k8sClient,
 				Scheme:          k8sClient.Scheme(),
-				Instrumentation: newNoopInstrumentation(),
+				instrumentation: newNoopInstrumentation(),
 			}
 		})
 
