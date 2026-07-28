@@ -31,3 +31,4 @@ go test
 ## Checklist
 
 - [ ] I have read and understood the [Kubewarden AI Policy](https://github.com/kubewarden/community/blob/main/AI_POLICY.md)
+- [ ] I have updated the documentation via a pull request in [docs](https://github.com/kubewarden/docs/tree/main/docs/sbom-scanner) repository.
