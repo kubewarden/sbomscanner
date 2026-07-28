@@ -31,7 +31,7 @@ const registryScanRunnerPeriod = 10 * time.Second
 type RegistryScanRunner struct {
 	client.Client
 
-	Instrumentation *Instrumentation
+	instrumentation *Instrumentation
 }
 
 // Start implements the Runnable interface.
@@ -64,7 +64,7 @@ func (r *RegistryScanRunner) tick(ctx context.Context) {
 		log.Error(err, "Failed to scan registries")
 	}
 
-	r.Instrumentation.recordRegistryScanTick(ctx, result)
+	r.instrumentation.recordRegistryScanTick(ctx, result)
 }
 
 // scanRegistries checks all registries and creates ScanJobs for those that need scanning.
@@ -329,7 +329,7 @@ func (r *RegistryScanRunner) getLastScanJob(ctx context.Context, registry *v1alp
 // createScanJob creates a new ScanJob for the given registry.
 // When repositories is non-empty, the ScanJob targets only that subset.
 func (r *RegistryScanRunner) createScanJob(ctx context.Context, registry *v1alpha1.Registry, repositories []v1alpha1.ScanJobRepository) error {
-	jobCtx, jobSpan := r.Instrumentation.startJobTrace(ctx, "RegistryScanRunner.CreateScanJob",
+	jobCtx, jobSpan := r.instrumentation.startJobTrace(ctx, "RegistryScanRunner.CreateScanJob",
 		attribute.String("scanjob.trigger", "runner"),
 		attribute.String("registry.name", registry.Name),
 		attribute.String("registry.namespace", registry.Namespace),
@@ -373,7 +373,8 @@ func (r *RegistryScanRunner) NeedLeaderElection() bool {
 	return true
 }
 
-func (r *RegistryScanRunner) SetupWithManager(mgr ctrl.Manager) error {
+func (r *RegistryScanRunner) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
+	r.instrumentation = instrumentation
 	if err := mgr.Add(r); err != nil {
 		return fmt.Errorf("failed to create RegistryScanRunner: %w", err)
 	}

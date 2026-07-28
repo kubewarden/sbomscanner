@@ -30,7 +30,7 @@ type NodeScanRunner struct {
 	client.Client
 
 	Scheme          *runtime.Scheme
-	Instrumentation *Instrumentation
+	instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=nodescanconfigurations,verbs=get;list;watch;update
@@ -56,7 +56,7 @@ func (r *NodeScanRunner) Start(ctx context.Context) error {
 				result = resultError
 				log.Error(err, "Failed to scan nodes")
 			}
-			r.Instrumentation.recordNodeScanTick(ctx, result)
+			r.instrumentation.recordNodeScanTick(ctx, result)
 		}
 	}
 }
@@ -260,7 +260,7 @@ func (r *NodeScanRunner) getLastNodeScanJob(ctx context.Context, nodeName string
 
 // createNodeScanJob creates a new NodeScanJob for the given node.
 func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, nodeName string) error {
-	jobCtx, jobSpan := r.Instrumentation.startJobTrace(ctx, "NodeScanRunner.CreateNodeScanJob",
+	jobCtx, jobSpan := r.instrumentation.startJobTrace(ctx, "NodeScanRunner.CreateNodeScanJob",
 		attribute.String("nodescanjob.trigger", "runner"),
 		attribute.String("k8s.node.name", nodeName),
 	)
@@ -292,7 +292,8 @@ func (r *NodeScanRunner) NeedLeaderElection() bool {
 	return true
 }
 
-func (r *NodeScanRunner) SetupWithManager(mgr ctrl.Manager) error {
+func (r *NodeScanRunner) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
+	r.instrumentation = instrumentation
 	if err := mgr.Add(r); err != nil {
 		return fmt.Errorf("failed to create NodeScanRunner: %w", err)
 	}
