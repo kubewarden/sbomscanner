@@ -30,7 +30,7 @@ var _ = Describe("RegistryScanRunner", func() {
 			By("Setting up the RegistryScanRunner")
 			runner = &RegistryScanRunner{
 				Client:          k8sClient,
-				Instrumentation: newNoopInstrumentation(),
+				instrumentation: newNoopInstrumentation(),
 			}
 		})
 
