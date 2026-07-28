@@ -292,9 +292,8 @@ func run(cfg Config) error {
 	}
 
 	if err := (&controller.RegistryScanRunner{
-		Client:          mgr.GetClient(),
-		Instrumentation: controllerInstrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr, controllerInstrumentation); err != nil {
 		return fmt.Errorf("creating RegistryScanRunner: %w", err)
 	}
 
@@ -366,10 +365,9 @@ func setupWorkloadScanControllers(mgr ctrl.Manager, instrumentation *controller.
 
 func setupNodeScanControllers(mgr ctrl.Manager, publisher *messaging.NatsPublisher, instrumentation *controller.Instrumentation) error {
 	if err := (&controller.NodeScanRunner{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Instrumentation: instrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, instrumentation); err != nil {
 		return fmt.Errorf("creating NodeScanRunner: %w", err)
 	}
 
