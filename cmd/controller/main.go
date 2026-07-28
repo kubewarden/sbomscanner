@@ -277,19 +277,17 @@ func run(cfg Config) error {
 	}
 
 	if err := (&controller.ScanJobReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Publisher:       publisher,
-		Instrumentation: controllerInstrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Publisher: publisher,
+	}).SetupWithManager(mgr, controllerInstrumentation); err != nil {
 		return fmt.Errorf("creating ScanJob controller: %w", err)
 	}
 
 	if err := (&controller.VulnerabilityReportReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Instrumentation: controllerInstrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, controllerInstrumentation); err != nil {
 		return fmt.Errorf("creating VulnerabilityReport controller: %w", err)
 	}
 
@@ -352,17 +350,15 @@ func run(cfg Config) error {
 
 func setupWorkloadScanControllers(mgr ctrl.Manager, instrumentation *controller.Instrumentation) error {
 	if err := (&controller.WorkloadScanReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Instrumentation: instrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, instrumentation); err != nil {
 		return fmt.Errorf("creating WorkloadScan controller: %w", err)
 	}
 
 	if err := (&controller.ImageWorkloadScanReconciler{
-		Client:          mgr.GetClient(),
-		Instrumentation: instrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr, instrumentation); err != nil {
 		return fmt.Errorf("creating ImageWorkloadScan controller: %w", err)
 	}
 	return nil
@@ -378,25 +374,22 @@ func setupNodeScanControllers(mgr ctrl.Manager, publisher *messaging.NatsPublish
 	}
 
 	if err := (&controller.NodeScanReconciler{
-		Client:          mgr.GetClient(),
-		Instrumentation: instrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr, instrumentation); err != nil {
 		return fmt.Errorf("creating NodeScan controller: %w", err)
 	}
 
 	if err := (&controller.NodeScanConfigurationReconciler{
-		Client:          mgr.GetClient(),
-		Instrumentation: instrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr, instrumentation); err != nil {
 		return fmt.Errorf("creating NodeScanConfiguration controller: %w", err)
 	}
 
 	if err := (&controller.NodeScanJobReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Publisher:       publisher,
-		Instrumentation: instrumentation,
-	}).SetupWithManager(mgr); err != nil {
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Publisher: publisher,
+	}).SetupWithManager(mgr, instrumentation); err != nil {
 		return fmt.Errorf("creating NodeScanJob controller: %w", err)
 	}
 	return nil
