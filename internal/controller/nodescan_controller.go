@@ -23,8 +23,6 @@ import (
 // when a Node is deleted.
 type NodeScanReconciler struct {
 	client.Client
-
-	Instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=storage.sbomscanner.kubewarden.io,resources=nodesboms,verbs=list;watch;delete
@@ -85,7 +83,7 @@ func (r *NodeScanReconciler) cleanupNodeResources(ctx context.Context, nodeName 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager) error {
+func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager, instrumentation *Instrumentation) error {
 	err := ctrl.NewControllerManagedBy(manager).
 		Named("nodescan-controller").
 		Watches(&corev1.Node{},
@@ -100,7 +98,7 @@ func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager) error {
 				GenericFunc: func(_ event.GenericEvent) bool { return false },
 			}),
 		).
-		Complete(instrumentReconciler(r.Instrumentation, "NodeScan", "Node", r))
+		Complete(instrumentReconciler(instrumentation, "NodeScan", "Node", r))
 	if err != nil {
 		return fmt.Errorf("failed to create nodescan controller: %w", err)
 	}
