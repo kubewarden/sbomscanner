@@ -13,6 +13,19 @@ const (
 	AnnotationNodeRescanRequested = "sbomscanner.kubewarden.io/node-rescan-requested"
 )
 
+// DefaultSkipPatterns is the canonical list of skip patterns applied to
+// NodeScanConfigurationSpec.SkipPatterns when the field is unset. It is applied
+// by the defaulting webhook (see internal/webhook/v1alpha1).
+var DefaultSkipPatterns = []string{
+	"/var/lib/containerd/",
+	"/var/lib/docker/",
+	"/var/lib/rancher/k3s/agent/containerd/",
+	"/var/lib/rancher/rke2/agent/containerd/",
+	"/var/lib/containers/",
+	"/run/containerd/",
+	"/run/k3s/containerd/",
+}
+
 // NodeScanConfigurationSpec defines the desired configuration for node scanning.
 type NodeScanConfigurationSpec struct {
 	// Enabled controls whether node scanning is active.
@@ -42,7 +55,6 @@ type NodeScanConfigurationSpec struct {
 	//   - /run/k3s/containerd/
 	// Set to an empty list to scan everything, including the paths above.
 	// +optional
-	// +kubebuilder:default={"/var/lib/containerd/","/var/lib/docker/","/var/lib/rancher/k3s/agent/containerd/","/var/lib/rancher/rke2/agent/containerd/","/var/lib/containers/","/run/containerd/","/run/k3s/containerd/"}
 	SkipPatterns *[]string `json:"skipPatterns,omitempty"`
 
 	// Platforms allows to specify the list of platforms to scan.
