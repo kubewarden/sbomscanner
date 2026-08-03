@@ -1399,6 +1399,428 @@
         }
       ],
       "interval": "2m"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "id": 300,
+      "panels": [],
+      "title": "Worker",
+      "type": "row"
+    },
+    {
+      "id": 301,
+      "type": "stat",
+      "title": "Scans handled",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 59
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "orientation": "auto",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum(histogram_count(increase(worker_scan_duration_seconds{stage=~\"catalog|generate_sbom|scan_sbom\"}[$__range])))) or vector(0)",
+          "legendFormat": "Registry",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "round(sum(histogram_count(increase(worker_scan_duration_seconds{stage=~\"generate_node_sbom|node_scan_sbom\"}[$__range])))) or vector(0)",
+          "legendFormat": "Node",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "interval": "2m"
+    },
+    {
+      "id": 302,
+      "type": "stat",
+      "title": "Scan errors",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 59
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "orientation": "auto",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum(histogram_count(increase(worker_scan_duration_seconds{stage=~\"catalog|generate_sbom|scan_sbom\", result=\"error\"}[$__range])))) or vector(0)",
+          "legendFormat": "Registry",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "round(sum(histogram_count(increase(worker_scan_duration_seconds{stage=~\"generate_node_sbom|node_scan_sbom\", result=\"error\"}[$__range])))) or vector(0)",
+          "legendFormat": "Node",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "interval": "2m"
+    },
+    {
+      "id": 304,
+      "type": "stat",
+      "title": "Trivy p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 59
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(worker_trivy_duration_seconds[$__range])))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "interval": "2m"
+    },
+    {
+      "id": 305,
+      "type": "timeseries",
+      "title": "Scan duration p95 by stage",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 63
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "0",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "pointSize": 5
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (stage) (rate(worker_scan_duration_seconds[$__rate_interval])))",
+          "legendFormat": "{{stage}}"
+        }
+      ],
+      "interval": "2m"
+    },
+    {
+      "id": 306,
+      "type": "timeseries",
+      "title": "Scans handled by stage and result",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 63
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "pointSize": 5
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage, result) (histogram_count(rate(worker_scan_duration_seconds[$__rate_interval])))",
+          "legendFormat": "{{stage}}/{{result}}"
+        }
+      ],
+      "interval": "2m"
+    },
+    {
+      "id": 308,
+      "type": "timeseries",
+      "title": "Registry call p95 by operation",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 63
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "0",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "pointSize": 5
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (operation) (rate(worker_registry_call_duration_seconds[$__rate_interval])))",
+          "legendFormat": "{{operation}}"
+        }
+      ],
+      "interval": "2m"
+    },
+    {
+      "id": 309,
+      "type": "timeseries",
+      "title": "Images scanned by registry",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "pointSize": 5
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (registry) (rate(sbomscanner_images_scanned_total[$__rate_interval]))",
+          "legendFormat": "{{registry}}"
+        }
+      ],
+      "interval": "2m"
+    },
+    {
+      "id": 310,
+      "type": "timeseries",
+      "title": "Handler errors by type",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 71
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "pointSize": 5
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (handler, error_type) (rate(worker_handler_errors_total[$__rate_interval]))",
+          "legendFormat": "{{handler}}/{{error_type}}"
+        }
+      ],
+      "interval": "2m"
     }
   ],
   "refresh": "10s",
