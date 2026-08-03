@@ -91,6 +91,13 @@ MCP_SRCS := $(GO_MOD_SRCS) $(MCP_GO_SRCS)
 mcp: $(MCP_SRCS) vet
 	$(GO_BUILD_ENV) go build -o ./bin/mcp ./cmd/mcp
 
+DB_CLI_SRC_DIRS := cmd/sbomscannerdb internal/sbomscannerdb
+DB_CLI_GO_SRCS := $(shell find $(DB_CLI_SRC_DIRS) -type f -name '*.go')
+DB_CLI_SRCS := $(GO_MOD_SRCS) $(DB_CLI_GO_SRCS)
+.PHONY: db-cli
+db-cli: $(DB_CLI_SRCS) vet
+	$(GO_BUILD_ENV) go build -o ./bin/sbomscannerdb ./cmd/sbomscannerdb
+
 .PHONY: worker-image
 worker-image:
 	docker build -f ./Dockerfile.worker \
