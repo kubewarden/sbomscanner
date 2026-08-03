@@ -32,6 +32,7 @@ type GenerateSBOMHandler struct {
 	trivyJavaDBRepository string
 	publisher             messaging.Publisher
 	installationNamespace string
+	instrumentation       *Instrumentation
 	logger                *slog.Logger
 }
 
@@ -43,20 +44,24 @@ func NewGenerateSBOMHandler(
 	trivyJavaDBRepository string,
 	publisher messaging.Publisher,
 	installationNamespace string,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *GenerateSBOMHandler {
-	return &GenerateSBOMHandler{
+) *InstrumentedHandler {
+	return instrumentHandler(instrumentation, "GenerateSBOMHandler", "generate_sbom", &GenerateSBOMHandler{
 		k8sClient:             k8sClient,
 		scheme:                scheme,
 		workDir:               workDir,
 		trivyJavaDBRepository: trivyJavaDBRepository,
 		publisher:             publisher,
 		installationNamespace: installationNamespace,
+		instrumentation:       instrumentation,
 		logger:                logger.With("handler", "generate_sbom_handler"),
-	}
+	})
 }
 
 // Handle processes the GenerateSBOMMessage and generates a SBOM resource from the specified image.
+//
+//nolint:funlen
 func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
 	generateSBOMMessage := &GenerateSBOMMessage{}
 	if err := json.Unmarshal(message.Data(), generateSBOMMessage); err != nil {
@@ -77,6 +82,7 @@ func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		// Stop processing if the scanjob is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation", "scanjob", generateSBOMMessage.ScanJob.Name, "namespace", generateSBOMMessage.ScanJob.Namespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 
@@ -85,6 +91,7 @@ func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	if string(scanJob.GetUID()) != generateSBOMMessage.ScanJob.UID {
 		h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", generateSBOMMessage.ScanJob.Name, "namespace", generateSBOMMessage.ScanJob.Namespace,
 			"uid", generateSBOMMessage.ScanJob.UID)
+		recordSpanSkipReason(ctx, skipReasonUIDMismatch)
 		return nil
 	}
 
@@ -92,6 +99,7 @@ func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 
 	if scanJob.IsFailed() {
 		h.logger.InfoContext(ctx, "ScanJob is in failed state, stopping SBOM generation", "scanjob", scanJob.Name, "namespace", scanJob.Namespace)
+		recordSpanSkipReason(ctx, skipReasonJobFailed)
 		return nil
 	}
 
@@ -104,6 +112,7 @@ func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		// Stop processing if the image is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "Image not found, stopping SBOM generation", "image", generateSBOMMessage.Image.Name, "namespace", generateSBOMMessage.Image.Namespace)
+			recordSpanSkipReason(ctx, skipReasonObjectNotFound)
 			return nil
 		}
 
@@ -319,7 +328,10 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 	app := trivyCommands.NewApp()
 	app.SetArgs(args)
 
-	if err = app.ExecuteContext(ctx); err != nil {
+	trivyCtx, trivyDone := h.instrumentation.startTrivy(ctx, trivyCommandImage)
+	err = app.ExecuteContext(trivyCtx)
+	trivyDone(err)
+	if err != nil {
 		return nil, fmt.Errorf("failed to execute trivy: %w", err)
 	}
 
