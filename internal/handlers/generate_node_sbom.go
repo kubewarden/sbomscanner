@@ -36,6 +36,7 @@ type GenerateNodeSBOMHandler struct {
 	trivyJavaDBRepository string
 	publisher             messaging.Publisher
 	installationNamespace string
+	instrumentation       *Instrumentation
 	logger                *slog.Logger
 }
 
@@ -48,9 +49,10 @@ func NewGenerateNodeSBOMHandler(
 	trivyJavaDBRepository string,
 	publisher messaging.Publisher,
 	installationNamespace string,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *GenerateNodeSBOMHandler {
-	return &GenerateNodeSBOMHandler{
+) *InstrumentedHandler {
+	return instrumentHandler(instrumentation, "GenerateNodeSBOMHandler", "generate_node_sbom", &GenerateNodeSBOMHandler{
 		k8sClient:             k8sClient,
 		scheme:                scheme,
 		workDir:               workDir,
@@ -58,8 +60,9 @@ func NewGenerateNodeSBOMHandler(
 		trivyJavaDBRepository: trivyJavaDBRepository,
 		publisher:             publisher,
 		installationNamespace: installationNamespace,
+		instrumentation:       instrumentation,
 		logger:                logger.With("handler", "generate_node_sbom_handler"),
-	}
+	})
 }
 
 // Handle processes the GenerateNodeSBOMMessage and generates a SBOM resource from the specified image.
@@ -83,6 +86,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		// Stop processing if the scanjob is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 
@@ -91,6 +95,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	if nodeScanJob.Name != generateNodeSBOMMessage.NodeScanJob.Name {
 		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name,
 			"uid", generateNodeSBOMMessage.NodeScanJob.UID)
+		recordSpanSkipReason(ctx, skipReasonUIDMismatch)
 		return nil
 	}
 
@@ -102,6 +107,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		// Stop processing if the node is not found, since it might have been deleted.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "Node not found, stopping NodeSBOM generation", "node", generateNodeSBOMMessage.Node.Name)
+			recordSpanSkipReason(ctx, skipReasonObjectNotFound)
 			return nil
 		}
 
@@ -111,6 +117,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 
 	if nodeScanJob.IsFailed() {
 		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping NodeSBOM generation", "nodescanjob", nodeScanJob.Name)
+		recordSpanSkipReason(ctx, skipReasonJobFailed)
 		return nil
 	}
 
@@ -128,6 +135,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 		// The NodeScanJob may have been deleted while we were processing; abandon the update.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping NodeSBOM generation", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("failed to update NodeScanJob status to in progress: %w", err)
@@ -144,6 +152,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanConfiguration not found, stopping NodeSBOM generation", "node name", node.Name)
+			recordSpanSkipReason(ctx, skipReasonObjectNotFound)
 			return nil
 		}
 		return fmt.Errorf("cannot get NodeScanConfiguration: %w", err)
@@ -200,6 +209,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	if err = h.k8sClient.Get(ctx, client.ObjectKey{Name: generateNodeSBOMMessage.NodeScanJob.Name}, &v1alpha1.NodeScanJob{}); err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanJob no longer exists, skipping publish of scan NodeSBOM message", "nodescanjob", generateNodeSBOMMessage.NodeScanJob.Name)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("cannot get NodeScanJob %s: %w", generateNodeSBOMMessage.NodeScanJob.Name, err)
@@ -294,7 +304,10 @@ func (h *GenerateNodeSBOMHandler) generateSPDX(ctx context.Context, skipPats []s
 
 	h.logger.DebugContext(ctx, "Executing Trivy to generate SPDX SBOM", "args", args)
 
-	if err = app.ExecuteContext(ctx); err != nil {
+	trivyCtx, trivyDone := h.instrumentation.startTrivy(ctx, trivyCommandFilesystem)
+	err = app.ExecuteContext(trivyCtx)
+	trivyDone(err)
+	if err != nil {
 		return nil, fmt.Errorf("failed to execute trivy: %w", err)
 	}
 

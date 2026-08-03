@@ -38,7 +38,7 @@ func TestScanJobFailureHandler_HandleFailure(t *testing.T) {
 		WithStatusSubresource(scanJob).
 		Build()
 
-	handler := NewScanJobFailureHandler(k8sClient, slog.Default())
+	handler := NewScanJobFailureHandler(k8sClient, newNoopInstrumentation(), slog.Default())
 
 	message, err := json.Marshal(&GenerateSBOMMessage{
 		BaseMessage: BaseMessage{

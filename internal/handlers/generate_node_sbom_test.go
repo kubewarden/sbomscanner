@@ -107,7 +107,7 @@ func TestGenerateNodeSBOMHandler_Handle(t *testing.T) {
 		expectedScanMessage,
 	).Return(nil).Once()
 
-	handler := NewGenerateNodeSBOMHandler(k8sClient, scheme, t.TempDir(), targetDir, testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
+	handler := NewGenerateNodeSBOMHandler(k8sClient, scheme, t.TempDir(), targetDir, testTrivyJavaDBRepository, publisher, "sbomscanner", newNoopInstrumentation(), slog.Default())
 
 	message, err := json.Marshal(&GenerateNodeSBOMMessage{
 		NodeBaseMessage: NodeBaseMessage{
@@ -229,7 +229,7 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 
 			publisher := messagingMocks.NewMockPublisher(t)
 
-			handler := NewGenerateNodeSBOMHandler(k8sClient, scheme, t.TempDir(), "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
+			handler := NewGenerateNodeSBOMHandler(k8sClient, scheme, t.TempDir(), "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", newNoopInstrumentation(), slog.Default())
 
 			message, err := json.Marshal(&GenerateNodeSBOMMessage{
 				NodeBaseMessage: NodeBaseMessage{
