@@ -113,7 +113,7 @@ func TestWorkloadDigestPrivateMultiArchitecture(t *testing.T) {
 	}
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	handler := &CreateCatalogHandler{scheme: scheme, logger: slog.Default()}
+	handler := &CreateCatalogHandler{scheme: scheme, instrumentation: newNoopInstrumentation(), logger: slog.Default()}
 	client := registryclient.NewClient(server.Client().Transport, slog.Default())
 	refs, err := handler.discoverImages(t.Context(), client, registry, repo.Name())
 	require.NoError(t, err)

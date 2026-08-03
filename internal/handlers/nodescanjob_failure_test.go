@@ -34,7 +34,7 @@ func TestNodeScanJobFailureHandler_HandleFailure(t *testing.T) {
 		WithStatusSubresource(nodeScanJob).
 		Build()
 
-	handler := NewNodeScanJobFailureHandler(k8sClient, slog.Default())
+	handler := NewNodeScanJobFailureHandler(k8sClient, newNoopInstrumentation(), slog.Default())
 
 	message, err := json.Marshal(&GenerateNodeSBOMMessage{
 		NodeScanJob: ObjectRef{
@@ -69,7 +69,7 @@ func TestNodeScanJobFailureHandler_HandleFailure_NodeScanJobNotFound(t *testing.
 		WithScheme(scheme).
 		Build()
 
-	handler := NewNodeScanJobFailureHandler(k8sClient, slog.Default())
+	handler := NewNodeScanJobFailureHandler(k8sClient, newNoopInstrumentation(), slog.Default())
 
 	message, err := json.Marshal(&GenerateNodeSBOMMessage{
 		NodeScanJob: ObjectRef{
