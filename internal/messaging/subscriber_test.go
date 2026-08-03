@@ -17,11 +17,16 @@ import (
 const testSubscriberSubject = "sbomscanner.subscriber.test"
 
 type testMessage struct {
-	data []byte
+	data    []byte
+	headers nats.Header
 }
 
 func (m *testMessage) Data() []byte {
 	return m.data
+}
+
+func (m *testMessage) Headers() nats.Header {
+	return m.headers
 }
 
 func (m *testMessage) InProgress() error {
