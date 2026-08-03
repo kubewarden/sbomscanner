@@ -7,6 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 const (
@@ -69,6 +71,10 @@ func (p *NatsPublisher) Publish(ctx context.Context, subject string, messageID s
 			jetstream.MsgIDHeader: []string{messageID},
 		},
 	}
+	// The trace context from ctx rides along in the message headers (W3C traceparent),
+	// so consumers can join the publishing trace.
+	telemetry.InjectNATS(ctx, msg)
+
 	if _, err := p.js.PublishMsg(ctx, msg); err != nil {
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
