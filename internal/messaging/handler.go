@@ -1,12 +1,17 @@
 package messaging
 
-import "context"
+import (
+	"context"
+
+	"github.com/nats-io/nats.go"
+)
 
 // Message represents a message received by the handler.
-// It provides access to the message data and allows marking the message as in-progress
+// It provides access to the message data and headers, and allows marking the message as in-progress
 // to extend the acknowledgement timeout during long-running operations.
 type Message interface {
 	Data() []byte
+	Headers() nats.Header
 	InProgress() error
 }
 
