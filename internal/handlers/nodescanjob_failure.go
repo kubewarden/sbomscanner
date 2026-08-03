@@ -23,12 +23,13 @@ type NodeScanJobFailureHandler struct {
 // NewNodeScanJobFailureHandler creates a new instance of NodeScanJobFailureHandler.
 func NewNodeScanJobFailureHandler(
 	k8sClient client.Client,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *NodeScanJobFailureHandler {
-	return &NodeScanJobFailureHandler{
+) *InstrumentedFailureHandler {
+	return instrumentFailureHandler(instrumentation, "NodeScanJobFailureHandler", &NodeScanJobFailureHandler{
 		k8sClient: k8sClient,
 		logger:    logger.With("handler", "nodescanjob_failure_handler"),
-	}
+	})
 }
 
 // HandleFailure processes message failures and updates the associated NodeScanJob status.

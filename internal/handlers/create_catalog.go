@@ -44,6 +44,7 @@ type CreateCatalogHandler struct {
 	scheme                *runtime.Scheme
 	publisher             messaging.Publisher
 	installationNamespace string
+	instrumentation       *Instrumentation
 	logger                *slog.Logger
 }
 
@@ -54,16 +55,18 @@ func NewCreateCatalogHandler(
 	scheme *runtime.Scheme,
 	publisher messaging.Publisher,
 	installationNamespace string,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *CreateCatalogHandler {
-	return &CreateCatalogHandler{
+) *InstrumentedHandler {
+	return instrumentHandler(instrumentation, "CreateCatalogHandler", "catalog", &CreateCatalogHandler{
 		registryClientFactory: registryClientFactory,
 		k8sClient:             k8sClient,
 		publisher:             publisher,
 		scheme:                scheme,
 		installationNamespace: installationNamespace,
+		instrumentation:       instrumentation,
 		logger:                logger.With("handler", "create_catalog_handler"),
-	}
+	})
 }
 
 // Handle processes the create catalog message and creates Image resources.
@@ -104,6 +107,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 		if apierrors.IsNotFound(err) {
 			// Stop processing if the scanjob is not found, since it might have been deleted.
 			h.logger.InfoContext(ctx, "ScanJob not found, stopping catalog creation", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("cannot update scan job status %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
@@ -225,6 +229,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					h.logger.InfoContext(ctx, "ScanJob not found, stopping catalog creation", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace)
+					recordSpanSkipReason(ctx, skipReasonJobNotFound)
 					return nil
 				}
 				return fmt.Errorf("cannot get scanjob %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
@@ -232,6 +237,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			if string(scanJob.GetUID()) != createCatalogMessage.ScanJob.UID {
 				h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace,
 					"uid", createCatalogMessage.ScanJob.UID)
+				recordSpanSkipReason(ctx, skipReasonUIDMismatch)
 				return nil
 			}
 
@@ -346,7 +352,9 @@ func (h *CreateCatalogHandler) discoverRepositories(
 	// In this case, we need to discover all the repositories in the registry.
 	if len(registry.Spec.Repositories) == 0 {
 		var allRepositories []string
+		catalogDone := h.instrumentation.startRegistryCall(ctx, "catalog")
 		allRepositories, err = registryClient.Catalog(ctx, reg)
+		catalogDone(err)
 		if err != nil {
 			return []string{}, fmt.Errorf("cannot discover repositories: %w", err)
 		}
@@ -375,7 +383,9 @@ func (h *CreateCatalogHandler) discoverImages(
 		return []string{}, fmt.Errorf("cannot parse repository name %q: %w", repository, err)
 	}
 
+	listDone := h.instrumentation.startRegistryCall(ctx, "list_repository_contents")
 	contents, err := registryClient.ListRepositoryContents(ctx, repo)
+	listDone(err)
 	if err != nil {
 		return []string{}, fmt.Errorf("cannot list repository contents: %w", err)
 	}
@@ -392,7 +402,9 @@ func (h *CreateCatalogHandler) refToImages(
 	ref name.Reference,
 	registry *v1alpha1.Registry,
 ) ([]storagev1alpha1.Image, error) {
+	descriptorDone := h.instrumentation.startRegistryCall(ctx, "get_descriptor")
 	desc, err := registryClient.GetDescriptor(ctx, ref)
+	descriptorDone(err)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get descriptor for %q: %w", ref.Name(), err)
 	}
@@ -425,7 +437,9 @@ func (h *CreateCatalogHandler) singleArchRefToImages(
 	ref name.Reference,
 	registry *v1alpha1.Registry,
 ) ([]storagev1alpha1.Image, error) {
+	detailsDone := h.instrumentation.startRegistryCall(ctx, "get_image_details")
 	imageDetails, err := registryClient.GetImageDetails(ctx, ref, nil)
+	detailsDone(err)
 	if err != nil {
 		return []storagev1alpha1.Image{}, fmt.Errorf("cannot get image details for %q: %w", ref.Name(), err)
 	}
@@ -484,7 +498,9 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 			continue
 		}
 
+		indexDetailsDone := h.instrumentation.startRegistryCall(ctx, "get_image_details")
 		imageDetails, err := registryClient.GetImageDetailsFromIndex(ctx, imageIndex, m.Digest, m.Platform)
+		indexDetailsDone(err)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get image details for %q digest %s platform %v: %w", ref.Name(), m.Digest, m.Platform, err)
 		}

@@ -30,16 +30,18 @@ func NewScanSBOMHandler(
 	workDir string,
 	trivyDBRepository string,
 	trivyJavaDBRepository string,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *ScanSBOMHandler {
-	return &ScanSBOMHandler{
+) *InstrumentedHandler {
+	return instrumentHandler(instrumentation, "ScanSBOMHandler", "scan_sbom", &ScanSBOMHandler{
 		k8sClient:             k8sClient,
 		scheme:                scheme,
 		workDir:               workDir,
 		trivyDBRepository:     trivyDBRepository,
 		trivyJavaDBRepository: trivyJavaDBRepository,
+		instrumentation:       instrumentation,
 		logger:                logger.With("handler", "scan_sbom_handler"),
-	}
+	})
 }
 
 //nolint:funlen
@@ -67,6 +69,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	}, scanJob); err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.ErrorContext(ctx, "ScanJob not found, stopping SBOM scan", "scanJob", scanJobName, "namespace", scanJobNamespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 
@@ -76,11 +79,13 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	if string(scanJob.GetUID()) != scanJobUID {
 		h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", scanJobName, "namespace", scanJobNamespace,
 			"uid", scanJobUID)
+		recordSpanSkipReason(ctx, skipReasonUIDMismatch)
 		return nil
 	}
 
 	if scanJob.IsFailed() {
 		h.logger.InfoContext(ctx, "ScanJob is in failed state, stopping SBOM scan", "scanjob", scanJobName, "namespace", scanJobNamespace)
+		recordSpanSkipReason(ctx, skipReasonJobFailed)
 		return nil
 	}
 
@@ -101,6 +106,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	}, sbom); err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.ErrorContext(ctx, "SBOM not found, stopping SBOM scan", "sbom", sbomName, "namespace", sbomNamespace)
+			recordSpanSkipReason(ctx, skipReasonObjectNotFound)
 			return nil
 		}
 
@@ -108,6 +114,7 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	}
 
 	results, summary, err := h.runTrivyScan(ctx, sbom.SPDX.Raw, message)
+	h.instrumentation.recordImageScanned(ctx, sbom.GetImageMetadata().RegistryURI, err)
 	if err != nil {
 		return err
 	}

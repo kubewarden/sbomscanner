@@ -37,6 +37,7 @@ type scanSBOMBase struct {
 	workDir               string
 	trivyDBRepository     string
 	trivyJavaDBRepository string
+	instrumentation       *Instrumentation
 	logger                *slog.Logger
 }
 
@@ -124,7 +125,10 @@ func (b *scanSBOMBase) runTrivyScan(ctx context.Context, rawSPDX []byte, message
 	trivyArgs = append(trivyArgs, sbomFile.Name())
 	app.SetArgs(trivyArgs)
 
-	if err = app.ExecuteContext(ctx); err != nil {
+	trivyCtx, trivyDone := b.instrumentation.startTrivy(ctx, trivyCommandSBOM)
+	err = app.ExecuteContext(trivyCtx)
+	trivyDone(err)
+	if err != nil {
 		return nil, storagev1alpha1.Summary{}, fmt.Errorf("failed to execute trivy: %w", err)
 	}
 
