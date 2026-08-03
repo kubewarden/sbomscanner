@@ -100,6 +100,9 @@ and adopt the whole scan into its own trace.
 Reconcilers only ever read the annotation,
 so the instrumentation cannot retrigger the reconcile loops it observes.
 
+On the message hop, the trace context travels in the NATS headers instead:
+publishers inject the current traceparent and worker consumer spans parent from it.
+
 ## Metric label cardinality
 
 Every metric label value must come from a fixed, low-cardinality set known at design time.
@@ -191,32 +194,27 @@ keeps serving them for users on Prometheus pull.
 
 Traces:
 
-| Span                    | Triggered by                                                            | Key attributes                                                                                      |
-| :---------------------- | :---------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
-| `Handler CreateCatalog` | NATS consume on `sbomscanner.scanjob.create-catalog`                    | `messaging.system`, `messaging.consumer.name`, `registry.host`, `scanjob.name`, `scanjob.namespace` |
-| `Handler GenerateSBOM`  | NATS consume on `sbomscanner.scanjob.generate-sbom`                     | `messaging.consumer.name`, `oci.image.ref`, `oci.image.platform`, `scanjob.name`                    |
-| `Handler ScanSBOM`      | NATS consume on `sbomscanner.scanjob.scan-sbom`                         | `messaging.consumer.name`, `oci.image.ref`, `vulnerability.count`, `vulnerability.count.critical`   |
-| `Handler ScanJobFailure` | NATS consume on the `ScanJob` failure subject                          | `messaging.consumer.name`, `scanjob.name`, `scanjob.namespace`, `error.type`                        |
-| `Handler GenerateNodeSBOM` | NATS consume on `sbomscanner.nodescanjob.generate-sbom`              | `messaging.consumer.name`, `k8s.node.name`, `nodescanjob.name`                                      |
-| `Handler NodeScanSBOM`  | NATS consume on `sbomscanner.nodescanjob.scan-sbom`                     | `messaging.consumer.name`, `k8s.node.name`, `nodescanjob.name`, `vulnerability.count`, `vulnerability.count.critical` |
-| `Handler NodeScanJobFailure` | NATS consume on the `NodeScanJob` failure subject                  | `messaging.consumer.name`, `nodescanjob.name`, `k8s.node.name`, `error.type`                        |
-| `Registry HTTP`         | `otelhttp.NewTransport` wrapping `go-containerregistry`                 | `http.method`, `http.url`, `http.status_code`, `registry.host`, `registry.operation`                |
-| `Trivy invoke`          | Each Trivy entry point call site in `generate_sbom.go` / `scan_sbom.go` / `generate_node_sbom.go` / `node_scan_sbom.go` | `trivy.command`, `trivy.target`, `trivy.db.version`, `result`                                       |
+| Span                                     | Triggered by                                                    | Key attributes                                       |
+| :---------------------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------- |
+| `<Handler>.Handle`                       | Each consumed message (CreateCatalogHandler, GenerateSBOMHandler, ScanSBOMHandler, GenerateNodeSBOMHandler, NodeScanSBOMHandler) | `messaging.system=nats`, `handler.skip_reason` on the early-return paths |
+| `<Handler>.HandleFailure`                | A message exhausting its redeliveries (ScanJobFailureHandler, NodeScanJobFailureHandler) | `messaging.system=nats`, `error.message`             |
+| `Trivy.Image` / `Trivy.SBOM` / `Trivy.Filesystem` | Each Trivy invocation                                    | `trivy.command`                                       |
+
+Consumer spans (`SpanKind=Consumer`) are parented from the traceparent carried in the NATS
+message headers, injected by the publisher from the publishing context.
+Handlers publishing the next pipeline message do so inside their own span,
+so the job trace forms a tree over NATS:
+reconcile → catalog → per-image SBOM generation → scan.
 
 Metrics:
 
-| Metric                            | Type      | Labels (bounded)                                          | Exemplars                                          |
-| :-------------------------------- | :-------- | :-------------------------------------------------------- | :------------------------------------------------- |
-| `worker.scan.duration`            | Histogram | `stage` (`catalog`/`generate_sbom`/`scan_sbom`/`generate_node_sbom`/`node_scan_sbom`), `result` | `trace_id`, `scanjob.name`, `oci.image.ref`        |
-| `worker.images.scanned`           | Counter   | `registry_host`, `result`                                 | `trace_id`, `oci.image.ref`                        |
-| `worker.vulnerabilities.found`    | Counter   | `severity`, `registry_host`                               | `trace_id`, `oci.image.ref`, `vulnerability.id`    |
-| `worker.registry.call.duration`   | Histogram | `registry_host`, `operation`, `http.status_code`          | `trace_id`, `oci.image.ref`                        |
-| `worker.trivy.invoke.duration`    | Histogram | `trivy.command`, `result`                                 | `trace_id`, `trivy.target`                         |
-| `worker.handler.errors`           | Counter   | `handler`, `error.type`                                   | `trace_id`, `error.message`                        |
-| `worker.workload.vulnerabilities` | Gauge     | `owner.kind`, `owner.namespace`, `owner.name`, `severity` | `trace_id`, `workload.uid`                         |
-| `worker.workload.scans`           | Counter   | `owner.kind`, `owner.namespace`, `owner.name`, `result`   | `trace_id`, `scanjob.name`                         |
-| `worker.image.vulnerabilities`    | Gauge     | `registry_host`, `repository`, `severity`                 | `trace_id`, `oci.image.ref` (full ref with digest) |
-| `worker.image.scan.duration`      | Histogram | `registry_host`, `repository`, `result`                   | `trace_id`, `oci.image.ref`                        |
+| Metric                          | Type      | Labels (bounded)                                                                                  | Exemplars                   |
+| :------------------------------- | :-------- | :-------------------------------------------------------------------------------------------------- | :--------------------------- |
+| `worker.scan.duration`          | Histogram | `stage` (`catalog` / `generate_sbom` / `scan_sbom` / `generate_node_sbom` / `node_scan_sbom`), `result` | `trace_id`                  |
+| `sbomscanner.images.scanned`    | Counter   | `registry` (host), `result`                                                                          | `trace_id`                  |
+| `worker.registry.call.duration` | Histogram | `operation` (`catalog` / `list_repository_contents` / `get_descriptor` / `get_image_details`), `result` | `trace_id`                  |
+| `worker.trivy.duration`         | Histogram | `command` (`image` / `sbom` / `filesystem`), `result`                                                | `trace_id`                  |
+| `worker.handler.errors`         | Counter   | `handler`, `error.type` (Kubernetes status reason, `canceled`, `deadline_exceeded`, or `unknown`)    | `trace_id`                  |
 
 ### Storage
 
