@@ -13,9 +13,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/nats-io/nats.go"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/registry"
 	"github.com/testcontainers/testcontainers-go/wait"
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -71,11 +74,16 @@ const (
 
 // testMessage is a simple implementation of a message used for testing purposes.
 type testMessage struct {
-	data []byte
+	data    []byte
+	headers nats.Header
 }
 
 func (m *testMessage) Data() []byte {
 	return m.data
+}
+
+func (m *testMessage) Headers() nats.Header {
+	return m.headers
 }
 
 func (m *testMessage) InProgress() error {
@@ -233,4 +241,14 @@ func withCertificateAndKeyFiles(certFile, keyFile string) []testcontainers.Conta
 			wait.ForLog("listening on").WithStartupTimeout(60 * time.Second),
 		),
 	}
+}
+
+// newNoopInstrumentation builds an Instrumentation on no-op providers,
+// for tests that exercise handlers without asserting on telemetry.
+func newNoopInstrumentation() *Instrumentation {
+	instrumentation, err := NewInstrumentation(tracenoop.NewTracerProvider().Tracer("test"), metricnoop.NewMeterProvider().Meter("test"))
+	if err != nil {
+		panic(err)
+	}
+	return instrumentation
 }
