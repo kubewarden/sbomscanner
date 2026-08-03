@@ -1,8 +1,9 @@
 registry: ghcr.io
 use_private_registry: false
-storage: 
+telemetry: true
+storage:
     image: <username>/sbomscanner/storage
-controller: 
+controller:
     image: <username>/sbomscanner/controller
-worker: 
+worker:
     image: <username>/sbomscanner/worker
