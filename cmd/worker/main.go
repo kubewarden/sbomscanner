@@ -167,19 +167,27 @@ func run(cfg config) error {
 		return registry.NewClient(transport, logger)
 	}
 
+	instrumentation, err := handlers.NewInstrumentation(
+		telemetry.Tracer("internal/handlers"),
+		telemetry.Meter("internal/handlers"),
+	)
+	if err != nil {
+		return fmt.Errorf("creating handlers instrumentation: %w", err)
+	}
+
 	var scanMode messaging.HandlerRegistry
 	durableName := "worker"
 	switch cfg.Mode {
 	case registryMode:
 		scanMode = messaging.HandlerRegistry{
-			handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, cfg.InstallationNamespace, logger),
-			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyJavaDBRepository, publisher, cfg.InstallationNamespace, logger),
-			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyDBRepository, cfg.TrivyJavaDBRepository, logger),
+			handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, cfg.InstallationNamespace, instrumentation, logger),
+			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyJavaDBRepository, publisher, cfg.InstallationNamespace, instrumentation, logger),
+			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyDBRepository, cfg.TrivyJavaDBRepository, instrumentation, logger),
 		}
 	case nodeMode:
 		scanMode = messaging.HandlerRegistry{
-			handlers.GenerateNodeSBOMSubject + "." + cfg.NodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, cfg.RunDir, targetDir, cfg.TrivyJavaDBRepository, publisher, cfg.InstallationNamespace, logger),
-			handlers.ScanNodeSBOMSubject + "." + cfg.NodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyDBRepository, cfg.TrivyJavaDBRepository, logger),
+			handlers.GenerateNodeSBOMSubject + "." + cfg.NodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, cfg.RunDir, targetDir, cfg.TrivyJavaDBRepository, publisher, cfg.InstallationNamespace, instrumentation, logger),
+			handlers.ScanNodeSBOMSubject + "." + cfg.NodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, cfg.RunDir, cfg.TrivyDBRepository, cfg.TrivyJavaDBRepository, instrumentation, logger),
 		}
 		durableName = sanitizeNodeSubscriberName(cfg.NodeName)
 	default:
@@ -189,9 +197,9 @@ func run(cfg config) error {
 	var failureHandler messaging.FailureHandler
 	switch cfg.Mode {
 	case nodeMode:
-		failureHandler = handlers.NewNodeScanJobFailureHandler(k8sClient, logger)
+		failureHandler = handlers.NewNodeScanJobFailureHandler(k8sClient, instrumentation, logger)
 	default:
-		failureHandler = handlers.NewScanJobFailureHandler(k8sClient, logger)
+		failureHandler = handlers.NewScanJobFailureHandler(k8sClient, instrumentation, logger)
 	}
 	retryConfig := &messaging.RetryConfig{
 		BaseDelay:   5 * time.Second,

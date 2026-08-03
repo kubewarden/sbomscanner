@@ -31,16 +31,18 @@ func NewNodeScanSBOMHandler(
 	workDir string,
 	trivyDBRepository string,
 	trivyJavaDBRepository string,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *NodeScanSBOMHandler {
-	return &NodeScanSBOMHandler{
+) *InstrumentedHandler {
+	return instrumentHandler(instrumentation, "NodeScanSBOMHandler", "node_scan_sbom", &NodeScanSBOMHandler{
 		k8sClient:             k8sClient,
 		scheme:                scheme,
 		workDir:               workDir,
 		trivyDBRepository:     trivyDBRepository,
 		trivyJavaDBRepository: trivyJavaDBRepository,
+		instrumentation:       instrumentation,
 		logger:                logger.With("handler", "scan_node_sbom_handler"),
-	}
+	})
 }
 
 //nolint:funlen,gocognit // This function is responsible for orchestrating multiple steps in the node SBOM scanning process, making it inherently complex and lengthy.
@@ -68,6 +70,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	}, scanJob); err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.ErrorContext(ctx, "NodeScanJob not found, stopping SBOM scan", "scanJob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 
@@ -77,11 +80,13 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	if string(scanJob.GetUID()) != nodeScanJobUID {
 		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping SBOM generation (UID changed)", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace,
 			"uid", nodeScanJobUID)
+		recordSpanSkipReason(ctx, skipReasonUIDMismatch)
 		return nil
 	}
 
 	if scanJob.IsFailed() {
 		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+		recordSpanSkipReason(ctx, skipReasonJobFailed)
 		return nil
 	}
 
@@ -100,6 +105,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		// The NodeScanJob may have been deleted while we were processing; abandon the update.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("failed to update NodeScanJob status to SBOM generation in progress: %w", err)
@@ -112,6 +118,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	}, sbom); err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.ErrorContext(ctx, "SBOM not found, stopping SBOM scan", "sbom", nodeSBOMName, "namespace", nodeSBOMNamespace)
+			recordSpanSkipReason(ctx, skipReasonObjectNotFound)
 			return nil
 		}
 
@@ -174,6 +181,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		// The NodeScanJob may have been deleted while we were processing; abandon the update.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanJob not found, skipping completion update", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("failed to update NodeScanJob status: %w", err)

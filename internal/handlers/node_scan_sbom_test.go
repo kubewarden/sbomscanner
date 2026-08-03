@@ -59,7 +59,7 @@ func TestNodeScanSBOMHandler_Handle(t *testing.T) {
 		WithStatusSubresource(&v1alpha1.NodeScanJob{}).
 		Build()
 
-	handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
+	handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, newNoopInstrumentation(), slog.Default())
 
 	message, err := json.Marshal(&ScanNodeSBOMMessage{
 		NodeScanJob: ObjectRef{
@@ -163,7 +163,7 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 				Build()
 
 			cacheDir := t.TempDir()
-			handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
+			handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, newNoopInstrumentation(), slog.Default())
 
 			message, err := json.Marshal(&ScanNodeSBOMMessage{
 				NodeScanJob: ObjectRef{
