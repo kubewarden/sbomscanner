@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
+	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	oras "oras.land/oras-go/v2"
@@ -27,11 +29,45 @@ const (
 	// LayerMediaTypeEPSS is the media type of the EPSS scores tar.gz layer.
 	LayerMediaTypeEPSS = "application/vnd.sbomscanner.db.epss.layer.v1.tar+gzip"
 
-	// epochCreated pins the manifest's created annotation to the Unix epoch
-	// so that identical input files yield a byte-identical manifest (SOURCE_DATE_EPOCH convention).
-	// A wall-clock time here would change the manifest digest on every run.
-	epochCreated = "1970-01-01T00:00:00Z"
+	// AnnotationLastUpdate records when the artifact was last rebuilt and pushed.
+	AnnotationLastUpdate = "io.kubewarden.sbomscanner.db.lastUpdate"
+	// AnnotationNextUpdate records when the next rebuild is expected, so workers
+	// can decide whether their local copy is stale without a full registry pull.
+	AnnotationNextUpdate = "io.kubewarden.sbomscanner.db.nextUpdate"
 )
+
+// UpdateWindow bounds the artifact's freshness: LastUpdate is when it was built,
+// NextUpdate is when the next rebuild is expected. Both are rendered as the
+// lastUpdate/nextUpdate annotations on the manifest and on every layer.
+type UpdateWindow struct {
+	LastUpdate time.Time
+	NextUpdate time.Time
+}
+
+// validate enforces the freshness invariant: both endpoints must be set and
+// LastUpdate must be strictly before NextUpdate, so a consumer can never read a
+// window that is already expired at build time or has zero/negative width.
+func (w UpdateWindow) validate() error {
+	if w.LastUpdate.IsZero() {
+		return errors.New("update window: lastUpdate is not set")
+	}
+	if w.NextUpdate.IsZero() {
+		return errors.New("update window: nextUpdate is not set")
+	}
+	if !w.LastUpdate.Before(w.NextUpdate) {
+		return fmt.Errorf("update window: lastUpdate (%s) must be before nextUpdate (%s)",
+			w.LastUpdate.UTC().Format(time.RFC3339), w.NextUpdate.UTC().Format(time.RFC3339))
+	}
+	return nil
+}
+
+// annotations renders the update window as OCI annotations in RFC3339 UTC.
+func (w UpdateWindow) annotations() map[string]string {
+	return map[string]string{
+		AnnotationLastUpdate: w.LastUpdate.UTC().Format(time.RFC3339),
+		AnnotationNextUpdate: w.NextUpdate.UTC().Format(time.RFC3339),
+	}
+}
 
 // isDataLayerMediaType reports whether mediaType is one of the DB data layers.
 func isDataLayerMediaType(mediaType string) bool {
@@ -75,11 +111,17 @@ func NewBuilder(store *Store, logger *slog.Logger) *Builder {
 // Keeping one layer per feed means an unchanged feed keeps its blob digest
 // across builds, so registries deduplicate it and consumers can fetch feeds
 // selectively by media type.
-func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer) (Artifact, error) {
+func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer, window UpdateWindow) (Artifact, error) {
+	if err := window.validate(); err != nil {
+		return Artifact{}, err
+	}
+
 	layout, err := b.store.open()
 	if err != nil {
 		return Artifact{}, err
 	}
+
+	windowAnnotations := window.annotations()
 
 	b.logger.InfoContext(ctx, "packing artifact", "ref", ref, "layers", len(layers))
 
@@ -98,7 +140,7 @@ func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer
 		if err := writeTarGz(archivePath, dataDir, []string{layer.FileName}); err != nil {
 			return Artifact{}, fmt.Errorf("archive %s: %w", layer.FileName, err)
 		}
-		desc, err := pushFileAsLayer(ctx, layout, archivePath, layer.MediaType, archiveName)
+		desc, err := pushFileAsLayer(ctx, layout, archivePath, layer.MediaType, archiveName, windowAnnotations)
 		if err != nil {
 			return Artifact{}, fmt.Errorf("push layer %s: %w", archiveName, err)
 		}
@@ -119,13 +161,9 @@ func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer
 		oras.PackManifestVersion1_1,
 		ArtifactType,
 		oras.PackManifestOptions{
-			Layers:           layerDescs,
-			ConfigDescriptor: &emptyDesc,
-			ManifestAnnotations: map[string]string{
-				// Pinned (not time.Now) so the manifest is reproducible;
-				// oras honors a caller-provided created annotation.
-				ocispec.AnnotationCreated: epochCreated,
-			},
+			Layers:              layerDescs,
+			ConfigDescriptor:    &emptyDesc,
+			ManifestAnnotations: manifestAnnotations(window),
 		},
 	)
 	if err != nil {
@@ -212,10 +250,24 @@ func addFileToTar(tarWriter *tar.Writer, path, name string) error {
 	return nil
 }
 
+// manifestAnnotations combines the standard created annotation (derived from the
+// build time, i.e. the window's LastUpdate) with the update-window annotations.
+// Deriving created from LastUpdate keeps the manifest reproducible when the build
+// time is pinned (e.g. via SOURCE_DATE_EPOCH).
+func manifestAnnotations(window UpdateWindow) map[string]string {
+	annotations := map[string]string{
+		ocispec.AnnotationCreated: window.LastUpdate.UTC().Format(time.RFC3339),
+	}
+	maps.Copy(annotations, window.annotations())
+	return annotations
+}
+
 // pushFileAsLayer streams the file at path into the layout as a blob with the given media type.
 // The title annotation records the layer archive name (e.g. kev.tar.gz),
 // so that generic tools like `oras pull` write it under an honest file name.
-func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType, title string) (ocispec.Descriptor, error) {
+// The update-window annotations are mirrored onto every layer so each layer
+// carries the same freshness metadata as the manifest.
+func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType, title string, window map[string]string) (ocispec.Descriptor, error) {
 	desc, err := descriptorFromFile(path, mediaType)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -223,6 +275,7 @@ func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType
 	desc.Annotations = map[string]string{
 		ocispec.AnnotationTitle: title,
 	}
+	maps.Copy(desc.Annotations, window)
 
 	file, err := os.Open(path)
 	if err != nil {
