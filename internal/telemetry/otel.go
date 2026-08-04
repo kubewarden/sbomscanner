@@ -160,6 +160,25 @@ var downwardAPIEnv = []struct {
 	{"K8S_CONTAINER_NAME", semconv.K8SContainerNameKey},
 }
 
+// instanceID identifies this replica, so series from replicas of the same service stay apart
+// (Prometheus derives the instance label from service.instance.id).
+// It prefers the pod identity from the downward API and falls back to the hostname,
+// which on Kubernetes is the pod name.
+func instanceID() string {
+	namespace, name := os.Getenv("K8S_POD_NAMESPACE"), os.Getenv("K8S_POD_NAME")
+	if namespace != "" && name != "" {
+		return namespace + "/" + name
+	}
+	if name != "" {
+		return name
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "unknown"
+	}
+	return hostname
+}
+
 // buildResource merges SDK defaults
 // (which already include attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME)
 // with the service name and version supplied by the caller,
@@ -168,6 +187,7 @@ func buildResource(ctx context.Context, serviceName, serviceVersion string) (*re
 	attrs := []attribute.KeyValue{
 		semconv.ServiceName(serviceName),
 		semconv.ServiceVersion(serviceVersion),
+		semconv.ServiceInstanceID(instanceID()),
 	}
 	for _, e := range downwardAPIEnv {
 		if v := os.Getenv(e.env); v != "" {

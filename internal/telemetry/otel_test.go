@@ -72,6 +72,27 @@ func TestHistogramAggregationSelector(t *testing.T) {
 		histogramAggregationSelector(sdkmetric.InstrumentKindGauge))
 }
 
+// TestBuildResource_InstanceID checks that service.instance.id identifies the replica,
+// from the downward-API pod identity when present, from the hostname otherwise.
+func TestBuildResource_InstanceID(t *testing.T) {
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
+	t.Setenv("OTEL_SERVICE_NAME", "")
+	t.Setenv("K8S_POD_NAMESPACE", "sbomscanner")
+	t.Setenv("K8S_POD_NAME", "worker-abc123")
+
+	res, err := buildResource(context.Background(), "svc", "v0")
+	require.NoError(t, err)
+	attrs := attributesAsMap(res.Attributes())
+	assert.Equal(t, "sbomscanner/worker-abc123", attrs[string(semconv.ServiceInstanceIDKey)])
+
+	t.Setenv("K8S_POD_NAMESPACE", "")
+	t.Setenv("K8S_POD_NAME", "")
+	res, err = buildResource(context.Background(), "svc", "v0")
+	require.NoError(t, err)
+	attrs = attributesAsMap(res.Attributes())
+	assert.NotEmpty(t, attrs[string(semconv.ServiceInstanceIDKey)], "hostname fallback")
+}
+
 // TestBuildResource_ServiceAttrs checks that service.name and service.version end up on the resource.
 func TestBuildResource_ServiceAttrs(t *testing.T) {
 	// Clear inherited env to keep the test deterministic.
