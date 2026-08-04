@@ -471,9 +471,6 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-// TODO: remove https://github.com/containerd/containerd/issues/12493 is resolved.
-replace github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.3.0
-
 // Upstream trivy does not yet support go-containerregistry v0.21.6:
 // v0.21.6 always populates Descriptor.ArtifactType from the manifest's config
 // media type when the manifest has no explicit artifactType, which causes
