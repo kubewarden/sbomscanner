@@ -129,6 +129,60 @@ func TestList_EmptyOnMissingStore(t *testing.T) {
 	assert.Empty(t, artifacts)
 }
 
+// buildInStore builds the standard test data into a fresh store and returns
+// the store and the built artifact.
+func buildInStore(t *testing.T) (*Store, Artifact) {
+	t.Helper()
+	dataDir, layers := writeTestData(t)
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+	built, err := NewBuilder(store, slog.New(slog.DiscardHandler)).
+		Build(context.Background(), testRef, dataDir, layers, testWindow())
+	require.NoError(t, err)
+	return store, built
+}
+
+// assertViewMatchesBuild checks a ManifestView against the standard test data.
+func assertViewMatchesBuild(t *testing.T, view ManifestView, built Artifact) {
+	t.Helper()
+	assert.Equal(t, testRef, view.Ref)
+	assert.Equal(t, built.Digest, view.Digest)
+	assert.Equal(t, ocispec.MediaTypeImageManifest, view.MediaType)
+	assert.Equal(t, ArtifactType, view.ArtifactType)
+
+	// Manifest annotations carry the update window.
+	window := testWindow().annotations()
+	assert.Equal(t, window[AnnotationLastUpdate], view.Annotations[AnnotationLastUpdate])
+	assert.Equal(t, window[AnnotationNextUpdate], view.Annotations[AnnotationNextUpdate])
+
+	require.Len(t, view.Layers, 2)
+	mediaTypes := []string{view.Layers[0].MediaType, view.Layers[1].MediaType}
+	assert.Contains(t, mediaTypes, LayerMediaTypeKEV)
+	assert.Contains(t, mediaTypes, LayerMediaTypeEPSS)
+	for _, layer := range view.Layers {
+		assert.NotEmpty(t, layer.Digest)
+		assert.Positive(t, layer.Size)
+		assert.NotEmpty(t, layer.Annotations[ocispec.AnnotationTitle])
+		assert.Equal(t, window[AnnotationLastUpdate], layer.Annotations[AnnotationLastUpdate])
+		assert.Equal(t, window[AnnotationNextUpdate], layer.Annotations[AnnotationNextUpdate])
+	}
+}
+
+func TestStoreInspect_ReturnsManifestView(t *testing.T) {
+	store, built := buildInStore(t)
+
+	view, err := store.Inspect(context.Background(), testRef)
+	require.NoError(t, err)
+	assertViewMatchesBuild(t, view, built)
+}
+
+func TestStoreInspect_FailsForUnknownRef(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+
+	_, err := store.Inspect(context.Background(), testRef)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run `build` first")
+}
+
 func TestWriteTarGz_ContainsFile(t *testing.T) {
 	srcDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "data.csv"), []byte("hello tar.gz"), 0o600))

@@ -31,6 +31,7 @@ func rootCommand() *cli.Command {
 			listCommand(),
 			pushCommand(),
 			pullCommand(),
+			inspectCommand(),
 		},
 		// Reached for a bare invocation (help, exit 0)
 		// or an unknown top-level command (help + error, exit 2).
@@ -118,6 +119,30 @@ func pullCommand() *cli.Command {
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			ref := cmd.StringArgs("reference")[0]
 			if err := runPull(ctx, ref, registryConfig(cmd), newLogger(cmd)); err != nil {
+				return cli.Exit("error: "+err.Error(), 1)
+			}
+			return nil
+		},
+	}
+}
+
+func inspectCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "inspect",
+		Usage:     "Print the manifest, layers, media types, and annotations of a DB artifact",
+		ArgsUsage: refArgsUsage,
+		Arguments: referenceArguments(),
+		Flags: append(registryFlags(),
+			&cli.BoolFlag{Name: "local", Usage: "read the artifact from the local store instead of the registry"},
+			&cli.StringFlag{
+				Name:  "format",
+				Usage: "output format (" + supportedInspectFormats() + ")",
+				Value: defaultInspectFormat,
+			},
+		),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			ref := cmd.StringArgs("reference")[0]
+			if err := runInspect(ctx, ref, cmd.String("format"), cmd.Bool("local"), registryConfig(cmd), newLogger(cmd)); err != nil {
 				return cli.Exit("error: "+err.Error(), 1)
 			}
 			return nil
