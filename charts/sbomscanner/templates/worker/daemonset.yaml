@@ -44,6 +44,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            {{- if .Values.observability.otel.endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.observability.otel.endpoint | quote }}
+            {{- end }}
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           securityContext:
             readOnlyRootFilesystem: true
