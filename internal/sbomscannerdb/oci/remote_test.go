@@ -61,7 +61,7 @@ func TestPushPull_RoundTrip(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
 	ref := registry + "/kubewarden/sbomscanner/sbomscannerdb:latest"
 
-	built, err := NewBuilder(store, slog.New(slog.DiscardHandler)).Build(ctx, ref, dataDir, layers)
+	built, err := NewBuilder(store, slog.New(slog.DiscardHandler)).Build(ctx, ref, dataDir, layers, testWindow())
 	require.NoError(t, err)
 	pushed, err := remote.Push(ctx, store, ref)
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestPush_FailsWithoutDockerConfig(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
 	ctx := context.Background()
 
-	_, err := NewBuilder(store, slog.New(slog.DiscardHandler)).Build(ctx, testRef, dataDir, layers)
+	_, err := NewBuilder(store, slog.New(slog.DiscardHandler)).Build(ctx, testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	_, err = NewRemote(Config{PlainHTTP: true}, slog.New(slog.DiscardHandler)).Push(ctx, store, testRef)

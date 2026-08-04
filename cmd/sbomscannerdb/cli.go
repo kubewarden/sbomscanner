@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/urfave/cli/v3"
 
@@ -47,13 +48,26 @@ func rootCommand() *cli.Command {
 
 func buildCommand() *cli.Command {
 	return &cli.Command{
-		Name:      "build",
-		Usage:     "Download KEV/EPSS and build the DB artifact into the local store",
+		Name:  "build",
+		Usage: "Download KEV/EPSS and build the DB artifact into the local store",
+		Description: "The build time defaults to the current wall-clock time. Set the\n" +
+			"SOURCE_DATE_EPOCH environment variable (Unix seconds) to pin it,\n" +
+			"making the artifact reproducible; it drives the created and\n" +
+			"lastUpdate annotations (and nextUpdate via --next-update-interval).\n" +
+			"Example:\n" +
+			"SOURCE_DATE_EPOCH=$(date -u -d 2026-07-16 +%s) sbomscannerdb build registry.example.com/…:latest",
 		ArgsUsage: refArgsUsage,
 		Arguments: referenceArguments(),
+		Flags: []cli.Flag{
+			&cli.DurationFlag{
+				Name:  "next-update-interval",
+				Usage: "how long the built artifact stays fresh; sets the nextUpdate annotation to build time plus this interval",
+				Value: 24 * time.Hour,
+			},
+		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			ref := cmd.StringArgs("reference")[0]
-			if err := runBuild(ctx, ref, newLogger(cmd)); err != nil {
+			if err := runBuild(ctx, ref, cmd.Duration("next-update-interval"), newLogger(cmd)); err != nil {
 				return cli.Exit("error: "+err.Error(), 1)
 			}
 			return nil
