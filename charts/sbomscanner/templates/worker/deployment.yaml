@@ -40,6 +40,11 @@ spec:
         - name: worker
           image: '{{ template "system_default_registry" . }}{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}'
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          {{- if .Values.observability.otel.endpoint }}
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.observability.otel.endpoint | quote }}
+          {{- end }}
           securityContext:
             {{ include "sbomscanner.securityContext" . | nindent 12 }}
           args:
