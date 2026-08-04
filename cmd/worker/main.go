@@ -26,6 +26,9 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/version"
 	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -100,7 +103,16 @@ func run(cfg config) error {
 	}()
 
 	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
-	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-worker", version.Version)
+	// The Prometheus bridge exports the process and Go runtime metrics
+	// (process_*, go_*) over OTLP alongside our own.
+	runtimeRegistry := prometheus.NewRegistry()
+	runtimeRegistry.MustRegister(
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+	)
+	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-worker", version.Version,
+		telemetry.WithMetricProducer(prombridge.NewMetricProducer(prombridge.WithGatherer(runtimeRegistry))),
+	)
 	if err != nil {
 		return fmt.Errorf("initializing telemetry: %w", err)
 	}
