@@ -146,7 +146,6 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v1.0.0-rc.4 // indirect
 	github.com/containerd/plugin v1.1.0 // indirect
-	github.com/containerd/stargz-snapshotter/estargz v0.18.2 // indirect
 	github.com/containerd/ttrpc v1.2.8 // indirect
 	github.com/containerd/typeurl/v2 v2.3.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
@@ -388,7 +387,6 @@ require (
 	github.com/twitchtv/twirp v8.1.3+incompatible // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/valyala/fastjson v1.6.10 // indirect
-	github.com/vbatts/tar-split v0.12.3 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.34 // indirect
 	github.com/vladimirvivien/gexe v0.5.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
@@ -470,10 +468,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-// Upstream trivy does not yet support go-containerregistry v0.21.6:
-// v0.21.6 always populates Descriptor.ArtifactType from the manifest's config
-// media type when the manifest has no explicit artifactType, which causes
-// trivy's remote image backend to reject regular container images as
-// "unsupported artifact type". Pin to v0.21.5 until trivy handles this.
-replace github.com/google/go-containerregistry => github.com/google/go-containerregistry v0.21.5
