@@ -132,14 +132,9 @@ func (r *Remote) Pull(ctx context.Context, ref, outDir string) ([]string, error)
 // resolveDataLayers fetches the manifest at tag
 // and returns the descriptors of the DB data layers, located by media type.
 func (r *Remote) resolveDataLayers(ctx context.Context, repo *orasremote.Repository, tag string) ([]ocispec.Descriptor, error) {
-	manifestDesc, manifestBytes, err := oras.FetchBytes(ctx, repo, tag, oras.DefaultFetchBytesOptions)
+	_, manifest, err := fetchManifest(ctx, repo, tag)
 	if err != nil {
-		return nil, fmt.Errorf("fetch manifest: %w", err)
-	}
-
-	var manifest ocispec.Manifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return nil, fmt.Errorf("parse manifest %s: %w", manifestDesc.Digest, err)
+		return nil, err
 	}
 
 	var layers []ocispec.Descriptor
@@ -149,9 +144,44 @@ func (r *Remote) resolveDataLayers(ctx context.Context, repo *orasremote.Reposit
 		}
 	}
 	if len(layers) == 0 {
-		return nil, fmt.Errorf("no DB data layers in manifest %s", manifestDesc.Digest)
+		return nil, errors.New("no DB data layers in manifest")
 	}
 	return layers, nil
+}
+
+// Inspect fetches the manifest at the given tag reference from the remote
+// registry and returns a view of its metadata (media types, layers, annotations).
+func (r *Remote) Inspect(ctx context.Context, ref string) (ManifestView, error) {
+	srcRef, err := parseTagReference(ref)
+	if err != nil {
+		return ManifestView{}, err
+	}
+
+	repo, err := r.newRepository(srcRef)
+	if err != nil {
+		return ManifestView{}, err
+	}
+
+	desc, manifest, err := fetchManifest(ctx, repo, srcRef.Reference)
+	if err != nil {
+		return ManifestView{}, err
+	}
+	return newManifestView(ref, desc, manifest), nil
+}
+
+// fetchManifest resolves tag against fetcher and returns the manifest descriptor
+// and its parsed content.
+func fetchManifest(ctx context.Context, target oras.ReadOnlyTarget, tag string) (ocispec.Descriptor, ocispec.Manifest, error) {
+	manifestDesc, manifestBytes, err := oras.FetchBytes(ctx, target, tag, oras.DefaultFetchBytesOptions)
+	if err != nil {
+		return ocispec.Descriptor{}, ocispec.Manifest{}, fmt.Errorf("fetch manifest: %w", err)
+	}
+
+	var manifest ocispec.Manifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		return ocispec.Descriptor{}, ocispec.Manifest{}, fmt.Errorf("parse manifest %s: %w", manifestDesc.Digest, err)
+	}
+	return manifestDesc, manifest, nil
 }
 
 // newRepository builds an authenticated remote repository client for ref.
