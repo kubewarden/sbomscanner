@@ -44,20 +44,21 @@ func runBuild(ctx context.Context, ref string, nextUpdateInterval time.Duration,
 	defer os.RemoveAll(dataDir)
 
 	httpDownloader := datafeed.NewHTTPDownloader()
-	if err := datafeed.NewKEVDownloader(httpDownloader, logger).Download(ctx, dataDir); err != nil {
-		return fmt.Errorf("download data feeds: %w", err)
-	}
-	if err := datafeed.NewEPSSDownloader(httpDownloader, logger).Download(ctx, dataDir); err != nil {
-		return fmt.Errorf("download data feeds: %w", err)
+	var layers []oci.Layer
+	for _, source := range datafeed.AllSources(httpDownloader, logger) {
+		if err := source.Download(ctx, dataDir); err != nil {
+			return fmt.Errorf("download %s: %w", source.Name(), err)
+		}
+		layers = append(layers, oci.Layer{
+			Name:      source.Name(),
+			FileName:  source.FileName(),
+			MediaType: oci.DataLayerMediaType(source.Name(), source.Format()),
+		})
 	}
 
 	store, err := oci.NewDefaultStore(logger)
 	if err != nil {
 		return fmt.Errorf("open local store: %w", err)
-	}
-	layers := []oci.Layer{
-		{Name: "kev", FileName: datafeed.KEVFileName, MediaType: oci.LayerMediaTypeKEV},
-		{Name: "epss", FileName: datafeed.EPSSFileName, MediaType: oci.LayerMediaTypeEPSS},
 	}
 	now, err := buildTime()
 	if err != nil {

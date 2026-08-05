@@ -29,7 +29,7 @@ func TestRenderInspectJSON_EncodesView(t *testing.T) {
 			oci.AnnotationNextUpdate: "2026-07-17T00:00:00Z",
 		},
 		Layers: []oci.LayerView{
-			{Digest: "sha256:kev", MediaType: oci.LayerMediaTypeKEV, Size: 10},
+			{Digest: "sha256:kev", MediaType: oci.DataLayerMediaType("kev", "json"), Size: 10},
 		},
 	}
 

@@ -12,6 +12,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -24,10 +25,12 @@ import (
 const (
 	// ArtifactType identifies the sbomscanner DB artifact on the manifest.
 	ArtifactType = "application/vnd.sbomscanner.db.v1+json"
-	// LayerMediaTypeKEV is the media type of the KEV catalog tar.gz layer.
-	LayerMediaTypeKEV = "application/vnd.sbomscanner.db.kev.layer.v1.tar+gzip"
-	// LayerMediaTypeEPSS is the media type of the EPSS scores tar.gz layer.
-	LayerMediaTypeEPSS = "application/vnd.sbomscanner.db.epss.layer.v1.tar+gzip"
+
+	// dataLayerMediaTypePrefix and dataLayerMediaTypeSuffix bracket every DB
+	// data-layer media type (see DataLayerMediaType), so layers can be
+	// recognized by shape without enumerating each source.
+	dataLayerMediaTypePrefix = "application/vnd.sbomscanner.db."
+	dataLayerMediaTypeSuffix = "+gzip"
 
 	// AnnotationLastUpdate records when the artifact was last rebuilt and pushed.
 	AnnotationLastUpdate = "io.kubewarden.sbomscanner.db.lastUpdate"
@@ -69,9 +72,19 @@ func (w UpdateWindow) annotations() map[string]string {
 	}
 }
 
-// isDataLayerMediaType reports whether mediaType is one of the DB data layers.
+// DataLayerMediaType builds the media type of a DB data layer from the source
+// name and its file format, e.g. DataLayerMediaType("kev", "json") yields
+// "application/vnd.sbomscanner.db.kev.v1.json+gzip".
+func DataLayerMediaType(name, format string) string {
+	return dataLayerMediaTypePrefix + name + ".v1." + format + dataLayerMediaTypeSuffix
+}
+
+// isDataLayerMediaType reports whether mediaType is a DB data layer, matching
+// by shape (see DataLayerMediaType) so any source is recognized without
+// enumerating them.
 func isDataLayerMediaType(mediaType string) bool {
-	return mediaType == LayerMediaTypeKEV || mediaType == LayerMediaTypeEPSS
+	return strings.HasPrefix(mediaType, dataLayerMediaTypePrefix) &&
+		strings.HasSuffix(mediaType, dataLayerMediaTypeSuffix)
 }
 
 // Layer describes one data file to pack as its own tar.gz layer.
