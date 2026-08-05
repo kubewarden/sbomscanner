@@ -141,6 +141,15 @@ func NewEPSSDownloader(httpDownloader *HTTPDownloader, logger *slog.Logger) *EPS
 	}
 }
 
+// Name is the short feed id.
+func (d *EPSSDownloader) Name() string { return "epss" }
+
+// FileName is the EPSS scores' file name within the data directory.
+func (d *EPSSDownloader) FileName() string { return EPSSFileName }
+
+// Format is the EPSS scores' file format.
+func (d *EPSSDownloader) Format() string { return "csv" }
+
 // Download fetches the EPSS scores (gzipped CSV, decompressed on the fly)
 // into dir/EPSSFileName and validates that it parses as a usable feed.
 func (d *EPSSDownloader) Download(ctx context.Context, dir string) error {

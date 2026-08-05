@@ -34,8 +34,8 @@ func writeTestData(t *testing.T) (string, []Layer) {
 	t.Helper()
 	dataDir := t.TempDir()
 	layers := []Layer{
-		{Name: "kev", FileName: "kev.json", MediaType: LayerMediaTypeKEV},
-		{Name: "epss", FileName: "epss.csv", MediaType: LayerMediaTypeEPSS},
+		{Name: "kev", FileName: "kev.json", MediaType: DataLayerMediaType("kev", "json")},
+		{Name: "epss", FileName: "epss.csv", MediaType: DataLayerMediaType("epss", "csv")},
 	}
 	for _, layer := range layers {
 		require.NoError(t, os.WriteFile(filepath.Join(dataDir, layer.FileName), []byte("data for "+layer.FileName), 0o600))
@@ -109,7 +109,7 @@ func TestBuild_RetagsExistingContent(t *testing.T) {
 
 func TestBuild_FailsOnMissingDataFile(t *testing.T) {
 	storeDir := filepath.Join(t.TempDir(), "store")
-	layers := []Layer{{Name: "epss", FileName: "missing.csv", MediaType: LayerMediaTypeEPSS}}
+	layers := []Layer{{Name: "epss", FileName: "missing.csv", MediaType: DataLayerMediaType("epss", "csv")}}
 	_, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, t.TempDir(), layers, testWindow())
 	require.Error(t, err)
 }
@@ -118,7 +118,7 @@ func TestBuild_FailsOnEmptyDataFile(t *testing.T) {
 	dataDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "empty.csv"), nil, 0o600))
 
-	layers := []Layer{{Name: "epss", FileName: "empty.csv", MediaType: LayerMediaTypeEPSS}}
+	layers := []Layer{{Name: "epss", FileName: "empty.csv", MediaType: DataLayerMediaType("epss", "csv")}}
 	_, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.Error(t, err)
 }
@@ -156,8 +156,8 @@ func assertViewMatchesBuild(t *testing.T, view ManifestView, built Artifact) {
 
 	require.Len(t, view.Layers, 2)
 	mediaTypes := []string{view.Layers[0].MediaType, view.Layers[1].MediaType}
-	assert.Contains(t, mediaTypes, LayerMediaTypeKEV)
-	assert.Contains(t, mediaTypes, LayerMediaTypeEPSS)
+	assert.Contains(t, mediaTypes, DataLayerMediaType("kev", "json"))
+	assert.Contains(t, mediaTypes, DataLayerMediaType("epss", "csv"))
 	for _, layer := range view.Layers {
 		assert.NotEmpty(t, layer.Digest)
 		assert.Positive(t, layer.Size)

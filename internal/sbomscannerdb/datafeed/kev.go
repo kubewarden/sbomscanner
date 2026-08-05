@@ -77,6 +77,15 @@ func NewKEVDownloader(httpDownloader *HTTPDownloader, logger *slog.Logger) *KEVD
 	}
 }
 
+// Name is the short feed id.
+func (d *KEVDownloader) Name() string { return "kev" }
+
+// FileName is the KEV catalog's file name within the data directory.
+func (d *KEVDownloader) FileName() string { return KEVFileName }
+
+// Format is the KEV catalog's file format.
+func (d *KEVDownloader) Format() string { return "json" }
+
 // Download fetches the KEV catalog (JSON) into dir/KEVFileName
 // and validates that it parses as a usable catalog.
 func (d *KEVDownloader) Download(ctx context.Context, dir string) error {
