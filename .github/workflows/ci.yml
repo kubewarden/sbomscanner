@@ -25,6 +25,8 @@ jobs:
         with:
           cache: false
           go-version-file: "go.mod"
+      - name: Fix Docker socket permissions
+        run: sudo chmod 666 /var/run/docker.sock
       - run: make test
         env:
           # Fixes issue with selinux
