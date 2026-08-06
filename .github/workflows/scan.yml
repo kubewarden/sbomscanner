@@ -48,6 +48,22 @@ jobs:
         # are found; findings are surfaced via the SARIF upload below. See
         # https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck#hdr-Exit_codes
         run: govulncheck -format sarif ./... > govulncheck.sarif
+      - name: Strip code flows from oversized SARIF results
+        # Code Scanning rejects SARIF with more than 10000 threadflow steps
+        # per result. Advisories without vulnerable symbols (e.g.
+        # GO-2026-4919, which flags every version of trivy after its supply
+        # chain compromise) make govulncheck emit a call stack for every
+        # reachable function, far exceeding the limit. Dropping codeFlows
+        # from the offending results keeps all findings and only loses the
+        # call-stack drill-down for those; results within the limit keep
+        # theirs. The unstripped file is preserved as a workflow artifact
+        # below. See https://github.com/github/codeql-action/issues/1245
+        run: |
+          jq '.runs[].results[] |=
+                (if ([.codeFlows[]?.threadFlows[]?.locations | length]
+                     | add // 0) > 10000
+                 then del(.codeFlows) else . end)' \
+            govulncheck.sarif > govulncheck-stripped.sarif
       - name: Upload SARIF to GitHub Security tab
         # Skip for PRs from forks: GitHub strips `security-events: write` from
         # the token in that case, so the upload would fail. The SARIF is still
@@ -55,7 +71,7 @@ jobs:
         if: github.event.pull_request.head.repo.fork != true
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
-          sarif_file: govulncheck.sarif
+          sarif_file: govulncheck-stripped.sarif
           category: govulncheck
       - name: Upload SARIF as workflow artifact
         if: always()
