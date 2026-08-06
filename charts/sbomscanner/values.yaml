@@ -119,7 +119,7 @@ mcp:
   enabled: false
   image:
     repository: kubewarden/sbomscanner/mcp
-    tag: v0.13.0-alpha.1
+    tag: v0.13.0-alpha.2
     pullPolicy: IfNotPresent
   replicas: 1
   logLevel: "info"
