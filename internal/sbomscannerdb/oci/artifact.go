@@ -12,6 +12,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,10 @@ const (
 	// AnnotationNextUpdate records when the next rebuild is expected, so workers
 	// can decide whether their local copy is stale without a full registry pull.
 	AnnotationNextUpdate = "io.kubewarden.sbomscanner.db.nextUpdate"
+
+	// SourceDateEpochEnv is the well-known variable used to pin a build's timestamp
+	// for reproducible builds. When set, it overrides the wall-clock build time.
+	SourceDateEpochEnv = "SOURCE_DATE_EPOCH"
 )
 
 // UpdateWindow bounds the artifact's freshness: LastUpdate is when it was built,
@@ -110,21 +115,37 @@ type Artifact struct {
 
 // Builder assembles DB artifacts into a local store.
 type Builder struct {
-	store  *Store
-	logger *slog.Logger
+	store           *Store
+	logger          *slog.Logger
+	sourceDateEpoch string
 }
 
-// NewBuilder returns a Builder writing into the given store.
-func NewBuilder(store *Store, logger *slog.Logger) *Builder {
-	return &Builder{store: store, logger: logger}
+// NewBuilder returns a Builder writing into the given store. sourceDateEpoch is
+// the raw SOURCE_DATE_EPOCH value (may be empty); the builder uses it to pin the
+// build timestamp for reproducible artifacts.
+func NewBuilder(store *Store, logger *slog.Logger, sourceDateEpoch string) *Builder {
+	return &Builder{store: store, logger: logger, sourceDateEpoch: sourceDateEpoch}
 }
 
 // Build packs each data file from dataDir as its own tar.gz layer
 // and tags the resulting DB artifact as ref in the store.
+// nextUpdateInterval sets how far ahead the artifact's nextUpdate annotation
+// points from the build time.
 // Keeping one layer per feed means an unchanged feed keeps its blob digest
 // across builds, so registries deduplicate it and consumers can fetch feeds
 // selectively by media type.
-func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer, window UpdateWindow) (Artifact, error) {
+func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer, nextUpdateInterval time.Duration) (Artifact, error) {
+	now, err := buildTime(b.sourceDateEpoch)
+	if err != nil {
+		return Artifact{}, err
+	}
+	window := UpdateWindow{LastUpdate: now, NextUpdate: now.Add(nextUpdateInterval)}
+	return b.build(ctx, ref, dataDir, layers, window)
+}
+
+// build is the window-injecting core of Build, kept separate so tests can pin an
+// exact UpdateWindow without depending on the wall clock.
+func (b *Builder) build(ctx context.Context, ref, dataDir string, layers []Layer, window UpdateWindow) (Artifact, error) {
 	if err := window.validate(); err != nil {
 		return Artifact{}, err
 	}
@@ -317,4 +338,18 @@ func pushEmptyConfig(ctx context.Context, layout *orasoci.Store) (ocispec.Descri
 // content-addressed stores are idempotent on identical bytes.
 func isAlreadyExists(err error) bool {
 	return errors.Is(err, errdef.ErrAlreadyExists)
+}
+
+// buildTime returns the timestamp to stamp on the artifact. It honors
+// SOURCE_DATE_EPOCH (Unix seconds) so CI can produce byte-identical, reproducible
+// artifacts; otherwise it falls back to the current wall-clock time.
+func buildTime(sourceDateEpoch string) (time.Time, error) {
+	if sourceDateEpoch == "" {
+		return time.Now().UTC(), nil
+	}
+	secs, err := strconv.ParseInt(sourceDateEpoch, 10, 64)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid %s %q: %w", SourceDateEpochEnv, sourceDateEpoch, err)
+	}
+	return time.Unix(secs, 0).UTC(), nil
 }
