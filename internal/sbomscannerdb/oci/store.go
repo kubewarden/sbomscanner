@@ -1,6 +1,7 @@
 package oci
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	orasoci "oras.land/oras-go/v2/content/oci"
+	"oras.land/oras-go/v2/errdef"
 )
 
 // Store is the local artifact store, backed by an OCI image layout on disk.
@@ -64,6 +66,26 @@ func (s *Store) List() ([]Artifact, error) {
 		})
 	}
 	return artifacts, nil
+}
+
+// Inspect resolves ref in the local store and returns a view of its manifest.
+func (s *Store) Inspect(ctx context.Context, ref string) (ManifestView, error) {
+	layout, err := s.open()
+	if err != nil {
+		return ManifestView{}, err
+	}
+	if _, err := layout.Resolve(ctx, ref); err != nil {
+		if errors.Is(err, errdef.ErrNotFound) {
+			return ManifestView{}, fmt.Errorf("%s not found in local store (run `build` first)", ref)
+		}
+		return ManifestView{}, fmt.Errorf("resolve %s in local store: %w", ref, err)
+	}
+
+	desc, manifest, err := fetchManifest(ctx, layout, ref)
+	if err != nil {
+		return ManifestView{}, err
+	}
+	return newManifestView(ref, desc, manifest), nil
 }
 
 // open opens (creating if needed) the OCI image layout backing the store.

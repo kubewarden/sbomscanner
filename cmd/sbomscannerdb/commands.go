@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/datafeed"
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
@@ -13,7 +14,9 @@ import (
 
 // runBuild downloads the data feeds into a temp dir,
 // packs them as an OCI artifact, and tags it in the local store.
-func runBuild(ctx context.Context, ref string, logger *slog.Logger) error {
+// nextUpdateInterval is the shortest cadence among the bundled feeds; it sets
+// how far ahead the artifact's nextUpdate annotation points from build time.
+func runBuild(ctx context.Context, ref string, nextUpdateInterval time.Duration, logger *slog.Logger) error {
 	dataDir, err := os.MkdirTemp("", "sbomscannerdb-data-*")
 	if err != nil {
 		return fmt.Errorf("create temp data dir: %w", err)
@@ -21,22 +24,24 @@ func runBuild(ctx context.Context, ref string, logger *slog.Logger) error {
 	defer os.RemoveAll(dataDir)
 
 	httpDownloader := datafeed.NewHTTPDownloader()
-	if err := datafeed.NewKEVDownloader(httpDownloader, logger).Download(ctx, dataDir); err != nil {
-		return fmt.Errorf("download data feeds: %w", err)
-	}
-	if err := datafeed.NewEPSSDownloader(httpDownloader, logger).Download(ctx, dataDir); err != nil {
-		return fmt.Errorf("download data feeds: %w", err)
+	var layers []oci.Layer
+	for _, source := range datafeed.AllSources(httpDownloader, logger) {
+		if err := source.Download(ctx, dataDir); err != nil {
+			return fmt.Errorf("download %s: %w", source.Name(), err)
+		}
+		layers = append(layers, oci.Layer{
+			Name:      source.Name(),
+			FileName:  source.FileName(),
+			MediaType: oci.DataLayerMediaType(source.Name(), source.Format()),
+		})
 	}
 
 	store, err := oci.NewDefaultStore(logger)
 	if err != nil {
 		return fmt.Errorf("open local store: %w", err)
 	}
-	layers := []oci.Layer{
-		{Name: "kev", FileName: datafeed.KEVFileName, MediaType: oci.LayerMediaTypeKEV},
-		{Name: "epss", FileName: datafeed.EPSSFileName, MediaType: oci.LayerMediaTypeEPSS},
-	}
-	artifact, err := oci.NewBuilder(store, logger).Build(ctx, ref, dataDir, layers)
+	artifact, err := oci.NewBuilder(store, logger, os.Getenv(oci.SourceDateEpochEnv)).
+		Build(ctx, ref, dataDir, layers, nextUpdateInterval)
 	if err != nil {
 		return fmt.Errorf("build artifact: %w", err)
 	}
@@ -90,4 +95,25 @@ func runPull(ctx context.Context, ref string, config oci.Config, logger *slog.Lo
 		fmt.Fprintf(os.Stdout, "pulled %s from %s\n", dst, ref)
 	}
 	return nil
+}
+
+// runInspect resolves the artifact's manifest — from the local store when local
+// is set, otherwise from the registry — and renders it as JSON.
+func runInspect(ctx context.Context, ref string, local bool, config oci.Config, logger *slog.Logger) error {
+	var view oci.ManifestView
+	var err error
+	if local {
+		var store *oci.Store
+		if store, err = oci.NewDefaultStore(logger); err != nil {
+			return fmt.Errorf("open local store: %w", err)
+		}
+		view, err = store.Inspect(ctx, ref)
+	} else {
+		view, err = oci.NewRemote(config, logger).Inspect(ctx, ref)
+	}
+	if err != nil {
+		return fmt.Errorf("inspect artifact: %w", err)
+	}
+
+	return renderInspectJSON(os.Stdout, view)
 }
