@@ -1,4 +1,4 @@
-package main
+package oci
 
 import (
 	"testing"
@@ -9,10 +9,8 @@ import (
 )
 
 func TestBuildTime_DefaultsToNow(t *testing.T) {
-	t.Setenv(sourceDateEpochEnv, "")
-
 	before := time.Now().UTC()
-	got, err := buildTime()
+	got, err := buildTime("")
 	require.NoError(t, err)
 	after := time.Now().UTC()
 
@@ -23,27 +21,21 @@ func TestBuildTime_DefaultsToNow(t *testing.T) {
 
 func TestBuildTime_HonorsSourceDateEpoch(t *testing.T) {
 	// 2026-07-16T00:00:00Z
-	t.Setenv(sourceDateEpochEnv, "1784160000")
-
-	got, err := buildTime()
+	got, err := buildTime("1784160000")
 	require.NoError(t, err)
 	assert.Equal(t, "2026-07-16T00:00:00Z", got.Format(time.RFC3339))
 	assert.Equal(t, time.UTC, got.Location())
 }
 
 func TestBuildTime_RejectsInvalidSourceDateEpoch(t *testing.T) {
-	t.Setenv(sourceDateEpochEnv, "not-a-number")
-
-	_, err := buildTime()
+	_, err := buildTime("not-a-number")
 	require.Error(t, err)
 }
 
 func TestBuildTime_IsReproducibleForSameEpoch(t *testing.T) {
-	t.Setenv(sourceDateEpochEnv, "1784160000")
-
-	first, err := buildTime()
+	first, err := buildTime("1784160000")
 	require.NoError(t, err)
-	second, err := buildTime()
+	second, err := buildTime("1784160000")
 	require.NoError(t, err)
 	assert.Equal(t, first, second)
 }

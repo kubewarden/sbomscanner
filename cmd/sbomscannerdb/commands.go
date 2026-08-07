@@ -5,32 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strconv"
 	"text/tabwriter"
 	"time"
 
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/datafeed"
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 )
-
-// sourceDateEpochEnv is the well-known variable used to pin a build's timestamp
-// for reproducible builds. When set, it overrides the wall-clock build time.
-const sourceDateEpochEnv = "SOURCE_DATE_EPOCH"
-
-// buildTime returns the timestamp to stamp on the artifact. It honors
-// SOURCE_DATE_EPOCH (Unix seconds) so CI can produce byte-identical, reproducible
-// artifacts; otherwise it falls back to the current wall-clock time.
-func buildTime() (time.Time, error) {
-	raw := os.Getenv(sourceDateEpochEnv)
-	if raw == "" {
-		return time.Now().UTC(), nil
-	}
-	secs, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid %s %q: %w", sourceDateEpochEnv, raw, err)
-	}
-	return time.Unix(secs, 0).UTC(), nil
-}
 
 // runBuild downloads the data feeds into a temp dir,
 // packs them as an OCI artifact, and tags it in the local store.
@@ -60,12 +40,8 @@ func runBuild(ctx context.Context, ref string, nextUpdateInterval time.Duration,
 	if err != nil {
 		return fmt.Errorf("open local store: %w", err)
 	}
-	now, err := buildTime()
-	if err != nil {
-		return err
-	}
-	window := oci.UpdateWindow{LastUpdate: now, NextUpdate: now.Add(nextUpdateInterval)}
-	artifact, err := oci.NewBuilder(store, logger).Build(ctx, ref, dataDir, layers, window)
+	artifact, err := oci.NewBuilder(store, logger, os.Getenv(oci.SourceDateEpochEnv)).
+		Build(ctx, ref, dataDir, layers, nextUpdateInterval)
 	if err != nil {
 		return fmt.Errorf("build artifact: %w", err)
 	}

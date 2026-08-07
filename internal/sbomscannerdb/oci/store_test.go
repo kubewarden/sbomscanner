@@ -47,7 +47,7 @@ func TestBuild_TagsArtifactInStore(t *testing.T) {
 	dataDir, layers := writeTestData(t)
 	storeDir := filepath.Join(t.TempDir(), "store")
 
-	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers, testWindow())
+	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 	assert.Equal(t, testRef, built.Ref)
 
@@ -62,7 +62,7 @@ func TestBuild_OneLayerPerFile(t *testing.T) {
 	dataDir, layers := writeTestData(t)
 	storeDir := filepath.Join(t.TempDir(), "store")
 
-	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers, testWindow())
+	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	manifest := readManifest(t, storeDir, built.Digest)
@@ -76,9 +76,9 @@ func TestBuild_OneLayerPerFile(t *testing.T) {
 func TestBuild_IsReproducible(t *testing.T) {
 	dataDir, layers := writeTestData(t)
 
-	first, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "a"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers, testWindow())
+	first, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "a"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
-	second, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "b"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers, testWindow())
+	second, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "b"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	assert.Equal(t, first.Digest, second.Digest)
@@ -90,11 +90,11 @@ func TestBuild_RetagsExistingContent(t *testing.T) {
 	ctx := context.Background()
 
 	store := NewStore(storeDir, slog.New(slog.DiscardHandler))
-	builder := NewBuilder(store, slog.New(slog.DiscardHandler))
-	_, err := builder.Build(ctx, testRef, dataDir, layers, testWindow())
+	builder := NewBuilder(store, slog.New(slog.DiscardHandler), "")
+	_, err := builder.build(ctx, testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 	otherRef := "registry.example.com/kubewarden/sbomscanner/sbomscannerdb:v2"
-	_, err = builder.Build(ctx, otherRef, dataDir, layers, testWindow())
+	_, err = builder.build(ctx, otherRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	artifacts, err := store.List()
@@ -110,7 +110,7 @@ func TestBuild_RetagsExistingContent(t *testing.T) {
 func TestBuild_FailsOnMissingDataFile(t *testing.T) {
 	storeDir := filepath.Join(t.TempDir(), "store")
 	layers := []Layer{{Name: "epss", FileName: "missing.csv", MediaType: DataLayerMediaType("epss", "csv")}}
-	_, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, t.TempDir(), layers, testWindow())
+	_, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, t.TempDir(), layers, testWindow())
 	require.Error(t, err)
 }
 
@@ -119,7 +119,7 @@ func TestBuild_FailsOnEmptyDataFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "empty.csv"), nil, 0o600))
 
 	layers := []Layer{{Name: "epss", FileName: "empty.csv", MediaType: DataLayerMediaType("epss", "csv")}}
-	_, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers, testWindow())
+	_, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.Error(t, err)
 }
 
@@ -135,8 +135,8 @@ func buildInStore(t *testing.T) (*Store, Artifact) {
 	t.Helper()
 	dataDir, layers := writeTestData(t)
 	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
-	built, err := NewBuilder(store, slog.New(slog.DiscardHandler)).
-		Build(context.Background(), testRef, dataDir, layers, testWindow())
+	built, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").
+		build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 	return store, built
 }

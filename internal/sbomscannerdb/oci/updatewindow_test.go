@@ -19,8 +19,8 @@ func buildWithWindow(t *testing.T, window UpdateWindow) ocispec.Manifest {
 	dataDir, layers := writeTestData(t)
 	storeDir := filepath.Join(t.TempDir(), "store")
 
-	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).
-		Build(context.Background(), testRef, dataDir, layers, window)
+	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").
+		build(context.Background(), testRef, dataDir, layers, window)
 	require.NoError(t, err)
 	return readManifest(t, storeDir, built.Digest)
 }
@@ -113,8 +113,8 @@ func TestBuild_RejectsInvalidUpdateWindow(t *testing.T) {
 			dataDir, layers := writeTestData(t)
 			storeDir := filepath.Join(t.TempDir(), "store")
 
-			_, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).
-				Build(context.Background(), testRef, dataDir, layers, tc.window)
+			_, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").
+				build(context.Background(), testRef, dataDir, layers, tc.window)
 			require.Error(t, err)
 		})
 	}
