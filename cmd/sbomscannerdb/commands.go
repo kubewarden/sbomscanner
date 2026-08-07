@@ -98,17 +98,10 @@ func runPull(ctx context.Context, ref string, config oci.Config, logger *slog.Lo
 }
 
 // runInspect resolves the artifact's manifest — from the local store when local
-// is set, otherwise from the registry — and renders it in the requested format.
-func runInspect(ctx context.Context, ref, format string, local bool, config oci.Config, logger *slog.Logger) error {
-	render, ok := inspectFormats[format]
-	if !ok {
-		return fmt.Errorf("unknown format %q (supported: %s)", format, supportedInspectFormats())
-	}
-
-	var (
-		view oci.ManifestView
-		err  error
-	)
+// is set, otherwise from the registry — and renders it as JSON.
+func runInspect(ctx context.Context, ref string, local bool, config oci.Config, logger *slog.Logger) error {
+	var view oci.ManifestView
+	var err error
 	if local {
 		var store *oci.Store
 		if store, err = oci.NewDefaultStore(logger); err != nil {
@@ -122,5 +115,5 @@ func runInspect(ctx context.Context, ref, format string, local bool, config oci.
 		return fmt.Errorf("inspect artifact: %w", err)
 	}
 
-	return render(os.Stdout, view)
+	return renderInspectJSON(os.Stdout, view)
 }
