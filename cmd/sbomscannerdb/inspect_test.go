@@ -11,12 +11,6 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 )
 
-func TestInspectFormats_HasJSONDefault(t *testing.T) {
-	assert.Equal(t, "json", defaultInspectFormat)
-	_, ok := inspectFormats[defaultInspectFormat]
-	assert.True(t, ok, "default format must be registered")
-}
-
 func TestRenderInspectJSON_EncodesView(t *testing.T) {
 	view := oci.ManifestView{
 		Ref:          "registry.example.com/db:latest",
@@ -46,13 +40,6 @@ func TestRenderInspectJSON_EncodesView(t *testing.T) {
 func TestCLI_InspectRequiresReference(t *testing.T) {
 	_, err := runCLI(t, "inspect")
 	require.Error(t, err)
-}
-
-func TestCLI_InspectRejectsUnknownFormat(t *testing.T) {
-	// --local avoids any network; the format check fails before store access.
-	_, err := runCLI(t, "inspect", "--local", "--format", "yaml", "registry.example.com/db:latest")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown format")
 }
 
 func TestCLI_InspectLocalUnknownRefErrors(t *testing.T) {

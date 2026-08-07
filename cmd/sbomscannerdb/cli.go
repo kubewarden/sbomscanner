@@ -134,15 +134,10 @@ func inspectCommand() *cli.Command {
 		Arguments: referenceArguments(),
 		Flags: append(registryFlags(),
 			&cli.BoolFlag{Name: "local", Usage: "read the artifact from the local store instead of the registry"},
-			&cli.StringFlag{
-				Name:  "format",
-				Usage: "output format (" + supportedInspectFormats() + ")",
-				Value: defaultInspectFormat,
-			},
 		),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			ref := cmd.StringArgs("reference")[0]
-			if err := runInspect(ctx, ref, cmd.String("format"), cmd.Bool("local"), registryConfig(cmd), newLogger(cmd)); err != nil {
+			if err := runInspect(ctx, ref, cmd.Bool("local"), registryConfig(cmd), newLogger(cmd)); err != nil {
 				return cli.Exit("error: "+err.Error(), 1)
 			}
 			return nil
