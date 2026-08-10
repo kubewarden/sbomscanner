@@ -129,6 +129,10 @@ generate-storage: generate-storage-test-crd ## Generate storage  code in pkg/gen
 generate-chart: ## Generate Helm chart values schema.
 	$(HELM_SCHEMA) --values charts/sbomscanner/values.yaml --output charts/sbomscanner/values.schema.json
 
+.PHONY: check-questions
+check-questions: ## Check that questions.yaml is in sync with values.yaml.
+	go run ./hack/check-questions
+
 .PHONY: generate-mocks
 generate-mocks: ## Generate mocks for testing.
 	$(MOCKERY)
