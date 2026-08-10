@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -115,5 +116,10 @@ func runInspect(ctx context.Context, ref string, local bool, config oci.Config, 
 		return fmt.Errorf("inspect artifact: %w", err)
 	}
 
-	return renderInspectJSON(os.Stdout, view)
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(view); err != nil {
+		return fmt.Errorf("encode manifest as json: %w", err)
+	}
+	return nil
 }
