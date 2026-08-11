@@ -9,8 +9,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	oras "oras.land/oras-go/v2"
@@ -22,20 +26,70 @@ import (
 const (
 	// ArtifactType identifies the sbomscanner DB artifact on the manifest.
 	ArtifactType = "application/vnd.sbomscanner.db.v1+json"
-	// LayerMediaTypeKEV is the media type of the KEV catalog tar.gz layer.
-	LayerMediaTypeKEV = "application/vnd.sbomscanner.db.kev.layer.v1.tar+gzip"
-	// LayerMediaTypeEPSS is the media type of the EPSS scores tar.gz layer.
-	LayerMediaTypeEPSS = "application/vnd.sbomscanner.db.epss.layer.v1.tar+gzip"
 
-	// epochCreated pins the manifest's created annotation to the Unix epoch
-	// so that identical input files yield a byte-identical manifest (SOURCE_DATE_EPOCH convention).
-	// A wall-clock time here would change the manifest digest on every run.
-	epochCreated = "1970-01-01T00:00:00Z"
+	// dataLayerMediaTypePrefix and dataLayerMediaTypeSuffix bracket every DB
+	// data-layer media type (see DataLayerMediaType), so layers can be
+	// recognized by shape without enumerating each source.
+	dataLayerMediaTypePrefix = "application/vnd.sbomscanner.db."
+	dataLayerMediaTypeSuffix = "+gzip"
+
+	// AnnotationLastUpdate records when the artifact was last rebuilt and pushed.
+	AnnotationLastUpdate = "io.kubewarden.sbomscanner.db.lastUpdate"
+	// AnnotationNextUpdate records when the next rebuild is expected, so workers
+	// can decide whether their local copy is stale without a full registry pull.
+	AnnotationNextUpdate = "io.kubewarden.sbomscanner.db.nextUpdate"
+
+	// SourceDateEpochEnv is the well-known variable used to pin a build's timestamp
+	// for reproducible builds. When set, it overrides the wall-clock build time.
+	SourceDateEpochEnv = "SOURCE_DATE_EPOCH"
 )
 
-// isDataLayerMediaType reports whether mediaType is one of the DB data layers.
+// UpdateWindow bounds the artifact's freshness: LastUpdate is when it was built,
+// NextUpdate is when the next rebuild is expected. Both are rendered as the
+// lastUpdate/nextUpdate annotations on the manifest and on every layer.
+type UpdateWindow struct {
+	LastUpdate time.Time
+	NextUpdate time.Time
+}
+
+// validate enforces the freshness invariant: both endpoints must be set and
+// LastUpdate must be strictly before NextUpdate, so a consumer can never read a
+// window that is already expired at build time or has zero/negative width.
+func (w UpdateWindow) validate() error {
+	if w.LastUpdate.IsZero() {
+		return errors.New("update window: lastUpdate is not set")
+	}
+	if w.NextUpdate.IsZero() {
+		return errors.New("update window: nextUpdate is not set")
+	}
+	if !w.LastUpdate.Before(w.NextUpdate) {
+		return fmt.Errorf("update window: lastUpdate (%s) must be before nextUpdate (%s)",
+			w.LastUpdate.UTC().Format(time.RFC3339), w.NextUpdate.UTC().Format(time.RFC3339))
+	}
+	return nil
+}
+
+// annotations renders the update window as OCI annotations in RFC3339 UTC.
+func (w UpdateWindow) annotations() map[string]string {
+	return map[string]string{
+		AnnotationLastUpdate: w.LastUpdate.UTC().Format(time.RFC3339),
+		AnnotationNextUpdate: w.NextUpdate.UTC().Format(time.RFC3339),
+	}
+}
+
+// DataLayerMediaType builds the media type of a DB data layer from the source
+// name and its file format, e.g. DataLayerMediaType("kev", "json") yields
+// "application/vnd.sbomscanner.db.kev.v1.json+gzip".
+func DataLayerMediaType(name, format string) string {
+	return dataLayerMediaTypePrefix + name + ".v1." + format + dataLayerMediaTypeSuffix
+}
+
+// isDataLayerMediaType reports whether mediaType is a DB data layer, matching
+// by shape (see DataLayerMediaType) so any source is recognized without
+// enumerating them.
 func isDataLayerMediaType(mediaType string) bool {
-	return mediaType == LayerMediaTypeKEV || mediaType == LayerMediaTypeEPSS
+	return strings.HasPrefix(mediaType, dataLayerMediaTypePrefix) &&
+		strings.HasSuffix(mediaType, dataLayerMediaTypeSuffix)
 }
 
 // Layer describes one data file to pack as its own tar.gz layer.
@@ -61,25 +115,47 @@ type Artifact struct {
 
 // Builder assembles DB artifacts into a local store.
 type Builder struct {
-	store  *Store
-	logger *slog.Logger
+	store           *Store
+	logger          *slog.Logger
+	sourceDateEpoch string
 }
 
-// NewBuilder returns a Builder writing into the given store.
-func NewBuilder(store *Store, logger *slog.Logger) *Builder {
-	return &Builder{store: store, logger: logger}
+// NewBuilder returns a Builder writing into the given store. sourceDateEpoch is
+// the raw SOURCE_DATE_EPOCH value (may be empty); the builder uses it to pin the
+// build timestamp for reproducible artifacts.
+func NewBuilder(store *Store, logger *slog.Logger, sourceDateEpoch string) *Builder {
+	return &Builder{store: store, logger: logger, sourceDateEpoch: sourceDateEpoch}
 }
 
 // Build packs each data file from dataDir as its own tar.gz layer
 // and tags the resulting DB artifact as ref in the store.
+// nextUpdateInterval sets how far ahead the artifact's nextUpdate annotation
+// points from the build time.
 // Keeping one layer per feed means an unchanged feed keeps its blob digest
 // across builds, so registries deduplicate it and consumers can fetch feeds
 // selectively by media type.
-func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer) (Artifact, error) {
+func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer, nextUpdateInterval time.Duration) (Artifact, error) {
+	now, err := buildTime(b.sourceDateEpoch)
+	if err != nil {
+		return Artifact{}, err
+	}
+	window := UpdateWindow{LastUpdate: now, NextUpdate: now.Add(nextUpdateInterval)}
+	return b.build(ctx, ref, dataDir, layers, window)
+}
+
+// build is the window-injecting core of Build, kept separate so tests can pin an
+// exact UpdateWindow without depending on the wall clock.
+func (b *Builder) build(ctx context.Context, ref, dataDir string, layers []Layer, window UpdateWindow) (Artifact, error) {
+	if err := window.validate(); err != nil {
+		return Artifact{}, err
+	}
+
 	layout, err := b.store.open()
 	if err != nil {
 		return Artifact{}, err
 	}
+
+	windowAnnotations := window.annotations()
 
 	b.logger.InfoContext(ctx, "packing artifact", "ref", ref, "layers", len(layers))
 
@@ -98,7 +174,7 @@ func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer
 		if err := writeTarGz(archivePath, dataDir, []string{layer.FileName}); err != nil {
 			return Artifact{}, fmt.Errorf("archive %s: %w", layer.FileName, err)
 		}
-		desc, err := pushFileAsLayer(ctx, layout, archivePath, layer.MediaType, archiveName)
+		desc, err := pushFileAsLayer(ctx, layout, archivePath, layer.MediaType, archiveName, windowAnnotations)
 		if err != nil {
 			return Artifact{}, fmt.Errorf("push layer %s: %w", archiveName, err)
 		}
@@ -119,13 +195,9 @@ func (b *Builder) Build(ctx context.Context, ref, dataDir string, layers []Layer
 		oras.PackManifestVersion1_1,
 		ArtifactType,
 		oras.PackManifestOptions{
-			Layers:           layerDescs,
-			ConfigDescriptor: &emptyDesc,
-			ManifestAnnotations: map[string]string{
-				// Pinned (not time.Now) so the manifest is reproducible;
-				// oras honors a caller-provided created annotation.
-				ocispec.AnnotationCreated: epochCreated,
-			},
+			Layers:              layerDescs,
+			ConfigDescriptor:    &emptyDesc,
+			ManifestAnnotations: manifestAnnotations(window),
 		},
 	)
 	if err != nil {
@@ -212,10 +284,24 @@ func addFileToTar(tarWriter *tar.Writer, path, name string) error {
 	return nil
 }
 
+// manifestAnnotations combines the standard created annotation (derived from the
+// build time, i.e. the window's LastUpdate) with the update-window annotations.
+// Deriving created from LastUpdate keeps the manifest reproducible when the build
+// time is pinned (e.g. via SOURCE_DATE_EPOCH).
+func manifestAnnotations(window UpdateWindow) map[string]string {
+	annotations := map[string]string{
+		ocispec.AnnotationCreated: window.LastUpdate.UTC().Format(time.RFC3339),
+	}
+	maps.Copy(annotations, window.annotations())
+	return annotations
+}
+
 // pushFileAsLayer streams the file at path into the layout as a blob with the given media type.
 // The title annotation records the layer archive name (e.g. kev.tar.gz),
 // so that generic tools like `oras pull` write it under an honest file name.
-func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType, title string) (ocispec.Descriptor, error) {
+// The update-window annotations are mirrored onto every layer so each layer
+// carries the same freshness metadata as the manifest.
+func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType, title string, window map[string]string) (ocispec.Descriptor, error) {
 	desc, err := descriptorFromFile(path, mediaType)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -223,6 +309,7 @@ func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType
 	desc.Annotations = map[string]string{
 		ocispec.AnnotationTitle: title,
 	}
+	maps.Copy(desc.Annotations, window)
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -251,4 +338,18 @@ func pushEmptyConfig(ctx context.Context, layout *orasoci.Store) (ocispec.Descri
 // content-addressed stores are idempotent on identical bytes.
 func isAlreadyExists(err error) bool {
 	return errors.Is(err, errdef.ErrAlreadyExists)
+}
+
+// buildTime returns the timestamp to stamp on the artifact. It honors
+// SOURCE_DATE_EPOCH (Unix seconds) so CI can produce byte-identical, reproducible
+// artifacts; otherwise it falls back to the current wall-clock time.
+func buildTime(sourceDateEpoch string) (time.Time, error) {
+	if sourceDateEpoch == "" {
+		return time.Now().UTC(), nil
+	}
+	secs, err := strconv.ParseInt(sourceDateEpoch, 10, 64)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid %s %q: %w", SourceDateEpochEnv, sourceDateEpoch, err)
+	}
+	return time.Unix(secs, 0).UTC(), nil
 }

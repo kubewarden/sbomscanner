@@ -61,7 +61,7 @@ func TestPushPull_RoundTrip(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
 	ref := registry + "/kubewarden/sbomscanner/sbomscannerdb:latest"
 
-	built, err := NewBuilder(store, slog.New(slog.DiscardHandler)).Build(ctx, ref, dataDir, layers)
+	built, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").build(ctx, ref, dataDir, layers, testWindow())
 	require.NoError(t, err)
 	pushed, err := remote.Push(ctx, store, ref)
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestPush_FailsWithoutDockerConfig(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
 	ctx := context.Background()
 
-	_, err := NewBuilder(store, slog.New(slog.DiscardHandler)).Build(ctx, testRef, dataDir, layers)
+	_, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").build(ctx, testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	_, err = NewRemote(Config{PlainHTTP: true}, slog.New(slog.DiscardHandler)).Push(ctx, store, testRef)
@@ -115,5 +115,38 @@ func TestPush_RejectsDigestReference(t *testing.T) {
 
 	store := NewStore(t.TempDir(), slog.New(slog.DiscardHandler))
 	_, err := NewRemote(Config{}, slog.New(slog.DiscardHandler)).Push(context.Background(), store, ref)
+	require.Error(t, err)
+}
+
+func TestRemoteInspect_RoundTrip(t *testing.T) {
+	registry := startRegistry(t)
+	useTempDockerConfig(t)
+	ctx := context.Background()
+	remote := NewRemote(Config{PlainHTTP: true}, slog.New(slog.DiscardHandler))
+
+	dataDir, layers := writeTestData(t)
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+	ref := registry + "/kubewarden/sbomscanner/sbomscannerdb:latest"
+
+	built, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").build(ctx, ref, dataDir, layers, testWindow())
+	require.NoError(t, err)
+	_, err = remote.Push(ctx, store, ref)
+	require.NoError(t, err)
+
+	view, err := remote.Inspect(ctx, ref)
+	require.NoError(t, err)
+	assert.Equal(t, ref, view.Ref)
+	assert.Equal(t, built.Digest, view.Digest)
+	assert.Equal(t, ArtifactType, view.ArtifactType)
+	require.Len(t, view.Layers, len(layers))
+	window := testWindow().annotations()
+	assert.Equal(t, window[AnnotationNextUpdate], view.Annotations[AnnotationNextUpdate])
+}
+
+func TestRemoteInspect_RejectsDigestReference(t *testing.T) {
+	useTempDockerConfig(t)
+	ref := "registry.example.com/repo@sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+
+	_, err := NewRemote(Config{}, slog.New(slog.DiscardHandler)).Inspect(context.Background(), ref)
 	require.Error(t, err)
 }

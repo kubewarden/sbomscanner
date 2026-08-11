@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
@@ -20,14 +21,21 @@ import (
 
 const testRef = "registry.example.com/kubewarden/sbomscanner/sbomscannerdb:latest"
 
+// testWindow returns a valid update window (lastUpdate strictly before nextUpdate)
+// for tests that do not otherwise care about the freshness values.
+func testWindow() UpdateWindow {
+	last := time.Date(2026, time.July, 16, 0, 0, 0, 0, time.UTC)
+	return UpdateWindow{LastUpdate: last, NextUpdate: last.Add(24 * time.Hour)}
+}
+
 // writeTestData creates a data dir with one small file per feed and returns
 // its path along with the layer descriptions.
 func writeTestData(t *testing.T) (string, []Layer) {
 	t.Helper()
 	dataDir := t.TempDir()
 	layers := []Layer{
-		{Name: "kev", FileName: "kev.json", MediaType: LayerMediaTypeKEV},
-		{Name: "epss", FileName: "epss.csv", MediaType: LayerMediaTypeEPSS},
+		{Name: "kev", FileName: "kev.json", MediaType: DataLayerMediaType("kev", "json")},
+		{Name: "epss", FileName: "epss.csv", MediaType: DataLayerMediaType("epss", "csv")},
 	}
 	for _, layer := range layers {
 		require.NoError(t, os.WriteFile(filepath.Join(dataDir, layer.FileName), []byte("data for "+layer.FileName), 0o600))
@@ -39,7 +47,7 @@ func TestBuild_TagsArtifactInStore(t *testing.T) {
 	dataDir, layers := writeTestData(t)
 	storeDir := filepath.Join(t.TempDir(), "store")
 
-	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers)
+	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 	assert.Equal(t, testRef, built.Ref)
 
@@ -54,7 +62,7 @@ func TestBuild_OneLayerPerFile(t *testing.T) {
 	dataDir, layers := writeTestData(t)
 	storeDir := filepath.Join(t.TempDir(), "store")
 
-	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers)
+	built, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	manifest := readManifest(t, storeDir, built.Digest)
@@ -68,9 +76,9 @@ func TestBuild_OneLayerPerFile(t *testing.T) {
 func TestBuild_IsReproducible(t *testing.T) {
 	dataDir, layers := writeTestData(t)
 
-	first, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "a"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers)
+	first, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "a"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
-	second, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "b"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers)
+	second, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "b"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	assert.Equal(t, first.Digest, second.Digest)
@@ -82,11 +90,11 @@ func TestBuild_RetagsExistingContent(t *testing.T) {
 	ctx := context.Background()
 
 	store := NewStore(storeDir, slog.New(slog.DiscardHandler))
-	builder := NewBuilder(store, slog.New(slog.DiscardHandler))
-	_, err := builder.Build(ctx, testRef, dataDir, layers)
+	builder := NewBuilder(store, slog.New(slog.DiscardHandler), "")
+	_, err := builder.build(ctx, testRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 	otherRef := "registry.example.com/kubewarden/sbomscanner/sbomscannerdb:v2"
-	_, err = builder.Build(ctx, otherRef, dataDir, layers)
+	_, err = builder.build(ctx, otherRef, dataDir, layers, testWindow())
 	require.NoError(t, err)
 
 	artifacts, err := store.List()
@@ -101,8 +109,8 @@ func TestBuild_RetagsExistingContent(t *testing.T) {
 
 func TestBuild_FailsOnMissingDataFile(t *testing.T) {
 	storeDir := filepath.Join(t.TempDir(), "store")
-	layers := []Layer{{Name: "epss", FileName: "missing.csv", MediaType: LayerMediaTypeEPSS}}
-	_, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, t.TempDir(), layers)
+	layers := []Layer{{Name: "epss", FileName: "missing.csv", MediaType: DataLayerMediaType("epss", "csv")}}
+	_, err := NewBuilder(NewStore(storeDir, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, t.TempDir(), layers, testWindow())
 	require.Error(t, err)
 }
 
@@ -110,8 +118,8 @@ func TestBuild_FailsOnEmptyDataFile(t *testing.T) {
 	dataDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "empty.csv"), nil, 0o600))
 
-	layers := []Layer{{Name: "epss", FileName: "empty.csv", MediaType: LayerMediaTypeEPSS}}
-	_, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler)).Build(context.Background(), testRef, dataDir, layers)
+	layers := []Layer{{Name: "epss", FileName: "empty.csv", MediaType: DataLayerMediaType("epss", "csv")}}
+	_, err := NewBuilder(NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler), "").build(context.Background(), testRef, dataDir, layers, testWindow())
 	require.Error(t, err)
 }
 
@@ -119,6 +127,60 @@ func TestList_EmptyOnMissingStore(t *testing.T) {
 	artifacts, err := NewStore(filepath.Join(t.TempDir(), "does-not-exist"), slog.New(slog.DiscardHandler)).List()
 	require.NoError(t, err)
 	assert.Empty(t, artifacts)
+}
+
+// buildInStore builds the standard test data into a fresh store and returns
+// the store and the built artifact.
+func buildInStore(t *testing.T) (*Store, Artifact) {
+	t.Helper()
+	dataDir, layers := writeTestData(t)
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+	built, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").
+		build(context.Background(), testRef, dataDir, layers, testWindow())
+	require.NoError(t, err)
+	return store, built
+}
+
+// assertViewMatchesBuild checks a ManifestView against the standard test data.
+func assertViewMatchesBuild(t *testing.T, view ManifestView, built Artifact) {
+	t.Helper()
+	assert.Equal(t, testRef, view.Ref)
+	assert.Equal(t, built.Digest, view.Digest)
+	assert.Equal(t, ocispec.MediaTypeImageManifest, view.MediaType)
+	assert.Equal(t, ArtifactType, view.ArtifactType)
+
+	// Manifest annotations carry the update window.
+	window := testWindow().annotations()
+	assert.Equal(t, window[AnnotationLastUpdate], view.Annotations[AnnotationLastUpdate])
+	assert.Equal(t, window[AnnotationNextUpdate], view.Annotations[AnnotationNextUpdate])
+
+	require.Len(t, view.Layers, 2)
+	mediaTypes := []string{view.Layers[0].MediaType, view.Layers[1].MediaType}
+	assert.Contains(t, mediaTypes, DataLayerMediaType("kev", "json"))
+	assert.Contains(t, mediaTypes, DataLayerMediaType("epss", "csv"))
+	for _, layer := range view.Layers {
+		assert.NotEmpty(t, layer.Digest)
+		assert.Positive(t, layer.Size)
+		assert.NotEmpty(t, layer.Annotations[ocispec.AnnotationTitle])
+		assert.Equal(t, window[AnnotationLastUpdate], layer.Annotations[AnnotationLastUpdate])
+		assert.Equal(t, window[AnnotationNextUpdate], layer.Annotations[AnnotationNextUpdate])
+	}
+}
+
+func TestStoreInspect_ReturnsManifestView(t *testing.T) {
+	store, built := buildInStore(t)
+
+	view, err := store.Inspect(context.Background(), testRef)
+	require.NoError(t, err)
+	assertViewMatchesBuild(t, view, built)
+}
+
+func TestStoreInspect_FailsForUnknownRef(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+
+	_, err := store.Inspect(context.Background(), testRef)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run `build` first")
 }
 
 func TestWriteTarGz_ContainsFile(t *testing.T) {
