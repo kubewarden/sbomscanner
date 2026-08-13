@@ -45,6 +45,7 @@ func NewNodeSBOMStore(
 	optsGetter generic.RESTOptionsGetter,
 	db *pgxpool.Pool,
 	nc *nats.Conn,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
 ) (*registry.Store, []Watcher, error) {
 	strategy := newNodeSBOMStrategy(scheme)
@@ -52,7 +53,7 @@ func NewNodeSBOMStore(
 	newListFunc := func() runtime.Object { return &storagev1alpha1.NodeSBOMList{} }
 
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
-	natsBroadcaster := newNatsBroadcaster(nc, nodeSBOMResourcePluralName, watchBroadcaster, TransformStripNodeSBOM, logger)
+	natsBroadcaster := newNatsBroadcaster(nc, nodeSBOMResourcePluralName, watchBroadcaster, TransformStripNodeSBOM, instrumentation, logger)
 
 	repo := repository.NewGenericObjectRepository(nodeSBOMResourcePluralName, newFunc)
 
@@ -66,7 +67,7 @@ func NewNodeSBOMStore(
 		clusterScoped: true,
 	}
 
-	natsWatcher := newNatsWatcher(nc, nodeSBOMResourcePluralName, watchBroadcaster, store, logger)
+	natsWatcher := newNatsWatcher(nc, nodeSBOMResourcePluralName, watchBroadcaster, store, instrumentation, logger)
 
 	registryStore := &registry.Store{
 		NewFunc:                   newFunc,
@@ -75,7 +76,7 @@ func NewNodeSBOMStore(
 		DefaultQualifiedResource:  storagev1alpha1.Resource(nodeSBOMResourcePluralName),
 		SingularQualifiedResource: storagev1alpha1.Resource(nodeSBOMResourceSingularName),
 		Storage: registry.DryRunnableStorage{
-			Storage: store,
+			Storage: instrumentStore(instrumentation, "NodeSBOMStore", store),
 		},
 		CreateStrategy: strategy,
 		UpdateStrategy: strategy,

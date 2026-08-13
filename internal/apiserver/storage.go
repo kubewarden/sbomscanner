@@ -4,18 +4,22 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"slices"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/sets"
 	mutatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/mutating"
 	validatingadmissionpolicy "k8s.io/apiserver/pkg/admission/plugin/policy/validating"
 	"k8s.io/apiserver/pkg/endpoints/openapi"
+	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -74,7 +78,14 @@ type StorageAPIServer struct {
 	dynamicCertKeyPairContent *dynamiccertificates.DynamicCertKeyPairContent
 }
 
-func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, cfg StorageAPIServerConfig) (*StorageAPIServer, error) { //nolint:funlen
+func NewStorageAPIServer(
+	db *pgxpool.Pool,
+	nc *nats.Conn,
+	instrumentation *Instrumentation,
+	storeInstrumentation *storage.Instrumentation,
+	logger *slog.Logger,
+	cfg StorageAPIServerConfig,
+) (*StorageAPIServer, error) {
 	// Setup dynamic certs
 	dynamicCertKeyPairContent, err := dynamiccertificates.NewDynamicServingContentFromFiles(
 		"storage-serving-certs",
@@ -138,6 +149,15 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 
 	serverConfig.RESTOptionsGetter = &RestOptionsGetter{}
 
+	// The stores are built before the handler chain: the duration filter needs
+	// the served resource names to bound the resource metric label.
+	v1alpha1storage, watchers, err := buildStores(serverConfig.RESTOptionsGetter, db, nc, storeInstrumentation, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	serverConfig.BuildHandlerChainFunc = buildHandlerChain(instrumentation, sets.KeySet(v1alpha1storage))
+
 	if err := recommendedOptions.ApplyTo(serverConfig); err != nil {
 		return nil, fmt.Errorf("error applying options to server config: %w", err)
 	}
@@ -154,69 +174,6 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 
 	// Create API group and storage
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(v1alpha1.GroupName, Scheme, metav1.ParameterCodec, Codecs)
-
-	imageStore, imageWatchers, err := storage.NewImageStore(Scheme, serverConfig.RESTOptionsGetter, db, nc, logger)
-	if err != nil {
-		return nil, fmt.Errorf("error creating Image store: %w", err)
-	}
-
-	sbomStore, sbomWatchers, err := storage.NewSBOMStore(Scheme, serverConfig.RESTOptionsGetter, db, nc, logger)
-	if err != nil {
-		return nil, fmt.Errorf("error creating SBOM store: %w", err)
-	}
-
-	vulnerabilityReportStore, vulnerabilityReportWatchers, err := storage.NewVulnerabilityReportStore(
-		Scheme,
-		serverConfig.RESTOptionsGetter,
-		db,
-		nc,
-		logger,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error creating VulnerabilityReport store: %w", err)
-	}
-
-	workloadScanReportStore, workloadScanReportWatchers, err := storage.NewWorkloadScanReportStore(
-		Scheme,
-		serverConfig.RESTOptionsGetter,
-		db,
-		nc,
-		logger,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error creating WorkloadScanReport store: %w", err)
-	}
-
-	nodeSBOMStore, nodeSBOMWatchers, err := storage.NewNodeSBOMStore(
-		Scheme,
-		serverConfig.RESTOptionsGetter,
-		db,
-		nc,
-		logger,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error creating NodeSBOM store: %w", err)
-	}
-
-	nodeVulnerabilityReportStore, nodeVulnerabilityReportWatchers, err := storage.NewNodeVulnerabilityReportStore(
-		Scheme,
-		serverConfig.RESTOptionsGetter,
-		db,
-		nc,
-		logger,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error creating NodeVulnerabilityReport store: %w", err)
-	}
-
-	v1alpha1storage := map[string]rest.Storage{
-		"images":                   imageStore,
-		"sboms":                    sbomStore,
-		"vulnerabilityreports":     vulnerabilityReportStore,
-		"workloadscanreports":      workloadScanReportStore,
-		"nodesboms":                nodeSBOMStore,
-		"nodevulnerabilityreports": nodeVulnerabilityReportStore,
-	}
 	apiGroupInfo.VersionedResourcesStorageMap["v1alpha1"] = v1alpha1storage
 
 	if err := genericServer.InstallAPIGroup(&apiGroupInfo); err != nil {
@@ -225,11 +182,80 @@ func NewStorageAPIServer(db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, c
 
 	return &StorageAPIServer{
 		db:                        db,
-		watchers:                  slices.Concat(imageWatchers, sbomWatchers, vulnerabilityReportWatchers, workloadScanReportWatchers, nodeSBOMWatchers, nodeVulnerabilityReportWatchers),
+		watchers:                  watchers,
 		logger:                    logger,
 		server:                    genericServer,
 		dynamicCertKeyPairContent: dynamicCertKeyPairContent,
 	}, nil
+}
+
+// buildHandlerChain wraps the default handler chain with otelhttp as the outermost handler,
+// so the server span covers the whole request and the trace context is extracted first.
+// Machinery requests (probes, discovery, OpenAPI aggregation) produce no spans.
+func buildHandlerChain(instrumentation *Instrumentation, servedResources sets.Set[string]) func(http.Handler, *genericapiserver.Config) http.Handler {
+	return func(apiHandler http.Handler, config *genericapiserver.Config) http.Handler {
+		// The duration filter sits inside the default chain, where the request
+		// info filter has already resolved the Kubernetes verb and resource.
+		handler := instrumentation.requestDurationFilter(apiHandler, config.LongRunningFunc, servedResources)
+		return otelhttp.NewHandler(
+			genericapiserver.DefaultBuildHandlerChain(handler, config),
+			"APIServer",
+			otelhttp.WithFilter(func(req *http.Request) bool {
+				return !isMachineryRequest(req)
+			}),
+		)
+	}
+}
+
+// buildStores creates the REST store and the watchers of every served resource.
+func buildStores(
+	optsGetter generic.RESTOptionsGetter,
+	db *pgxpool.Pool,
+	nc *nats.Conn,
+	instrumentation *storage.Instrumentation,
+	logger *slog.Logger,
+) (map[string]rest.Storage, []storage.Watcher, error) {
+	imageStore, imageWatchers, err := storage.NewImageStore(Scheme, optsGetter, db, nc, instrumentation, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating Image store: %w", err)
+	}
+
+	sbomStore, sbomWatchers, err := storage.NewSBOMStore(Scheme, optsGetter, db, nc, instrumentation, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating SBOM store: %w", err)
+	}
+
+	vulnerabilityReportStore, vulnerabilityReportWatchers, err := storage.NewVulnerabilityReportStore(Scheme, optsGetter, db, nc, instrumentation, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating VulnerabilityReport store: %w", err)
+	}
+
+	workloadScanReportStore, workloadScanReportWatchers, err := storage.NewWorkloadScanReportStore(Scheme, optsGetter, db, nc, instrumentation, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating WorkloadScanReport store: %w", err)
+	}
+
+	nodeSBOMStore, nodeSBOMWatchers, err := storage.NewNodeSBOMStore(Scheme, optsGetter, db, nc, instrumentation, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating NodeSBOM store: %w", err)
+	}
+
+	nodeVulnerabilityReportStore, nodeVulnerabilityReportWatchers, err := storage.NewNodeVulnerabilityReportStore(Scheme, optsGetter, db, nc, instrumentation, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating NodeVulnerabilityReport store: %w", err)
+	}
+
+	stores := map[string]rest.Storage{
+		"images":                   imageStore,
+		"sboms":                    sbomStore,
+		"vulnerabilityreports":     vulnerabilityReportStore,
+		"workloadscanreports":      workloadScanReportStore,
+		"nodesboms":                nodeSBOMStore,
+		"nodevulnerabilityreports": nodeVulnerabilityReportStore,
+	}
+	watchers := slices.Concat(imageWatchers, sbomWatchers, vulnerabilityReportWatchers, workloadScanReportWatchers, nodeSBOMWatchers, nodeVulnerabilityReportWatchers)
+
+	return stores, watchers, nil
 }
 
 func (s *StorageAPIServer) Start(ctx context.Context) error {

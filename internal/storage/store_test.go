@@ -59,7 +59,7 @@ type storeTestSuite struct {
 	suite.Suite
 
 	test        storeTestCase
-	store       *store
+	store       *instrumentedStore
 	db          *pgxpool.Pool
 	broadcaster *watch.Broadcaster
 	watcher     *natsWatcher
@@ -130,7 +130,7 @@ func (suite *storeTestSuite) SetupTest() {
 	repo := repository.NewGenericObjectRepository(suite.test.resource, suite.test.newFunc)
 
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
-	natsBroadcaster := newNatsBroadcaster(suite.nc, suite.test.resource, watchBroadcaster, suite.test.transform, slog.Default())
+	natsBroadcaster := newNatsBroadcaster(suite.nc, suite.test.resource, watchBroadcaster, suite.test.transform, noopInstrumentation(suite.T()), slog.Default())
 
 	store := &store{
 		db:            suite.db,
@@ -141,9 +141,10 @@ func (suite *storeTestSuite) SetupTest() {
 		logger:        slog.Default(),
 		clusterScoped: suite.test.clusterScoped,
 	}
-	natsWatcher := newNatsWatcher(suite.nc, suite.test.resource, watchBroadcaster, store, slog.Default())
+	natsWatcher := newNatsWatcher(suite.nc, suite.test.resource, watchBroadcaster, store, noopInstrumentation(suite.T()), slog.Default())
 
-	suite.store = store
+	// Route the suite through the decorator, as production always does.
+	suite.store = instrumentStore(noopInstrumentation(suite.T()), "TestStore", store)
 	suite.broadcaster = watchBroadcaster
 	suite.watcher = natsWatcher
 }
