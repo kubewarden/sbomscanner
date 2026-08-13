@@ -81,7 +81,7 @@ func run(cfg config) error {
 	}()
 
 	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
-	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-mcp", version.Version)
+	shutdownTelemetry, _, err := telemetry.Setup(ctx, "sbomscanner-mcp", version.Version)
 	if err != nil {
 		return fmt.Errorf("initializing telemetry: %w", err)
 	}

@@ -30,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/component-base/tracing"
 )
 
 const (
@@ -110,7 +111,7 @@ func run(cfg config) error {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		collectors.NewGoCollector(),
 	)
-	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-worker", version.Version,
+	shutdownTelemetry, kubernetesClientTracerProvider, err := telemetry.Setup(ctx, "sbomscanner-worker", version.Version,
 		telemetry.WithMetricProducer(prombridge.NewMetricProducer(prombridge.WithGatherer(runtimeRegistry))),
 	)
 	if err != nil {
@@ -124,7 +125,11 @@ func run(cfg config) error {
 		}
 	}()
 
+	// Wrap the client transport (upstream Kubernetes wrapper) so API calls made
+	// inside a trace carry the W3C trace context and produce client spans,
+	// joining them to the storage apiserver's server spans.
 	config := ctrl.GetConfigOrDie()
+	config.Wrap(tracing.WrapperFor(kubernetesClientTracerProvider))
 	natsOpts := []nats.Option{
 		nats.RootCAs(cfg.NatsCAFile),
 		nats.ClientCert(cfg.NatsCertFile, cfg.NatsKeyFile),

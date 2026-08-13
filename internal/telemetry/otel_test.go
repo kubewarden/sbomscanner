@@ -23,9 +23,10 @@ import (
 func TestSetup_NoEndpoint(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 
-	shutdown, err := Setup(context.Background(), "test-service", "v0.0.0")
+	shutdown, clientTracerProvider, err := Setup(context.Background(), "test-service", "v0.0.0")
 	require.NoError(t, err)
 	require.NotNil(t, shutdown)
+	require.NotNil(t, clientTracerProvider)
 
 	// Composite W3C propagator should be installed even in no-op mode.
 	prop := otel.GetTextMapPropagator()
@@ -44,9 +45,10 @@ func TestSetup_WithEndpoint(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_TIMEOUT", "100")
 	t.Cleanup(resetGlobalProviders)
 
-	shutdown, err := Setup(context.Background(), "test-service", "v0.0.0")
+	shutdown, clientTracerProvider, err := Setup(context.Background(), "test-service", "v0.0.0")
 	require.NoError(t, err)
 	require.NotNil(t, shutdown)
+	assert.IsType(t, &sdktrace.TracerProvider{}, clientTracerProvider)
 
 	assert.IsType(t, &sdktrace.TracerProvider{}, otel.GetTracerProvider())
 	assert.IsType(t, &sdkmetric.MeterProvider{}, otel.GetMeterProvider())
@@ -55,6 +57,38 @@ func TestSetup_WithEndpoint(t *testing.T) {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	_ = shutdown(shutdownCtx)
+}
+
+// TestKubernetesClientTracerProvider asserts the parent-based sampling of the
+// Kubernetes client provider: spans join an existing trace but never start one.
+func TestKubernetesClientTracerProvider(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+	t.Setenv("OTEL_EXPORTER_OTLP_TIMEOUT", "100")
+	t.Cleanup(resetGlobalProviders)
+
+	shutdown, clientTracerProvider, err := Setup(context.Background(), "test-service", "v0.0.0")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+		_ = shutdown(shutdownCtx)
+	})
+
+	clientTracer := clientTracerProvider.Tracer("test")
+
+	// Without a parent trace, the client span must not be sampled.
+	_, orphan := clientTracer.Start(context.Background(), "orphan")
+	assert.False(t, orphan.SpanContext().IsSampled())
+	orphan.End()
+
+	// Inside a sampled trace, the client span joins it.
+	ctx, parent := otel.Tracer("test").Start(context.Background(), "parent")
+	require.True(t, parent.SpanContext().IsSampled())
+	_, child := clientTracer.Start(ctx, "child")
+	assert.True(t, child.SpanContext().IsSampled())
+	assert.Equal(t, parent.SpanContext().TraceID(), child.SpanContext().TraceID())
+	child.End()
+	parent.End()
 }
 
 // TestHistogramAggregationSelector asserts histograms aggregate as base2 exponential histograms
