@@ -19,6 +19,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 
 	"github.com/kubewarden/sbomscanner/internal/apiserver"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
@@ -86,7 +89,16 @@ func run() error {
 	ctx := genericapiserver.SetupSignalContext()
 
 	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
-	shutdownTelemetry, _, err := telemetry.Setup(ctx, "sbomscanner-storage", version.Version)
+	// The Prometheus bridge exports the process and Go runtime metrics
+	// (process_*, go_*) over OTLP alongside our own.
+	runtimeRegistry := prometheus.NewRegistry()
+	runtimeRegistry.MustRegister(
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+	)
+	shutdownTelemetry, _, err := telemetry.Setup(ctx, "sbomscanner-storage", version.Version,
+		telemetry.WithMetricProducer(prombridge.NewMetricProducer(prombridge.WithGatherer(runtimeRegistry))),
+	)
 	if err != nil {
 		return fmt.Errorf("initializing telemetry: %w", err)
 	}
