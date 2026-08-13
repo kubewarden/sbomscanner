@@ -85,7 +85,7 @@ func run() error {
 	ctx := genericapiserver.SetupSignalContext()
 
 	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
-	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-storage", version.Version)
+	shutdownTelemetry, _, err := telemetry.Setup(ctx, "sbomscanner-storage", version.Version)
 	if err != nil {
 		return fmt.Errorf("initializing telemetry: %w", err)
 	}
