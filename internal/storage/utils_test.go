@@ -5,8 +5,22 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	"k8s.io/apimachinery/pkg/watch"
 )
+
+// noopInstrumentation returns an Instrumentation backed by no-op providers.
+func noopInstrumentation(t *testing.T) *Instrumentation {
+	t.Helper()
+
+	instrumentation, err := NewInstrumentation(
+		tracenoop.NewTracerProvider().Tracer("test"),
+		metricnoop.NewMeterProvider().Meter("test"),
+	)
+	require.NoError(t, err)
+	return instrumentation
+}
 
 // mustReadEvents reads n events from the watch.Interface or fails the test if not enough events are received in time.
 func mustReadEvents(t *testing.T, w watch.Interface, n int) []watch.Event {

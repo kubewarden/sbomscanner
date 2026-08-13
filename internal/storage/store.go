@@ -115,7 +115,7 @@ func (s *store) Create(ctx context.Context, key string, obj, out runtime.Object,
 		return storage.NewInternalError(err)
 	}
 
-	if err := s.broadcaster.Action(watch.Added, obj); err != nil {
+	if err := s.broadcaster.Action(ctx, watch.Added, obj); err != nil {
 		s.logger.ErrorContext(ctx, "failed to broadcast add action", "error", err)
 	}
 
@@ -174,7 +174,7 @@ func (s *store) Delete(
 		return storage.NewInternalError(err)
 	}
 
-	if err := s.broadcaster.Action(watch.Deleted, obj); err != nil {
+	if err := s.broadcaster.Action(ctx, watch.Deleted, obj); err != nil {
 		s.logger.ErrorContext(ctx, "failed to broadcast delete action", "error", err)
 	}
 
@@ -540,7 +540,7 @@ func (s *store) GuaranteedUpdate(
 			return storage.NewInternalError(err)
 		}
 
-		if err := s.broadcaster.Action(watch.Modified, updatedObj); err != nil {
+		if err := s.broadcaster.Action(ctx, watch.Modified, updatedObj); err != nil {
 			s.logger.ErrorContext(ctx, "failed to broadcast modified action", "error", err)
 		}
 
