@@ -196,8 +196,18 @@ data:
           # can end up holding a single sample and return nothing.
           timeInterval: 60s
           exemplarTraceIdDestinations:
+            # Internal Explore link, broken since the Jaeger datasource backend
+            # migration (default on since Grafana 12.0, frontend removed in 12.2):
+            # the exemplar link's queryType is not understood by the backend, and
+            # the trace id trim from grafana/grafana#95786 (grafana/grafana#95784)
+            # was lost. Issue to be filed upstream; restore this once fixed.
+            # - name: trace_id
+            #   datasourceUid: jaeger
             - name: trace_id
-              datasourceUid: jaeger
+              # $$ escapes Grafana's provisioning-time env var expansion;
+              # the datasource must receive the literal ${__value.raw}.
+              url: http://localhost:16686/trace/$${__value.raw}
+              urlDisplayLabel: View in Jaeger
       - name: Jaeger
         uid: jaeger
         type: jaeger
