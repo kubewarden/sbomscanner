@@ -43,6 +43,7 @@ func NewImageStore(
 	optsGetter generic.RESTOptionsGetter,
 	db *pgxpool.Pool,
 	nc *nats.Conn,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
 ) (*registry.Store, []Watcher, error) {
 	strategy := newImageStrategy(scheme)
@@ -52,7 +53,7 @@ func NewImageStore(
 	repo := repository.NewGenericObjectRepository(imageResourcePluralName, newFunc)
 
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
-	natsBroadcaster := newNatsBroadcaster(nc, imageResourcePluralName, watchBroadcaster, TransformStripImage, logger)
+	natsBroadcaster := newNatsBroadcaster(nc, imageResourcePluralName, watchBroadcaster, TransformStripImage, instrumentation, logger)
 
 	store := &store{
 		db:          db,
@@ -63,7 +64,7 @@ func NewImageStore(
 		logger:      logger.With("store", imageResourceSingularName),
 	}
 
-	natsWatcher := newNatsWatcher(nc, imageResourcePluralName, watchBroadcaster, store, logger)
+	natsWatcher := newNatsWatcher(nc, imageResourcePluralName, watchBroadcaster, store, instrumentation, logger)
 
 	registryStore := &registry.Store{
 		NewFunc:                   newFunc,
@@ -72,7 +73,7 @@ func NewImageStore(
 		DefaultQualifiedResource:  storagev1alpha1.Resource(imageResourcePluralName),
 		SingularQualifiedResource: storagev1alpha1.Resource(imageResourceSingularName),
 		Storage: registry.DryRunnableStorage{
-			Storage: store,
+			Storage: instrumentStore(instrumentation, "ImageStore", store),
 		},
 		CreateStrategy: strategy,
 		UpdateStrategy: strategy,
