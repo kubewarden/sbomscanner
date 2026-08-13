@@ -103,6 +103,18 @@ so the instrumentation cannot retrigger the reconcile loops it observes.
 On the message hop, the trace context travels in the NATS headers instead:
 publishers inject the current traceparent and worker consumer spans parent from it.
 
+On the Kubernetes API hop, the trace context travels as the standard HTTP `traceparent` header:
+the controller and the worker instrument their clients with the
+[upstream Kubernetes client wrapper](https://pkg.go.dev/k8s.io/component-base/tracing#WrapperFor),
+the kube-apiserver aggregation proxy forwards the header,
+and the storage API server's spans join the caller's trace down to the SQL statements.
+The client spans are sampled parent-based:
+an API call made inside a trace produces a child span,
+while background traffic (leader election renewals, informer resyncs) produces nothing,
+instead of flooding the backend with one-span traces.
+One carrier per transport: the annotation for the resource hop,
+NATS headers for the message hop, HTTP headers for the API-call hop.
+
 ## Metric label cardinality
 
 Every metric label value must come from a fixed, low-cardinality set known at design time.
@@ -118,11 +130,11 @@ and Grafana Labs on [managing high-cardinality metrics](https://grafana.com/blog
 The following attribute classes are banned from metric labels:
 
 - Pod identifiers (`k8s.pod.name`, `k8s.pod.uid`) and anything else with a generated suffix. Every rollout or scale event mints new ones, so cardinality grows monotonically.
-- Full image references with digest or tag. The label uses `repository`; the full reference goes on the span, the log record, or an [exemplar](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars).
+- Full image references with digest or tag. The label uses `repository`; the full reference goes on the span or the log record.
 - Raw error strings. The label uses a finite `error.type` enum.
 - Free-form input: session IDs, SQL statements, request paths with IDs, user IDs, IP addresses.
 
-High-cardinality data belongs on spans, on log fields, or as exemplars.
+High-cardinality data belongs on spans or on log fields.
 
 Per-workload metrics (`worker.workload.*`) keep the owning controller's `kind`, `namespace`, and `name` on the label set.
 Cardinality grows with the number of scanned workloads in the cluster, not over time: workload names are operator-set and only change on intentional rename.
@@ -140,6 +152,22 @@ The default is applied in the shared telemetry setup only when the standard
 so the variable keeps its standard behaviour:
 setting it to `explicit_bucket_histogram` restores classic histograms
 for pipelines without exponential-histogram support.
+
+## Exemplars
+
+Histograms recorded inside a sampled span automatically carry
+[exemplars](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars):
+occasional concrete measurements stamped with the trace and span identifiers.
+This is the default SDK behaviour
+([trace-based exemplar filter](https://opentelemetry.io/docs/specs/otel/metrics/sdk/#exemplar-defaults)),
+applies to every histogram in the catalogue below, and requires no per-metric code.
+Backends that store exemplars
+(e.g. Prometheus with [exemplar storage](https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage))
+keep them alongside the aggregated data,
+and Grafana renders them as dots on latency panels that link straight to the trace,
+turning "this percentile spiked" into "here is the exact slow request".
+Exemplars carry only the trace identity;
+high-cardinality request details stay on the linked span.
 
 ## Traces and metrics catalogue
 
@@ -171,13 +199,13 @@ backed by the bounded `scanjob.trigger` / `nodescanjob.trigger` attribute.
 
 Metrics:
 
-| Metric                           | Type    | Labels (bounded)                                                   | Exemplars                 |
-| :------------------------------- | :------ | :------------------------------------------------------------------ | :------------------------ |
-| `controller.webhook.decisions`   | Counter | `type` (`validating` / `mutating`), `kind`, `operation`, `allowed`, `reason` | `trace_id`, `request.uid` |
-| `controller.registry_scan.ticks` | Counter | `result`                                                             | `trace_id`                |
-| `controller.node_scan.ticks`     | Counter | `result`                                                             | `trace_id`                |
-| `sbomscanner.scanjobs`           | Counter | `result` (`complete` / `failed`), `source` (`registry` / `workload`) | `trace_id`                |
-| `sbomscanner.nodescanjobs`       | Counter | `result` (`complete` / `failed`)                                     | `trace_id`                |
+| Metric                           | Type    | Labels (bounded)                                                   |
+| :------------------------------- | :------ | :------------------------------------------------------------------ |
+| `controller.webhook.decisions`   | Counter | `type` (`validating` / `mutating`), `kind`, `operation`, `allowed`, `reason` |
+| `controller.registry_scan.ticks` | Counter | `result`                                                             |
+| `controller.node_scan.ticks`     | Counter | `result`                                                             |
+| `sbomscanner.scanjobs`           | Counter | `result` (`complete` / `failed`), `source` (`registry` / `workload`) |
+| `sbomscanner.nodescanjobs`       | Counter | `result` (`complete` / `failed`)                                     |
 
 Reconcile durations and error counts are deliberately not duplicated here:
 controller-runtime already exports them, along with the workqueue, rest-client, webhook-server,
@@ -208,34 +236,54 @@ reconcile → catalog → per-image SBOM generation → scan.
 
 Metrics:
 
-| Metric                          | Type      | Labels (bounded)                                                                                  | Exemplars                   |
-| :------------------------------- | :-------- | :-------------------------------------------------------------------------------------------------- | :--------------------------- |
-| `worker.scan.duration`          | Histogram | `stage` (`catalog` / `generate_sbom` / `scan_sbom` / `generate_node_sbom` / `node_scan_sbom`), `result` | `trace_id`                  |
-| `sbomscanner.images.scanned`    | Counter   | `registry` (host), `result`                                                                          | `trace_id`                  |
-| `worker.registry.call.duration` | Histogram | `operation` (`catalog` / `list_repository_contents` / `get_descriptor` / `get_image_details`), `result` | `trace_id`                  |
-| `worker.trivy.duration`         | Histogram | `command` (`image` / `sbom` / `filesystem`), `result`                                                | `trace_id`                  |
-| `worker.handler.errors`         | Counter   | `handler`, `error.type` (Kubernetes status reason, `canceled`, `deadline_exceeded`, or `unknown`)    | `trace_id`                  |
+| Metric                          | Type      | Labels (bounded)                                                                                  |
+| :------------------------------- | :-------- | :-------------------------------------------------------------------------------------------------- |
+| `worker.scan.duration`          | Histogram | `stage` (`catalog` / `generate_sbom` / `scan_sbom` / `generate_node_sbom` / `node_scan_sbom`), `result` |
+| `sbomscanner.images.scanned`    | Counter   | `registry` (host), `result`                                                                          |
+| `worker.registry.call.duration` | Histogram | `operation` (`catalog` / `list_repository_contents` / `get_descriptor` / `get_image_details`), `result` |
+| `worker.trivy.duration`         | Histogram | `command` (`image` / `sbom` / `filesystem`), `result`                                                |
+| `worker.handler.errors`         | Counter   | `handler`, `error.type` (Kubernetes status reason, `canceled`, `deadline_exceeded`, or `unknown`)    |
 
 ### Storage
 
 Traces:
 
-| Span                    | Triggered by                                                                            | Key attributes                                                                                     |
-| :---------------------- | :-------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-| `APIServer request`     | `otelhttp.NewHandler` on the aggregated `genericapiserver` chain                        | `http.method`, `http.route`, `http.status_code`, `k8s.api.verb`, `k8s.api.resource`                |
-| `Storage <Kind>.<Verb>` | REST storage methods on `Image` / `SBOM` / `VulnerabilityReport` / `WorkloadScanReport` | `k8s.api.verb`, `k8s.api.resource`, `k8s.namespace.name`, `k8s.object.name`, `result`              |
-| `Postgres <op>`         | `otelpgx.NewTracer()` on `pgxpool.Config.ConnConfig.Tracer`                             | `db.system=postgresql`, `db.operation`, `db.sql.table`, `db.rows_affected`                         |
-| `Watch fan-out publish` | `internal/storage/watcher.go` publishing to NATS                                        | `messaging.system=nats`, `messaging.destination.name`, `event.type` (`added`/`modified`/`deleted`) |
-| `Watch fan-out consume` | Storage-side NATS subscriber                                                            | `messaging.system=nats`, `messaging.consumer.name`, `event.type`                                   |
+| Span                                                       | Triggered by                                                                                                    | Key attributes                                                                                                   |
+| :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
+| `GET` / `POST` / ... (HTTP method)                         | [otelhttp](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp) server handler, outermost on the aggregated API server handler chain | standard [HTTP server semantic conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/)          |
+| `<Kind>Store.<Operation>`                                  | Each storage operation (`Create`, `Get`, `GetList`, `GuaranteedUpdate`, `Delete`, `Watch`) on the served resources | `k8s.namespace.name`, `k8s.object.name`, `storage.result` (`success` / `not_found` / `already_exists` / `error`)   |
+| `query <KEYWORD>` (e.g. `query INSERT`)                    | [otelpgx](https://github.com/exaring/otelpgx) tracer on the pgx pool                                               | standard [database client semantic conventions](https://opentelemetry.io/docs/specs/semconv/database/database-spans/), full SQL statement |
+| `NatsBroadcaster.Publish`                                  | Watch fan-out publish leg: each write publishes its event to NATS with the write's trace context in the headers    | `messaging.system=nats`, `messaging.destination.name`, `event.type` (`added` / `modified` / `deleted`)             |
+| `NatsWatcher.HandleMessage`                                | Watch fan-out consume leg on every storage replica, parented from the publishing write                             | `messaging.system=nats`, `messaging.destination.name`, `event.type`                                                |
+| `WorkloadScanReportWatcher.HandleVulnerabilityReportEvent` | VulnerabilityReport events fanned out as synthetic WorkloadScanReport events                                       | `messaging.system=nats`, `messaging.destination.name`                                                              |
+
+The HTTP server span is extracted before any other filter runs, so it covers the whole request, authentication included.
+Machinery requests (probes, discovery, OpenAPI aggregation) produce no server spans:
+they are polled every few seconds without a trace context,
+and each request would otherwise become a one-span root trace.
+Direct client requests remain traced.
+Not found and already exists are recorded as expected outcomes on the `storage.result` attribute, not as span errors:
+a miss on a lookup is normal control flow and must not light up traces as failures.
+Pool-acquire spans are disabled as noise; acquire latency stays observable through the pool metrics below.
 
 Metrics:
 
-| Metric                               | Type      | Labels (bounded)                         | Exemplars                       |
-| :----------------------------------- | :-------- | :--------------------------------------- | :------------------------------ |
-| `storage.apiserver.request.duration` | Histogram | `verb`, `resource`, `code`               | `trace_id`, `namespace`, `name` |
-| `storage.postgres.query.duration`    | Histogram | `db.operation`, `db.sql.table`, `result` | `trace_id`                      |
-| `storage.watch.events`               | Counter   | `resource`, `event.type`                 | `trace_id`, `namespace`, `name` |
-| `storage.watch.subscribers`          | Gauge     | `resource`                               | `trace_id`                      |
+| Metric                               | Type      | Labels (bounded)           |
+| :----------------------------------- | :-------- | :------------------------- |
+| `storage.apiserver.request.duration` | Histogram | `verb`, `resource`, `code` |
+| `storage.watch.events`               | Counter   | `resource`, `event.type`   |
+
+The request duration histogram covers resource requests only:
+non-resource endpoints (health, discovery, OpenAPI) are skipped,
+and so are long-running requests (watches), whose duration is a connection lifetime, not a latency.
+
+The instrumentation libraries add the standard families on top:
+otelhttp exports [`http.server.request.duration`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/),
+and otelpgx exports [`db.client.operation.duration`](https://opentelemetry.io/docs/specs/semconv/database/database-metrics/)
+(labeled by the pgx operation type) together with the connection pool gauges.
+A separate first-party Postgres histogram would duplicate that signal while requiring SQL parsing to label it,
+so the semantic-convention metric is the source of truth for query latency;
+per-statement detail lives on the spans.
 
 ### MCP
 
@@ -248,11 +296,11 @@ Traces:
 
 Metrics:
 
-| Metric                      | Type      | Labels (bounded)      | Exemplars                |
-| :-------------------------- | :-------- | :-------------------- | :----------------------- |
-| `mcp.tool.calls`            | Counter   | `tool.name`, `result` | `trace_id`, `session.id` |
-| `mcp.tool.call.duration`    | Histogram | `tool.name`, `result` | `trace_id`, `session.id` |
-| `mcp.rate_limit.rejections` | Counter   | `tool.name`           | `trace_id`, `session.id` |
+| Metric                      | Type      | Labels (bounded)      |
+| :-------------------------- | :-------- | :-------------------- |
+| `mcp.tool.calls`            | Counter   | `tool.name`, `result` |
+| `mcp.tool.call.duration`    | Histogram | `tool.name`, `result` |
+| `mcp.rate_limit.rejections` | Counter   | `tool.name`           |
 
 # Drawbacks
 
