@@ -1074,3 +1074,44 @@ func TestApplyTargetsToRegistry(t *testing.T) {
 		})
 	}
 }
+
+func TestNameOptions(t *testing.T) {
+	tests := []struct {
+		name       string
+		insecure   bool
+		wantScheme string
+	}{
+		{
+			name:       "insecure registry allows plain HTTP",
+			insecure:   true,
+			wantScheme: "http",
+		},
+		{
+			name:       "secure registry requires HTTPS",
+			insecure:   false,
+			wantScheme: "https",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := &v1alpha1.Registry{
+				Spec: v1alpha1.RegistrySpec{
+					URI:      "registry.svc.cluster.example:5000",
+					Insecure: test.insecure,
+				},
+			}
+
+			reg, err := name.NewRegistry(registry.Spec.URI, nameOptions(registry)...)
+			require.NoError(t, err)
+			assert.Equal(t, test.wantScheme, reg.Scheme())
+
+			repo, err := name.NewRepository(registry.Spec.URI+"/repo1", nameOptions(registry)...)
+			require.NoError(t, err)
+			assert.Equal(t, test.wantScheme, repo.Registry.Scheme())
+
+			ref, err := name.ParseReference(registry.Spec.URI+"/repo1:latest", nameOptions(registry)...)
+			require.NoError(t, err)
+			assert.Equal(t, test.wantScheme, ref.Context().Registry.Scheme())
+		})
+	}
+}

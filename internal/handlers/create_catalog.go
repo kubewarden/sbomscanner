@@ -164,7 +164,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	discoveredImageReferences := sets.Set[string]{}
 	for _, repository := range repositories {
 		var repoImages []string
-		repoImages, err = h.discoverImages(ctx, registryClient, repository)
+		repoImages, err = h.discoverImages(ctx, registryClient, registry, repository)
 		if err != nil {
 			return fmt.Errorf("cannot discover images in registry %s: %w", registry.Name, err)
 		}
@@ -195,7 +195,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 
 	var discoveredImages []storagev1alpha1.Image
 	for newImageName := range discoveredImageReferences {
-		ref, err := name.ParseReference(newImageName)
+		ref, err := name.ParseReference(newImageName, nameOptions(registry)...)
 		if err != nil {
 			return fmt.Errorf("cannot parse image reference %q: %w", newImageName, err)
 		}
@@ -340,7 +340,7 @@ func (h *CreateCatalogHandler) discoverRepositories(
 	registryClient *registryclient.Client,
 	registry *v1alpha1.Registry,
 ) ([]string, error) {
-	reg, err := name.NewRegistry(registry.Spec.URI)
+	reg, err := name.NewRegistry(registry.Spec.URI, nameOptions(registry)...)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse registry %s %s: %w", registry.Name, registry.Namespace, err)
 	}
@@ -370,9 +370,10 @@ func (h *CreateCatalogHandler) discoverRepositories(
 func (h *CreateCatalogHandler) discoverImages(
 	ctx context.Context,
 	registryClient *registryclient.Client,
+	registry *v1alpha1.Registry,
 	repository string,
 ) ([]string, error) {
-	repo, err := name.NewRepository(repository)
+	repo, err := name.NewRepository(repository, nameOptions(registry)...)
 	if err != nil {
 		return []string{}, fmt.Errorf("cannot parse repository name %q: %w", repository, err)
 	}
@@ -570,6 +571,18 @@ func (h *CreateCatalogHandler) transportFromRegistry(registry *v1alpha1.Registry
 	}
 
 	return transport, nil
+}
+
+// nameOptions returns the [name.Option] list to use when parsing references
+// belonging to the given registry. Insecure registries are parsed with
+// [name.Insecure], which allows the transport to fall back to plain HTTP;
+// HTTPS is still attempted first and is unaffected for registries that serve TLS.
+func nameOptions(registry *v1alpha1.Registry) []name.Option {
+	if registry.Spec.Insecure {
+		return []name.Option{name.Insecure}
+	}
+
+	return nil
 }
 
 // deleteObsoleteImages deletes images that are not present in the discovered registry anymore.

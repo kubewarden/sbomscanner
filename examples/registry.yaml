@@ -6,6 +6,7 @@ metadata:
 spec:
   uri: dev-registry.default.svc.cluster.local:5000
   catalogType: OCIDistribution
+  insecure: true
   scanInterval: 1h
   repositories:
     - name: nginx
