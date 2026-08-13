@@ -9,11 +9,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/watch"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/storage/repository"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // WorkloadScanReportWatcher watches VulnerabilityReport events and generates
@@ -25,6 +29,7 @@ type WorkloadScanReportWatcher struct {
 	repo                    *repository.WorkloadScanReportRepository
 	workloadBroadcaster     *natsBroadcaster
 	workloadScanReportStore *store
+	instrumentation         *Instrumentation
 	logger                  *slog.Logger
 	sub                     *nats.Subscription
 }
@@ -35,6 +40,7 @@ func newWorkloadScanReportWatcher(
 	repo *repository.WorkloadScanReportRepository,
 	workloadBroadcaster *natsBroadcaster,
 	workloadScanReportStore *store,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
 ) *WorkloadScanReportWatcher {
 	return &WorkloadScanReportWatcher{
@@ -43,6 +49,7 @@ func newWorkloadScanReportWatcher(
 		repo:                    repo,
 		workloadBroadcaster:     workloadBroadcaster,
 		workloadScanReportStore: workloadScanReportStore,
+		instrumentation:         instrumentation,
 		logger:                  logger.With("component", "workloadscanreport-watcher"),
 	}
 }
@@ -100,7 +107,30 @@ func (w *WorkloadScanReportWatcher) Start(ctx context.Context) error {
 	return nil
 }
 
+// handleVulnerabilityReportEvent runs one consumed event in a consumer span.
+// The span joins the trace of the VulnerabilityReport write that published the event.
 func (w *WorkloadScanReportWatcher) handleVulnerabilityReportEvent(ctx context.Context, msg *nats.Msg) error {
+	ctx = telemetry.ExtractNATS(ctx, msg.Header)
+	ctx, span := w.instrumentation.tracer.Start(ctx, "WorkloadScanReportWatcher.HandleVulnerabilityReportEvent",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "nats"),
+			attribute.String("messaging.destination.name", "watch."+vulnerabilityReportResourcePluralName),
+		),
+	)
+	defer span.End()
+
+	err := w.processVulnerabilityReportEvent(ctx, msg)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+
+// processVulnerabilityReportEvent fans a VulnerabilityReport event out as synthetic
+// MODIFIED events for every WorkloadScanReport referencing the changed report.
+func (w *WorkloadScanReportWatcher) processVulnerabilityReportEvent(ctx context.Context, msg *nats.Msg) error {
 	var payload event
 	if err := json.Unmarshal(msg.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
@@ -150,7 +180,7 @@ func (w *WorkloadScanReportWatcher) handleVulnerabilityReportEvent(ctx context.C
 			"vulnReportEvent", payload.EventType,
 		)
 
-		if err := w.workloadBroadcaster.Action(watch.Modified, &report); err != nil {
+		if err := w.workloadBroadcaster.Action(ctx, watch.Modified, &report); err != nil {
 			w.logger.ErrorContext(ctx, "Failed to broadcast WorkloadScanReport event",
 				"error", err,
 				"name", metaAccessor.GetName(),
