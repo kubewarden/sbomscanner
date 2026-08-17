@@ -1250,6 +1250,12 @@ May be empty when the source vendor is not known. + |  |
 | *`suppressed`* __boolean__ | Suppressed identify when vulnerability has +
 been suppressed by VEX documents + |  | 
 | *`vexStatus`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vexstatus[$$VEXStatus$$]__ | VEXStatus information + |  | 
+| *`knownExploited`* __boolean__ | KnownExploited is true when the CVE appears in the CISA Known Exploited +
+Vulnerabilities (KEV) catalog, i.e. it is being actively exploited in the wild. + |  | 
+| *`epssScore`* __string__ | EPSSScore is the Exploit Prediction Scoring System probability that the CVE +
+will be exploited (0..1), as a string. Empty when no EPSS data is available. + |  | 
+| *`epssPercentile`* __string__ | EPSSPercentile is the EPSS score's percentile rank (0..1), as a string. +
+Empty when no EPSS data is available. + |  | 
 |===
 
 
