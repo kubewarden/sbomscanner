@@ -17,9 +17,11 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
+	"github.com/kubewarden/sbomscanner/internal/enrichment"
 	"github.com/kubewarden/sbomscanner/internal/handlers"
 	"github.com/kubewarden/sbomscanner/internal/handlers/registry"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 	"github.com/kubewarden/sbomscanner/pkg/generated/clientset/versioned/scheme"
 	"github.com/nats-io/nats.go"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -40,6 +42,10 @@ func main() {
 	var trivyDBRepository string
 	var trivyJavaDBRepository string
 	var installationNamespace string
+	var enrichmentDBRepository string
+	var enrichmentDBCacheDir string
+	var enrichmentDBSkipTLS bool
+	var enrichmentDBPlainHTTP bool
 	var init bool
 	var logLevel string
 	var mode string
@@ -53,6 +59,10 @@ func main() {
 	flag.StringVar(&trivyDBRepository, "trivy-db-repository", "public.ecr.aws/aquasecurity/trivy-db", "OCI repository to retrieve trivy-db.")
 	flag.StringVar(&trivyJavaDBRepository, "trivy-java-db-repository", "public.ecr.aws/aquasecurity/trivy-java-db", "OCI repository to retrieve trivy-java-db.")
 	flag.StringVar(&installationNamespace, "installation-namespace", "sbomscanner", "The namespace where sbomscanner is installed.")
+	flag.StringVar(&enrichmentDBRepository, "enrichment-db-repository", "", "OCI reference (tag) of the enrichment vulnerability database (KEV, EPSS, …). Empty disables enrichment.")
+	flag.StringVar(&enrichmentDBCacheDir, "enrichment-db-cache-dir", "", "Directory to store the local enrichment database cache (defaults to <run-dir>/enrichment).")
+	flag.BoolVar(&enrichmentDBSkipTLS, "enrichment-db-skip-tls-verify", false, "Skip TLS verification when pulling the enrichment database.")
+	flag.BoolVar(&enrichmentDBPlainHTTP, "enrichment-db-plain-http", false, "Use plain HTTP when pulling the enrichment database.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.StringVar(&mode, "mode", "registry", "Mode of operation ('registry' or 'node').")
@@ -148,6 +158,14 @@ func main() {
 		return registry.NewClient(transport, logger)
 	}
 
+	enrichment.CleanCache(runDir, logger)
+
+	enrichmentStore := setupEnrichmentStore(ctx, enrichmentDBRepository, enrichmentDBCacheDir, runDir, oci.Config{
+		SkipTLSVerify:  enrichmentDBSkipTLS,
+		PlainHTTP:      enrichmentDBPlainHTTP,
+		AllowAnonymous: true,
+	}, logger)
+
 	var scanMode messaging.HandlerRegistry
 	durableName := "worker"
 	switch mode {
@@ -155,12 +173,12 @@ func main() {
 		scanMode = messaging.HandlerRegistry{
 			handlers.CreateCatalogSubject: handlers.NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, publisher, installationNamespace, logger),
 			handlers.GenerateSBOMSubject:  handlers.NewGenerateSBOMHandler(k8sClient, scheme, runDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+			handlers.ScanSBOMSubject:      handlers.NewScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, enrichmentStore, logger),
 		}
 	case nodeMode:
 		scanMode = messaging.HandlerRegistry{
 			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, targetDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
-			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
+			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, enrichmentStore, logger),
 		}
 		durableName = "worker-node-" + nodeName
 	default:
@@ -200,6 +218,26 @@ func main() {
 		logger.Error("Error shutting down health check server", "error", err)
 		os.Exit(1)
 	}
+}
+
+// setupEnrichmentStore builds the enrichment DB store and performs an initial,
+// best-effort refresh. When no repository is configured the feature is disabled and
+// a nil store is returned (handlers treat nil as "no enrichment"). A failed initial
+// pull never blocks startup: scans simply produce unenriched reports until the next
+// successful refresh.
+func setupEnrichmentStore(ctx context.Context, repository, cacheDir, runDir string, cfg oci.Config, logger *slog.Logger) *enrichment.Store {
+	if repository == "" {
+		logger.InfoContext(ctx, "Enrichment database disabled (no repository configured)")
+		return nil
+	}
+	if cacheDir == "" {
+		cacheDir = enrichment.DefaultCacheDir(runDir)
+	}
+
+	store := enrichment.New(repository, cacheDir, cfg, logger)
+	logger.InfoContext(ctx, "Performing initial enrichment database pull", "repository", repository, "cacheDir", cacheDir)
+	store.Update(ctx)
+	return store
 }
 
 func runHealthServer(logger *slog.Logger) *http.Server {
