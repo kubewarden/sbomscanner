@@ -14,10 +14,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	oras "oras.land/oras-go/v2"
+	"oras.land/oras-go/v2/content"
+	orasoci "oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry"
 	orasremote "oras.land/oras-go/v2/registry/remote"
@@ -34,6 +37,10 @@ type Config struct {
 	SkipTLSVerify bool
 	// PlainHTTP uses HTTP instead of HTTPS.
 	PlainHTTP bool
+	// AllowAnonymous permits pulls when no docker config.json is present.
+	// When a config.json IS present it is still used, so this makes
+	// credentials optional rather than disabling them.
+	AllowAnonymous bool
 }
 
 // Remote performs push and pull operations against OCI registries.
@@ -97,10 +104,17 @@ func (r *Remote) Push(ctx context.Context, store *Store, ref string) (Artifact, 
 	}, nil
 }
 
-// Pull fetches the DB artifact at the given tag reference,
-// extracts each data layer (a tar.gz), and writes the contained files
-// (e.g. known_exploited_vulnerabilities.json, epss_scores.csv) into outDir.
-// It returns the written file paths in manifest layer order.
+// pullCacheDir is the content-addressable cache subdirectory created inside a
+// pull's outDir. It persists between pulls so oras.Copy downloads each blob once
+// and skips it on subsequent rebuilds whose feed content (and thus blob digest)
+// is unchanged.
+const pullCacheDir = ".store"
+
+// Pull fetches the DB artifact at the given tag reference into a persistent
+// content-addressable cache under outDir (re-downloading only blobs it does not
+// already have), then extracts each data layer (a tar.gz) and writes the
+// contained files (e.g. known_exploited_vulnerabilities.json, epss_scores.csv)
+// into outDir. It returns the written file paths in manifest layer order.
 func (r *Remote) Pull(ctx context.Context, ref, outDir string) ([]string, error) {
 	srcRef, err := parseTagReference(ref)
 	if err != nil {
@@ -112,15 +126,45 @@ func (r *Remote) Pull(ctx context.Context, ref, outDir string) ([]string, error)
 		return nil, err
 	}
 
-	layerDescs, err := r.resolveDataLayers(ctx, repo, srcRef.Reference)
+	store, err := openPullCache(filepath.Join(outDir, pullCacheDir))
+	if err != nil {
+		return nil, err
+	}
+
+	// oras.Copy walks the manifest graph and fetches only blobs the local cache
+	// is missing; unchanged feeds keep their blob digest and are skipped.
+	// PreCopy/OnCopySkipped run concurrently across copy goroutines, so the
+	// counters must be updated atomically.
+	var fetched, skipped atomic.Int64
+	copyOpts := oras.DefaultCopyOptions
+	copyOpts.PreCopy = func(_ context.Context, desc ocispec.Descriptor) error {
+		fetched.Add(1)
+		r.logger.InfoContext(ctx, "fetching blob", "mediaType", desc.MediaType, "digest", desc.Digest, "bytes", desc.Size)
+		return nil
+	}
+	copyOpts.OnCopySkipped = func(_ context.Context, desc ocispec.Descriptor) error {
+		skipped.Add(1)
+		r.logger.DebugContext(ctx, "skipped blob, already cached", "mediaType", desc.MediaType, "digest", desc.Digest)
+		return nil
+	}
+	if _, err := oras.Copy(ctx, repo, srcRef.Reference, store, srcRef.Reference, copyOpts); err != nil {
+		return nil, fmt.Errorf("copy from remote: %w", err)
+	}
+	if fetched.Load() == 0 {
+		r.logger.InfoContext(ctx, "enrichment DB unchanged, served from local cache", "ref", srcRef.String(), "cachedBlobs", skipped.Load())
+	} else {
+		r.logger.InfoContext(ctx, "enrichment DB updated from registry", "ref", srcRef.String(), "fetchedBlobs", fetched.Load(), "cachedBlobs", skipped.Load())
+	}
+
+	layerDescs, err := resolveDataLayers(ctx, store, srcRef.Reference)
 	if err != nil {
 		return nil, err
 	}
 
 	var paths []string
 	for _, layerDesc := range layerDescs {
-		r.logger.InfoContext(ctx, "pulling data layer", "ref", srcRef.String(), "layer", layerDesc.Annotations[ocispec.AnnotationTitle], "digest", layerDesc.Digest, "bytes", layerDesc.Size)
-		extracted, err := fetchAndExtractLayer(ctx, repo, layerDesc, outDir)
+		r.logger.InfoContext(ctx, "extracting data layer", "ref", srcRef.String(), "layer", layerDesc.Annotations[ocispec.AnnotationTitle], "digest", layerDesc.Digest, "bytes", layerDesc.Size)
+		extracted, err := fetchAndExtractLayer(ctx, store, layerDesc, outDir)
 		if err != nil {
 			return nil, err
 		}
@@ -129,10 +173,23 @@ func (r *Remote) Pull(ctx context.Context, ref, outDir string) ([]string, error)
 	return paths, nil
 }
 
-// resolveDataLayers fetches the manifest at tag
+// openPullCache opens (creating if needed) the OCI image layout backing the
+// pull cache at dir.
+func openPullCache(dir string) (*orasoci.Store, error) {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("create pull cache %s: %w", dir, err)
+	}
+	store, err := orasoci.New(dir)
+	if err != nil {
+		return nil, fmt.Errorf("open pull cache %s: %w", dir, err)
+	}
+	return store, nil
+}
+
+// resolveDataLayers fetches the manifest at tag from target
 // and returns the descriptors of the DB data layers, located by media type.
-func (r *Remote) resolveDataLayers(ctx context.Context, repo *orasremote.Repository, tag string) ([]ocispec.Descriptor, error) {
-	_, manifest, err := fetchManifest(ctx, repo, tag)
+func resolveDataLayers(ctx context.Context, target oras.ReadOnlyTarget, tag string) ([]ocispec.Descriptor, error) {
+	_, manifest, err := fetchManifest(ctx, target, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +243,10 @@ func fetchManifest(ctx context.Context, target oras.ReadOnlyTarget, tag string) 
 
 // newRepository builds an authenticated remote repository client for ref.
 func (r *Remote) newRepository(ref registry.Reference) (*orasremote.Repository, error) {
-	if err := requireDockerConfig(); err != nil {
-		return nil, err
+	if !r.config.AllowAnonymous {
+		if err := requireDockerConfig(); err != nil {
+			return nil, err
+		}
 	}
 	credStore, err := credentials.NewStoreFromDocker(credentials.StoreOptions{})
 	if err != nil {
@@ -211,8 +270,8 @@ const maxDecompressedLayerSize = 1 << 30
 // fetchAndExtractLayer streams the tar.gz blob described by desc
 // and writes each regular file it contains into outDir under its base name.
 // It returns the written file paths.
-func fetchAndExtractLayer(ctx context.Context, repo *orasremote.Repository, desc ocispec.Descriptor, outDir string) ([]string, error) {
-	readCloser, err := repo.Blobs().Fetch(ctx, desc)
+func fetchAndExtractLayer(ctx context.Context, fetcher content.Fetcher, desc ocispec.Descriptor, outDir string) ([]string, error) {
+	readCloser, err := fetcher.Fetch(ctx, desc)
 	if err != nil {
 		return nil, fmt.Errorf("fetch blob %s: %w", desc.Digest, err)
 	}

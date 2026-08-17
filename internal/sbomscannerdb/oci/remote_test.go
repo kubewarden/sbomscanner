@@ -80,6 +80,13 @@ func TestPushPull_RoundTrip(t *testing.T) {
 		assert.Equal(t, "data for "+layer.FileName, string(data))
 	}
 
+	// The pull leaves a persistent content-addressable cache behind; a second
+	// pull reuses it and still returns the same feed files.
+	assert.DirExists(t, filepath.Join(outDir, pullCacheDir))
+	paths2, err := remote.Pull(ctx, ref, outDir)
+	require.NoError(t, err)
+	assert.Equal(t, paths, paths2)
+
 	// Re-push is idempotent: all content is already present remotely.
 	_, err = remote.Push(ctx, store, ref)
 	require.NoError(t, err)
