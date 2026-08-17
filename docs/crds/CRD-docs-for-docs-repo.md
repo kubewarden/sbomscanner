@@ -944,6 +944,9 @@ _Appears in:_
 | `cwes` _string array_ | CWEs with which the CVE is classified |  |  |
 | `suppressed` _boolean_ | Suppressed identify when vulnerability has<br />been suppressed by VEX documents |  |  |
 | `vexStatus` _[VEXStatus](#vexstatus)_ | VEXStatus information |  |  |
+| `knownExploited` _boolean_ | KnownExploited is true when the CVE appears in the CISA Known Exploited<br />Vulnerabilities (KEV) catalog, i.e. it is being actively exploited in the wild. |  |  |
+| `epssScore` _string_ | EPSSScore is the Exploit Prediction Scoring System probability that the CVE<br />will be exploited (0..1), as a string. Empty when no EPSS data is available. |  |  |
+| `epssPercentile` _string_ | EPSSPercentile is the EPSS score's percentile rank (0..1), as a string.<br />Empty when no EPSS data is available. |  |  |
 
 
 #### VulnerabilityReport

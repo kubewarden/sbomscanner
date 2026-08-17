@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 	"time"
 
@@ -86,14 +88,53 @@ func runPush(ctx context.Context, ref string, config oci.Config, logger *slog.Lo
 	return nil
 }
 
-// runPull fetches the artifact and writes its data files to the current directory.
-func runPull(ctx context.Context, ref string, config oci.Config, logger *slog.Logger) error {
-	paths, err := oci.NewRemote(config, logger).Pull(ctx, ref, ".")
+// runPull fetches the artifact into a temporary directory (so its internal
+// content-addressable cache is discarded) and copies the data files into outputDir.
+func runPull(ctx context.Context, ref, outputDir string, config oci.Config, logger *slog.Logger) error {
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		return fmt.Errorf("create output dir %s: %w", outputDir, err)
+	}
+
+	tempDir, err := os.MkdirTemp("", "sbomscannerdb-pull-*")
+	if err != nil {
+		return fmt.Errorf("create temp pull dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	paths, err := oci.NewRemote(config, logger).Pull(ctx, ref, tempDir)
 	if err != nil {
 		return fmt.Errorf("pull artifact: %w", err)
 	}
-	for _, dst := range paths {
+
+	for _, src := range paths {
+		dst := filepath.Join(outputDir, filepath.Base(src))
+		if err := copyFile(src, dst); err != nil {
+			return fmt.Errorf("write %s: %w", dst, err)
+		}
 		fmt.Fprintf(os.Stdout, "pulled %s from %s\n", dst, ref)
+	}
+	return nil
+}
+
+// copyFile copies the regular file at src to dst, truncating dst if it exists.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", src, err)
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", dst, err)
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return fmt.Errorf("copy %s to %s: %w", src, dst, err)
+	}
+	if err := out.Close(); err != nil {
+		return fmt.Errorf("close %s: %w", dst, err)
 	}
 	return nil
 }

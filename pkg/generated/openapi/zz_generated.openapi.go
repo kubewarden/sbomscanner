@@ -1229,6 +1229,27 @@ func schema_sbomscanner_api_storage_v1alpha1_Vulnerability(ref common.ReferenceC
 							Ref:         ref(v1alpha1.VEXStatus{}.OpenAPIModelName()),
 						},
 					},
+					"knownExploited": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KnownExploited is true when the CVE appears in the CISA Known Exploited Vulnerabilities (KEV) catalog, i.e. it is being actively exploited in the wild.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"epssScore": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EPSSScore is the Exploit Prediction Scoring System probability that the CVE will be exploited (0..1), as a string. Empty when no EPSS data is available.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"epssPercentile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EPSSPercentile is the EPSS score's percentile rank (0..1), as a string. Empty when no EPSS data is available.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"cve", "purl", "installedVersion", "diffID", "severity", "suppressed"},
 			},
