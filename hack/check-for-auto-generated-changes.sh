@@ -2,6 +2,7 @@
 set -ue
 
 #go generate ./...
+make check-questions
 make generate
 
 if [ -n "$(git status --porcelain)" ]; then
