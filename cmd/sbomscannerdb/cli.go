@@ -112,13 +112,20 @@ func pushCommand() *cli.Command {
 func pullCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "pull",
-		Usage:     "Pull the artifact from a registry and write the KEV/EPSS data files to the current directory",
+		Usage:     "Pull the artifact from a registry and write the KEV/EPSS data files to a directory",
 		ArgsUsage: refArgsUsage,
 		Arguments: referenceArguments(),
-		Flags:     registryFlags(),
+		Flags: append(registryFlags(),
+			&cli.StringFlag{
+				Name:    "output-dir",
+				Aliases: []string{"o"},
+				Usage:   "directory to write the KEV/EPSS data files into",
+				Value:   ".",
+			},
+		),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			ref := cmd.StringArgs("reference")[0]
-			if err := runPull(ctx, ref, registryConfig(cmd), newLogger(cmd)); err != nil {
+			if err := runPull(ctx, ref, cmd.String("output-dir"), registryConfig(cmd), newLogger(cmd)); err != nil {
 				return cli.Exit("error: "+err.Error(), 1)
 			}
 			return nil
