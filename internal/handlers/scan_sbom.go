@@ -15,6 +15,7 @@ import (
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/enrichment"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 )
 
@@ -30,6 +31,7 @@ func NewScanSBOMHandler(
 	workDir string,
 	trivyDBRepository string,
 	trivyJavaDBRepository string,
+	enrichmentStore *enrichment.Store,
 	logger *slog.Logger,
 ) *ScanSBOMHandler {
 	return &ScanSBOMHandler{
@@ -38,6 +40,7 @@ func NewScanSBOMHandler(
 		workDir:               workDir,
 		trivyDBRepository:     trivyDBRepository,
 		trivyJavaDBRepository: trivyJavaDBRepository,
+		enrichmentStore:       enrichmentStore,
 		logger:                logger.With("handler", "scan_sbom_handler"),
 	}
 }
