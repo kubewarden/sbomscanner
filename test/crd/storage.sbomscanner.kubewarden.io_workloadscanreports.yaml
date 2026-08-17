@@ -153,6 +153,16 @@ spec:
                                         description: DiffID of the image layer where
                                           the vulnerability was introduced
                                         type: string
+                                      epssPercentile:
+                                        description: |-
+                                          EPSSPercentile is the EPSS score's percentile rank (0..1), as a string.
+                                          Empty when no EPSS data is available.
+                                        type: string
+                                      epssScore:
+                                        description: |-
+                                          EPSSScore is the Exploit Prediction Scoring System probability that the CVE
+                                          will be exploited (0..1), as a string. Empty when no EPSS data is available.
+                                        type: string
                                       fixedVersions:
                                         description: FixedVersions is the list of
                                           versions where the vulnerability is fixed
@@ -163,6 +173,11 @@ spec:
                                         description: InstalledVersion of the package
                                           that was found
                                         type: string
+                                      knownExploited:
+                                        description: |-
+                                          KnownExploited is true when the CVE appears in the CISA Known Exploited
+                                          Vulnerabilities (KEV) catalog, i.e. it is being actively exploited in the wild.
+                                        type: boolean
                                       packageName:
                                         description: |-
                                           PackageName is the name of the vulnerable package
