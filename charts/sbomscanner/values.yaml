@@ -16,11 +16,17 @@ global:
   cattle:
     systemDefaultRegistry: ghcr.io
 
-observability:
-  otel:
-    # TODO: proper OTel configuration (TLS, SDK tuning) lands in a follow-up PR.
-    # Leave empty to disable telemetry export.
-    endpoint: ""
+otel:
+  # OTLP gRPC endpoint to export telemetry to, e.g. https://otel-collector:4317.
+  # TLS is enabled by the https:// scheme.
+  # Leave empty to disable telemetry export.
+  endpoint: ""
+  # Name of secret containing the CA certificate used to verify the collector server certificate.
+  # This secret must contain a `ca.crt` key with the CA certificate in PEM format.
+  caSecretName: ""
+  # Name of secret containing the client certificate and key used to authenticate to the collector (mTLS).
+  # This secret must contain `tls.crt` and `tls.key` keys.
+  clientCertificateSecretName: ""
 
 controller:
   image:

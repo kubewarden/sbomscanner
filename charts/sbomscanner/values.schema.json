@@ -351,16 +351,17 @@
                 }
             }
         },
-        "observability": {
+        "otel": {
             "type": "object",
             "properties": {
-                "otel": {
-                    "type": "object",
-                    "properties": {
-                        "endpoint": {
-                            "type": "string"
-                        }
-                    }
+                "caSecretName": {
+                    "type": "string"
+                },
+                "clientCertificateSecretName": {
+                    "type": "string"
+                },
+                "endpoint": {
+                    "type": "string"
                 }
             }
         },
