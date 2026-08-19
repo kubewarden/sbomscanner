@@ -40,7 +40,13 @@ if telemetry_enabled:
         objects=[
             "telemetry:namespace",
             "otel-collector-config:configmap",
+            "telemetry-selfsigned:clusterissuer",
+            "otel-ca:certificate",
+            "otel-ca:clusterissuer",
+            "otel-collector-tls:certificate",
+            "otel-client-tls:certificate",
         ],
+        resource_deps=["cert-manager"],
         labels=["telemetry"],
     )
     k8s_resource(
@@ -151,7 +157,11 @@ yaml = helm(
         "mcp.disableTLS=true",
         "mcp.auth.secretName=sbomscanner-mcp-credentials",
     ] + ([
-        "observability.otel.endpoint=http://otel-collector.telemetry.svc.cluster.local:4317",
+        "otel.endpoint=https://otel-collector.telemetry.svc.cluster.local:4317",
+        # The client certificate secret carries ca.crt too (issued by cert-manager,
+        # see hack/telemetry.yaml), so it serves both values.
+        "otel.caSecretName=otel-client-tls",
+        "otel.clientCertificateSecretName=otel-client-tls",
     ] if telemetry_enabled else []),
 )
 

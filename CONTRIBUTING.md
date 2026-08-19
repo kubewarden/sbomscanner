@@ -70,7 +70,7 @@ If you need authentication, set `use_private_registry: true` in your [`tilt-sett
 
 To test the OpenTelemetry instrumentation, set `telemetry: true` in your [`tilt-settings.yaml`](tilt-settings.yaml) file.
 
-Tilt then deploys an OpenTelemetry Collector, Jaeger, Prometheus, and Grafana (manifests in [`hack/telemetry.yaml`](hack/telemetry.yaml)) and points the instrumented components at the collector via the `observability.otel.endpoint` chart value. Traces are forwarded to Jaeger; metrics are pushed to Prometheus's native OTLP receiver.
+Tilt then deploys an OpenTelemetry Collector, Jaeger, Prometheus, and Grafana (manifests in [`hack/telemetry.yaml`](hack/telemetry.yaml)) and points the instrumented components at the collector via the `otel.endpoint` chart value. The OTLP hop uses mTLS with cert-manager-issued certificates (`otel.caSecretName` and `otel.clientCertificateSecretName`). Traces are forwarded to Jaeger; metrics are pushed to Prometheus's native OTLP receiver.
 
 - Jaeger UI: `http://localhost:16686`
 - Prometheus UI: `http://localhost:9090`
