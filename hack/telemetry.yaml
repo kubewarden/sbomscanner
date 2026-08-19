@@ -10,6 +10,65 @@ kind: Namespace
 metadata:
   name: telemetry
 ---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: telemetry-selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: otel-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: otel-ca
+  secretName: otel-ca
+  issuerRef:
+    kind: ClusterIssuer
+    name: telemetry-selfsigned
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: otel-ca
+spec:
+  ca:
+    secretName: otel-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: otel-collector-tls
+  namespace: telemetry
+spec:
+  secretName: otel-collector-tls
+  dnsNames:
+    - otel-collector
+    - otel-collector.telemetry.svc
+    - otel-collector.telemetry.svc.cluster.local
+  usages:
+    - server auth
+  issuerRef:
+    kind: ClusterIssuer
+    name: otel-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: otel-client-tls
+  namespace: sbomscanner
+spec:
+  secretName: otel-client-tls
+  commonName: sbomscanner
+  usages:
+    - client auth
+  issuerRef:
+    kind: ClusterIssuer
+    name: otel-ca
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,6 +81,11 @@ data:
         protocols:
           grpc:
             endpoint: 0.0.0.0:4317
+            tls:
+              cert_file: /otel/tls/tls.crt
+              key_file: /otel/tls/tls.key
+              # Require client certificates issued by the same CA (mTLS).
+              client_ca_file: /otel/tls/ca.crt
     processors:
       batch: {}
     exporters:
@@ -67,10 +131,16 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/otelcol
+            - name: tls
+              mountPath: /otel/tls
+              readOnly: true
       volumes:
         - name: config
           configMap:
             name: otel-collector-config
+        - name: tls
+          secret:
+            secretName: otel-collector-tls
 ---
 apiVersion: v1
 kind: Service
@@ -196,8 +266,18 @@ data:
           # can end up holding a single sample and return nothing.
           timeInterval: 60s
           exemplarTraceIdDestinations:
+            # Internal Explore link, broken since the Jaeger datasource backend
+            # migration (default on since Grafana 12.0, frontend removed in 12.2):
+            # the exemplar link's queryType is not understood by the backend, and
+            # the trace id trim from grafana/grafana#95786 (grafana/grafana#95784)
+            # was lost. Issue to be filed upstream; restore this once fixed.
+            # - name: trace_id
+            #   datasourceUid: jaeger
             - name: trace_id
-              datasourceUid: jaeger
+              # $$ escapes Grafana's provisioning-time env var expansion;
+              # the datasource must receive the literal ${__value.raw}.
+              url: http://localhost:16686/trace/$${__value.raw}
+              urlDisplayLabel: View in Jaeger
       - name: Jaeger
         uid: jaeger
         type: jaeger
