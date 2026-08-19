@@ -40,18 +40,9 @@ spec:
         - name: worker
           image: '{{ template "system_default_registry" . }}{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}'
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
-          {{- if .Values.observability.otel.endpoint }}
+          {{- if .Values.otel.endpoint }}
           env:
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: {{ .Values.observability.otel.endpoint | quote }}
-            - name: K8S_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: K8S_POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+            {{- include "sbomscanner.otelEnv" . | nindent 12 }}
           {{- end }}
           securityContext:
             {{ include "sbomscanner.securityContext" . | nindent 12 }}
@@ -89,7 +80,9 @@ spec:
             - mountPath: "/nats/tls"
               name: nats-tls
               readOnly: true
+            {{- include "sbomscanner.otelVolumeMounts" . | nindent 12 }}
       volumes:
+        {{- include "sbomscanner.otelVolumes" . | nindent 8 }}
         - name: run-volume
           emptyDir: {}
         - name: tmp-dir
