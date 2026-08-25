@@ -64,7 +64,7 @@ type MockPublisher_Publish_Call struct {
 //   - subject string
 //   - messageID string
 //   - message []byte
-func (_e *MockPublisher_Expecter) Publish(ctx interface{}, subject interface{}, messageID interface{}, message interface{}) *MockPublisher_Publish_Call {
+func (_e *MockPublisher_Expecter) Publish(ctx any, subject any, messageID any, message any) *MockPublisher_Publish_Call {
 	return &MockPublisher_Publish_Call{Call: _e.mock.On("Publish", ctx, subject, messageID, message)}
 }
 
