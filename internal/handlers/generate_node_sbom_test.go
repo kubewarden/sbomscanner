@@ -14,7 +14,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,10 +31,8 @@ func TestGenerateNodeSBOMHandler_Handle(t *testing.T) {
 	nodeName := "test-node"
 
 	node := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			UID:  "test-node-uid",
-		},
+		Name: nodeName,
+		UID:  "test-node-uid",
 		Status: corev1.NodeStatus{
 			NodeInfo: corev1.NodeSystemInfo{
 				OperatingSystem: "linux",
@@ -45,22 +42,18 @@ func TestGenerateNodeSBOMHandler_Handle(t *testing.T) {
 	}
 
 	config := &v1alpha1.NodeScanConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: v1alpha1.NodeScanConfigurationName,
-			UID:  "test-config-uid",
-		},
+		Name: v1alpha1.NodeScanConfigurationName,
+		UID:  "test-config-uid",
 	}
 
 	configSnapshot, err := json.Marshal(config)
 	require.NoError(t, err)
 
 	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodescanjob",
-			UID:  "test-nodescanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey: string(configSnapshot),
-			},
+		Name: "test-nodescanjob",
+		UID:  "test-nodescanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationNodeScanJobNodeScanConfigurationKey: string(configSnapshot),
 		},
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: nodeName,
@@ -88,11 +81,9 @@ func TestGenerateNodeSBOMHandler_Handle(t *testing.T) {
 	publisher := messagingMocks.NewMockPublisher(t)
 
 	expectedScanMessage, err := json.Marshal(&ScanNodeSBOMMessage{
-		NodeBaseMessage: NodeBaseMessage{
-			NodeScanJob: ObjectRef{
-				Name: nodeScanJob.Name,
-				UID:  string(nodeScanJob.UID),
-			},
+		NodeScanJob: ObjectRef{
+			Name: nodeScanJob.Name,
+			UID:  string(nodeScanJob.UID),
 		},
 		NodeSBOM: ObjectRef{
 			Name: nodeName,
@@ -110,11 +101,9 @@ func TestGenerateNodeSBOMHandler_Handle(t *testing.T) {
 	handler := NewGenerateNodeSBOMHandler(k8sClient, scheme, t.TempDir(), targetDir, testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 	message, err := json.Marshal(&GenerateNodeSBOMMessage{
-		NodeBaseMessage: NodeBaseMessage{
-			NodeScanJob: ObjectRef{
-				Name: nodeScanJob.Name,
-				UID:  string(nodeScanJob.UID),
-			},
+		NodeScanJob: ObjectRef{
+			Name: nodeScanJob.Name,
+			UID:  string(nodeScanJob.UID),
 		},
 		Node: ObjectRef{
 			Name: nodeName,
@@ -141,10 +130,8 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	nodeName := "test-node"
 
 	node := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-			UID:  "test-node-uid",
-		},
+		Name: nodeName,
+		UID:  "test-node-uid",
 		Status: corev1.NodeStatus{
 			NodeInfo: corev1.NodeSystemInfo{
 				OperatingSystem: "linux",
@@ -154,10 +141,8 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	}
 
 	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodescanjob",
-			UID:  "test-nodescanjob-uid",
-		},
+		Name: "test-nodescanjob",
+		UID:  "test-nodescanjob-uid",
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: nodeName,
 		},
@@ -167,9 +152,7 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	failedNodeScanJob.MarkFailed(v1alpha1.ReasonScanJobInternalError, "kaboom")
 
 	config := &v1alpha1.NodeScanConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: v1alpha1.NodeScanConfigurationName,
-		},
+		Name: v1alpha1.NodeScanConfigurationName,
 	}
 
 	configSnapshot, err := json.Marshal(config)
@@ -232,11 +215,9 @@ func TestGenerateNodeSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			handler := NewGenerateNodeSBOMHandler(k8sClient, scheme, t.TempDir(), "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 			message, err := json.Marshal(&GenerateNodeSBOMMessage{
-				NodeBaseMessage: NodeBaseMessage{
-					NodeScanJob: ObjectRef{
-						Name: test.nodeScanJob.Name,
-						UID:  string(test.nodeScanJob.UID),
-					},
+				NodeScanJob: ObjectRef{
+					Name: test.nodeScanJob.Name,
+					UID:  string(test.nodeScanJob.UID),
 				},
 				Node: ObjectRef{
 					Name: nodeName,

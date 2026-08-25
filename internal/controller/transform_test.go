@@ -7,15 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestTransformStripPod(t *testing.T) {
 	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "default",
-		},
+		Name:      "test-pod",
+		Namespace: "default",
 		Spec: corev1.PodSpec{
 			InitContainers: []corev1.Container{
 				{
@@ -113,15 +110,13 @@ func TestTransformStripPod(t *testing.T) {
 
 func TestTransformStripNode(t *testing.T) {
 	node := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-node",
-			Labels: map[string]string{
-				"kubernetes.io/os":   "linux",
-				"kubernetes.io/arch": "amd64",
-			},
-			Annotations: map[string]string{
-				"node.alpha.kubernetes.io/ttl": "0",
-			},
+		Name: "test-node",
+		Labels: map[string]string{
+			"kubernetes.io/os":   "linux",
+			"kubernetes.io/arch": "amd64",
+		},
+		Annotations: map[string]string{
+			"node.alpha.kubernetes.io/ttl": "0",
 		},
 		Spec: corev1.NodeSpec{
 			PodCIDR:       "10.244.0.0/24",

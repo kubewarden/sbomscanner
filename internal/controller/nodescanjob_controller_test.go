@@ -40,26 +40,20 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a NodeScanConfiguration")
 			config = v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 				Spec: v1alpha1.NodeScanConfigurationSpec{},
 			}
 			Expect(k8sClient.Create(ctx, &config)).To(Succeed())
 
 			By("Creating a Node")
 			node = corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("node-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("node-%s", uuid.New().String()),
 			}
 			Expect(k8sClient.Create(ctx, &node)).To(Succeed())
 
 			By("Creating a NodeScanJob for the node")
 			nodeScanJob = v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: node.Name,
 				},
@@ -74,12 +68,10 @@ var _ = Describe("NodeScanJob Controller", func() {
 		It("should successfully reconcile and publish GenerateNodeSBOM message", func(ctx context.Context) {
 			By("Setting up the expected message publication")
 			message, err := json.Marshal(&handlers.GenerateNodeSBOMMessage{
-				NodeBaseMessage: handlers.NodeBaseMessage{
-					NodeScanJob: handlers.ObjectRef{
-						Name:      nodeScanJob.Name,
-						Namespace: nodeScanJob.Namespace,
-						UID:       string(nodeScanJob.GetUID()),
-					},
+				NodeScanJob: handlers.ObjectRef{
+					Name:      nodeScanJob.Name,
+					Namespace: nodeScanJob.Namespace,
+					UID:       string(nodeScanJob.GetUID()),
 				},
 				Node: handlers.ObjectRef{
 					Name: node.Name,
@@ -90,9 +82,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Reconciling the NodeScanJob")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: nodeScanJob.Name,
-				},
+				Name: nodeScanJob.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -114,9 +104,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Reconciling the NodeScanJob again after the patch")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: nodeScanJob.Name,
-				},
+				Name: nodeScanJob.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -146,17 +134,13 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a Node")
 			node = corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("node-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("node-%s", uuid.New().String()),
 			}
 			Expect(k8sClient.Create(ctx, &node)).To(Succeed())
 
 			By("Creating a NodeScanJob for the node")
 			nodeScanJob = v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: node.Name,
 				},
@@ -167,9 +151,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 		It("should mark the NodeScanJob as failed", func(ctx context.Context) {
 			By("Reconciling the NodeScanJob")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: nodeScanJob.Name,
-				},
+				Name: nodeScanJob.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -201,9 +183,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a NodeScanConfiguration with a nodeSelector")
 			config = v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"env": "production"},
@@ -214,18 +194,14 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a Node without matching labels")
 			node = corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   fmt.Sprintf("node-%s", uuid.New().String()),
-					Labels: map[string]string{"env": "staging"},
-				},
+				Name:   fmt.Sprintf("node-%s", uuid.New().String()),
+				Labels: map[string]string{"env": "staging"},
 			}
 			Expect(k8sClient.Create(ctx, &node)).To(Succeed())
 
 			By("Creating a NodeScanJob for the node")
 			nodeScanJob = v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: node.Name,
 				},
@@ -240,9 +216,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 		It("should mark the NodeScanJob as failed", func(ctx context.Context) {
 			By("Reconciling the NodeScanJob")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: nodeScanJob.Name,
-				},
+				Name: nodeScanJob.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -274,9 +248,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a NodeScanConfiguration with platform filter")
 			config = v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Platforms: []v1alpha1.Platform{
 						{Architecture: "amd64", OS: "linux"},
@@ -287,9 +259,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a Node with a different platform")
 			node = corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("node-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("node-%s", uuid.New().String()),
 				Status: corev1.NodeStatus{
 					NodeInfo: corev1.NodeSystemInfo{
 						OperatingSystem: "linux",
@@ -301,9 +271,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a NodeScanJob for the node")
 			nodeScanJob = v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: node.Name,
 				},
@@ -318,9 +286,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 		It("should mark the NodeScanJob as failed", func(ctx context.Context) {
 			By("Reconciling the NodeScanJob")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: nodeScanJob.Name,
-				},
+				Name: nodeScanJob.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -351,18 +317,14 @@ var _ = Describe("NodeScanJob Controller", func() {
 
 			By("Creating a NodeScanConfiguration")
 			config = v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 				Spec: v1alpha1.NodeScanConfigurationSpec{},
 			}
 			Expect(k8sClient.Create(ctx, &config)).To(Succeed())
 
 			By("Creating a NodeScanJob referencing a non-existent node")
 			nodeScanJob = v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("nodescanjob-%s", uuid.New().String()),
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: "non-existent-node",
 				},
@@ -377,9 +339,7 @@ var _ = Describe("NodeScanJob Controller", func() {
 		It("should mark the NodeScanJob as failed with NodeNotFound reason", func(ctx context.Context) {
 			By("Reconciling the NodeScanJob")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: nodeScanJob.Name,
-				},
+				Name: nodeScanJob.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
 

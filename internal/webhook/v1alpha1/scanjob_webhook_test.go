@@ -18,10 +18,8 @@ import (
 
 func TestScanJobDefaulter_Default(t *testing.T) {
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scan-job",
-			Namespace: "default",
-		},
+		Name:      "test-scan-job",
+		Namespace: "default",
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "registry.example.com",
 		},
@@ -41,10 +39,8 @@ func TestScanJobDefaulter_Default(t *testing.T) {
 
 func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 	defaultRegistry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "registry.example.com",
-			Namespace: "default",
-		},
+		Name:      "registry.example.com",
+		Namespace: "default",
 	}
 
 	tests := []struct {
@@ -60,10 +56,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			existingScanJob:  nil,
 			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scan-job",
-					Namespace: "default",
-				},
+				Name:      "test-scan-job",
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "registry.example.com",
 				},
@@ -73,10 +67,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			name: "should deny creation when existing job with same registry is pending",
 			existingScanJob: func() *v1alpha1.ScanJob {
 				job := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "existing-job",
-						Namespace: "default",
-					},
+					Name:      "existing-job",
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: "registry.example.com",
 					},
@@ -86,10 +78,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			}(),
 			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scan-job",
-					Namespace: "default",
-				},
+				Name:      "test-scan-job",
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "registry.example.com",
 				},
@@ -101,10 +91,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			name: "should deny creation when existing job with same registry is in progress",
 			existingScanJob: func() *v1alpha1.ScanJob {
 				job := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "existing-job",
-						Namespace: "default",
-					},
+					Name:      "existing-job",
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: "registry.example.com",
 					},
@@ -115,10 +103,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			}(),
 			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scan-job",
-					Namespace: "default",
-				},
+				Name:      "test-scan-job",
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "registry.example.com",
 				},
@@ -130,10 +116,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			name: "should admit creation when existing job with same registry is completed",
 			existingScanJob: func() *v1alpha1.ScanJob {
 				job := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "existing-job",
-						Namespace: "default",
-					},
+					Name:      "existing-job",
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: "registry.example.com",
 					},
@@ -144,10 +128,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			}(),
 			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scan-job",
-					Namespace: "default",
-				},
+				Name:      "test-scan-job",
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "registry.example.com",
 				},
@@ -157,10 +139,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			name: "should admit creation when existing job with same registry failed",
 			existingScanJob: func() *v1alpha1.ScanJob {
 				job := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "existing-job",
-						Namespace: "default",
-					},
+					Name:      "existing-job",
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: "registry.example.com",
 					},
@@ -171,10 +151,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			}(),
 			existingRegistry: defaultRegistry,
 			scanJob: &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scan-job",
-					Namespace: "default",
-				},
+				Name:      "test-scan-job",
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "registry.example.com",
 				},
@@ -185,10 +163,8 @@ func TestScanJobCustomValidator_ValidateCreate(t *testing.T) {
 			existingScanJob:  nil,
 			existingRegistry: nil,
 			scanJob: &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scan-job",
-					Namespace: "default",
-				},
+				Name:      "test-scan-job",
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "registry.example.com",
 				},
@@ -282,12 +258,12 @@ func TestScanJobCustomValidator_ValidateUpdate(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			oldObj := &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-scan-job", Namespace: "default"},
-				Spec:       test.oldSpec,
+				Name: "test-scan-job", Namespace: "default",
+				Spec: test.oldSpec,
 			}
 			newObj := &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-scan-job", Namespace: "default"},
-				Spec:       test.newSpec,
+				Name: "test-scan-job", Namespace: "default",
+				Spec: test.newSpec,
 			}
 
 			warnings, err := validator.ValidateUpdate(t.Context(), oldObj, newObj)

@@ -6,8 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 )
 
@@ -19,10 +17,8 @@ var workloadScanReportValidationTests = []struct {
 	{
 		name: "valid report with empty read-only fields",
 		report: &storagev1alpha1.WorkloadScanReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: "default",
-			},
+			Name:      "test",
+			Namespace: "default",
 			Spec: storagev1alpha1.WorkloadScanReportSpec{
 				Containers: []storagev1alpha1.ContainerRef{
 					{Name: "app", ImageRef: storagev1alpha1.ImageRef{Registry: "docker.io"}},
@@ -34,10 +30,8 @@ var workloadScanReportValidationTests = []struct {
 	{
 		name: "status field is not empty",
 		report: &storagev1alpha1.WorkloadScanReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: "default",
-			},
+			Name:      "test",
+			Namespace: "default",
 			Status: storagev1alpha1.WorkloadScanReportStatus{
 				ContainerStatuses: []storagev1alpha1.ContainerStatus{
 					{Name: "app", ScanStatus: storagev1alpha1.ScanStatusScanComplete},
@@ -49,10 +43,8 @@ var workloadScanReportValidationTests = []struct {
 	{
 		name: "summary field is not empty",
 		report: &storagev1alpha1.WorkloadScanReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: "default",
-			},
+			Name:      "test",
+			Namespace: "default",
 			Summary: storagev1alpha1.Summary{
 				Critical: 1,
 			},
@@ -62,10 +54,8 @@ var workloadScanReportValidationTests = []struct {
 	{
 		name: "containers field is not empty",
 		report: &storagev1alpha1.WorkloadScanReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: "default",
-			},
+			Name:      "test",
+			Namespace: "default",
 			Containers: []storagev1alpha1.ContainerResult{
 				{Name: "app"},
 			},
@@ -75,10 +65,8 @@ var workloadScanReportValidationTests = []struct {
 	{
 		name: "multiple read-only fields set",
 		report: &storagev1alpha1.WorkloadScanReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: "default",
-			},
+			Name:      "test",
+			Namespace: "default",
 			Status: storagev1alpha1.WorkloadScanReportStatus{
 				ContainerStatuses: []storagev1alpha1.ContainerStatus{
 					{Name: "app"},
@@ -119,10 +107,8 @@ func TestWorkloadScanReportStrategy_ValidateUpdate(t *testing.T) {
 	strategy := newWorkloadScanReportStrategy(nil)
 
 	baseReport := &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-		},
+		Name:      "test",
+		Namespace: "default",
 	}
 
 	for _, test := range workloadScanReportValidationTests {

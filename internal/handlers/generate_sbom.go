@@ -12,7 +12,6 @@ import (
 
 	trivyCommands "github.com/aquasecurity/trivy/pkg/commands"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -140,9 +139,7 @@ func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 
 	scanSBOMMessageID := fmt.Sprintf("scanSBOM/%s/%s", scanJob.UID, generateSBOMMessage.Image.Name)
 	scanSBOMMessage, err := json.Marshal(&ScanSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: generateSBOMMessage.ScanJob,
-		},
+		ScanJob: generateSBOMMessage.ScanJob,
 		SBOM: ObjectRef{
 			Name:      generateSBOMMessage.Image.Name,
 			Namespace: generateSBOMMessage.Image.Namespace,
@@ -191,11 +188,9 @@ func (h *GenerateSBOMHandler) getOrGenerateSBOM(ctx context.Context, image *stor
 	}
 
 	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.Image.Name,
-			Namespace: message.Image.Namespace,
-			Labels:    sbomLabels,
-		},
+		Name:          message.Image.Name,
+		Namespace:     message.Image.Namespace,
+		Labels:        sbomLabels,
 		ImageMetadata: image.GetImageMetadata(),
 		SPDX:          runtime.RawExtension{Raw: spdxBytes},
 	}

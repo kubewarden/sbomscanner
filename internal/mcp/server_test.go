@@ -10,7 +10,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/suite"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -41,10 +40,8 @@ func (s *ServerSuite) SetupSuite() {
 	)
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI:         "https://registry.example.com",
 			CatalogType: v1alpha1.CatalogTypeOCIDistribution,
@@ -52,55 +49,43 @@ func (s *ServerSuite) SetupSuite() {
 	}
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-		},
+		Name:      "test-scanjob",
+		Namespace: "default",
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
 		},
 	}
 
 	workloadScanConfiguration := &v1alpha1.WorkloadScanConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: v1alpha1.WorkloadScanConfigurationName,
-		},
+		Name: v1alpha1.WorkloadScanConfigurationName,
 		Spec: v1alpha1.WorkloadScanConfigurationSpec{
 			Enabled: true,
 		},
 	}
 
 	vexHub := &v1alpha1.VEXHub{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-vexhub",
-		},
+		Name: "test-vexhub",
 		Spec: v1alpha1.VEXHubSpec{
 			URL: "https://vexhub.example.com",
 		},
 	}
 
 	nodeScanConfiguration := &v1alpha1.NodeScanConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: v1alpha1.NodeScanConfigurationName,
-		},
+		Name: v1alpha1.NodeScanConfigurationName,
 		Spec: v1alpha1.NodeScanConfigurationSpec{
 			Enabled: true,
 		},
 	}
 
 	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodescanjob",
-		},
+		Name: "test-nodescanjob",
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: "test-node",
 		},
 	}
 
 	nodeVulnerabilityReport := &storagev1alpha1.NodeVulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-node",
-		},
+		Name: "test-node",
 		NodeMetadata: storagev1alpha1.NodeMetadata{
 			Name:     "test-node",
 			Platform: "linux/amd64",
@@ -165,10 +150,8 @@ func (s *ServerSuite) SetupSuite() {
 	}
 
 	vulnerabilityReport := &storagev1alpha1.VulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-vulnreport",
-			Namespace: "default",
-		},
+		Name:          "test-vulnreport",
+		Namespace:     "default",
 		ImageMetadata: imageMetadata,
 		Report: storagev1alpha1.Report{
 			Summary: storagev1alpha1.Summary{
@@ -225,10 +208,8 @@ func (s *ServerSuite) SetupSuite() {
 	}
 
 	workloadScanReport := &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-wsreport",
-			Namespace: "default",
-		},
+		Name:      "test-wsreport",
+		Namespace: "default",
 		Spec: storagev1alpha1.WorkloadScanReportSpec{
 			Containers: []storagev1alpha1.ContainerRef{
 				{

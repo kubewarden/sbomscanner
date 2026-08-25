@@ -68,9 +68,7 @@ func mapConfigToNamespaces(c client.Client) handler.MapFunc {
 		requests := make([]ctrl.Request, 0, len(namespaces.Items))
 		for _, ns := range namespaces.Items {
 			requests = append(requests, ctrl.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: ns.Name,
-				},
+				Namespace: ns.Name,
 			})
 		}
 

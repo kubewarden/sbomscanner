@@ -27,26 +27,26 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 		{
 			name: "should admit when config exists and node matches",
 			config: &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default"},
-				Spec:       v1alpha1.NodeScanConfigurationSpec{},
+				Name: "default",
+				Spec: v1alpha1.NodeScanConfigurationSpec{},
 			},
 			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "worker-1"},
+				Name: "worker-1",
 			},
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
 			},
 		},
 		{
 			name:   "should deny when NodeScanConfiguration is missing",
 			config: nil,
 			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "worker-1"},
+				Name: "worker-1",
 			},
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
 			},
 			expectedField: "spec.nodeName",
 			expectedError: "NodeScanConfiguration not found",
@@ -54,13 +54,13 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 		{
 			name: "should deny when node does not exist",
 			config: &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default"},
-				Spec:       v1alpha1.NodeScanConfigurationSpec{},
+				Name: "default",
+				Spec: v1alpha1.NodeScanConfigurationSpec{},
 			},
 			node: nil,
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "non-existent"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "non-existent"},
 			},
 			expectedField: "spec.nodeName",
 			expectedError: "Not found",
@@ -68,7 +68,7 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 		{
 			name: "should deny when node does not match nodeSelector",
 			config: &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default"},
+				Name: "default",
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"env": "production"},
@@ -76,14 +76,12 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   "worker-1",
-					Labels: map[string]string{"env": "staging"},
-				},
+				Name:   "worker-1",
+				Labels: map[string]string{"env": "staging"},
 			},
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
 			},
 			expectedField: "spec.nodeName",
 			expectedError: "does not match the NodeScanConfiguration nodeSelector",
@@ -91,7 +89,7 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 		{
 			name: "should admit when node matches nodeSelector",
 			config: &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default"},
+				Name: "default",
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"env": "production"},
@@ -99,20 +97,18 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   "worker-1",
-					Labels: map[string]string{"env": "production"},
-				},
+				Name:   "worker-1",
+				Labels: map[string]string{"env": "production"},
 			},
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
 			},
 		},
 		{
 			name: "should deny when node platform is not allowed",
 			config: &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default"},
+				Name: "default",
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Platforms: []v1alpha1.Platform{
 						{Architecture: "amd64", OS: "linux"},
@@ -120,7 +116,7 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "worker-1"},
+				Name: "worker-1",
 				Status: corev1.NodeStatus{
 					NodeInfo: corev1.NodeSystemInfo{
 						OperatingSystem: "linux",
@@ -129,8 +125,8 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
 			},
 			expectedField: "spec.nodeName",
 			expectedError: "platform linux/arm64 is not allowed",
@@ -138,7 +134,7 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 		{
 			name: "should admit when node platform matches",
 			config: &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default"},
+				Name: "default",
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Platforms: []v1alpha1.Platform{
 						{Architecture: "amd64", OS: "linux"},
@@ -146,7 +142,7 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "worker-1"},
+				Name: "worker-1",
 				Status: corev1.NodeStatus{
 					NodeInfo: corev1.NodeSystemInfo{
 						OperatingSystem: "linux",
@@ -155,14 +151,14 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
 			},
 		},
 		{
 			name: "should deny when nodeSelector and platform both fail",
 			config: &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default"},
+				Name: "default",
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"env": "production"},
@@ -173,10 +169,8 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   "worker-1",
-					Labels: map[string]string{"env": "staging"},
-				},
+				Name:   "worker-1",
+				Labels: map[string]string{"env": "staging"},
 				Status: corev1.NodeStatus{
 					NodeInfo: corev1.NodeSystemInfo{
 						OperatingSystem: "linux",
@@ -185,8 +179,8 @@ func TestNodeScanJobCustomValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			job: &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: "worker-1"},
 			},
 			expectedField: "spec.nodeName",
 			expectedError: "does not match the NodeScanConfiguration nodeSelector",
@@ -260,12 +254,12 @@ func TestNodeScanJobCustomValidator_ValidateUpdate(t *testing.T) {
 			}
 
 			oldObj := &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: test.oldNodeName},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: test.oldNodeName},
 			}
 			newObj := &v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: test.newNodeName},
+				Name: "test-job",
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: test.newNodeName},
 			}
 
 			warnings, err := validator.ValidateUpdate(t.Context(), oldObj, newObj)
@@ -297,7 +291,7 @@ func TestNodeScanJobCustomValidator_ValidateDelete(t *testing.T) {
 		}
 
 		job := &v1alpha1.NodeScanJob{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-job"},
+			Name: "test-job",
 		}
 
 		warnings, err := validator.ValidateDelete(t.Context(), job)

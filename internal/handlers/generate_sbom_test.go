@@ -27,7 +27,6 @@ import (
 	"github.com/spdx/tools-golang/spdx"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,25 +88,19 @@ func TestGenerateSBOMHandler_Handle(t *testing.T) {
 
 func testGenerateSBOM(t *testing.T, platform, sha256, expectedSPDXJSON string) {
 	image := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-image",
-			Namespace: "default",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "ghcr",
-			RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
-			Repository:  "golang",
-			Tag:         "1.12-alpine",
-			Platform:    platform,
-			Digest:      sha256,
-		},
+		Name:        "test-image",
+		Namespace:   "default",
+		Registry:    "ghcr",
+		RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
+		Repository:  "golang",
+		Tag:         "1.12-alpine",
+		Platform:    platform,
+		Digest:      sha256,
 	}
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI: "test.io",
 		},
@@ -116,13 +109,11 @@ func testGenerateSBOM(t *testing.T, platform, sha256, expectedSPDXJSON string) {
 	require.NoError(t, err)
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			UID:       "test-scanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-			},
+		Name:      "test-scanjob",
+		Namespace: "default",
+		UID:       "test-scanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
@@ -156,12 +147,10 @@ func testGenerateSBOM(t *testing.T, platform, sha256, expectedSPDXJSON string) {
 	publisher := messagingMocks.NewMockPublisher(t)
 
 	expectedScanMessage, err := json.Marshal(&ScanSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		SBOM: ObjectRef{
 			Name:      image.Name,
@@ -180,12 +169,10 @@ func testGenerateSBOM(t *testing.T, platform, sha256, expectedSPDXJSON string) {
 	handler := NewGenerateSBOMHandler(k8sClient, scheme, "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 	message, err := json.Marshal(&GenerateSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		Image: ObjectRef{
 			Name:      image.Name,
@@ -229,11 +216,9 @@ func TestGenerateSBOMHandler_Handle_ReuseSBOMWithSameDigest(t *testing.T) {
 	expectedSPDXContent := []byte(`{"spdxVersion":"SPDX-2.3","dataLicense":"CC0-1.0"}`)
 
 	existingSBOM := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "image",
-			Namespace: "default",
-			UID:       "existing-sbom-uid",
-		},
+		Name:      "image",
+		Namespace: "default",
+		UID:       "existing-sbom-uid",
 		ImageMetadata: storagev1alpha1.ImageMetadata{
 			Registry:    "ghcr",
 			RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
@@ -246,28 +231,22 @@ func TestGenerateSBOMHandler_Handle_ReuseSBOMWithSameDigest(t *testing.T) {
 	}
 
 	newImage := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "new-image",
-			Namespace: "default",
-			UID:       "new-image-uid",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "ghcr",
-			RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
-			Repository:  "golang",
-			Tag:         "latest", // Different tag
-			Platform:    "linux/amd64",
-			Digest:      digest,
-		},
+		Name:        "new-image",
+		Namespace:   "default",
+		UID:         "new-image-uid",
+		Registry:    "ghcr",
+		RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
+		Repository:  "golang",
+		Tag:         "latest", // Different tag
+		Platform:    "linux/amd64",
+		Digest:      digest,
 	}
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-			Labels: map[string]string{
-				api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
-			},
+		Name:      "test-registry",
+		Namespace: "default",
+		Labels: map[string]string{
+			api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
 		},
 		Spec: v1alpha1.RegistrySpec{
 			URI: "test.io",
@@ -277,13 +256,11 @@ func TestGenerateSBOMHandler_Handle_ReuseSBOMWithSameDigest(t *testing.T) {
 	require.NoError(t, err)
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			UID:       "test-scanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-			},
+		Name:      "test-scanjob",
+		Namespace: "default",
+		UID:       "test-scanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
@@ -310,12 +287,10 @@ func TestGenerateSBOMHandler_Handle_ReuseSBOMWithSameDigest(t *testing.T) {
 	publisher := messagingMocks.NewMockPublisher(t)
 
 	expectedScanMessage, err := json.Marshal(&ScanSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		SBOM: ObjectRef{
 			Name:      newImage.Name,
@@ -334,12 +309,10 @@ func TestGenerateSBOMHandler_Handle_ReuseSBOMWithSameDigest(t *testing.T) {
 	handler := NewGenerateSBOMHandler(k8sClient, scheme, "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 	message, err := json.Marshal(&GenerateSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		Image: ObjectRef{
 			Name:      newImage.Name,
@@ -365,25 +338,19 @@ func TestGenerateSBOMHandler_Handle_ReuseSBOMWithSameDigest(t *testing.T) {
 
 func TestGenerateSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	image := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-image",
-			Namespace: "default",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "ghcr",
-			RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
-			Repository:  "golang",
-			Tag:         "1.12-alpine",
-			Platform:    "linux/amd64",
-			Digest:      "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028",
-		},
+		Name:        "test-image",
+		Namespace:   "default",
+		Registry:    "ghcr",
+		RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
+		Repository:  "golang",
+		Tag:         "1.12-alpine",
+		Platform:    "linux/amd64",
+		Digest:      "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028",
 	}
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI: "test.io",
 		},
@@ -392,13 +359,11 @@ func TestGenerateSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	require.NoError(t, err)
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			UID:       "test-scanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-			},
+		Name:      "test-scanjob",
+		Namespace: "default",
+		UID:       "test-scanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
@@ -463,12 +428,10 @@ func TestGenerateSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			handler := NewGenerateSBOMHandler(k8sClient, scheme, "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 			message, err := json.Marshal(&GenerateSBOMMessage{
-				BaseMessage: BaseMessage{
-					ScanJob: ObjectRef{
-						Name:      test.scanJob.Name,
-						Namespace: test.scanJob.Namespace,
-						UID:       string(test.scanJob.UID),
-					},
+				ScanJob: ObjectRef{
+					Name:      test.scanJob.Name,
+					Namespace: test.scanJob.Namespace,
+					UID:       string(test.scanJob.UID),
 				},
 				Image: ObjectRef{
 					Name:      image.Name,
@@ -494,26 +457,20 @@ func TestGenerateSBOMHandler_Handle_StopProcessing(t *testing.T) {
 
 func TestGenerateSBOMHandler_Handle_ExistingSBOM(t *testing.T) {
 	image := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-image",
-			Namespace: "default",
-			UID:       "image-uid",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "ghcr",
-			RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
-			Repository:  "golang",
-			Tag:         "1.12-alpine",
-			Platform:    "linux/amd64",
-			Digest:      "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028",
-		},
+		Name:        "test-image",
+		Namespace:   "default",
+		UID:         "image-uid",
+		Registry:    "ghcr",
+		RegistryURI: "ghcr.io/kubewarden/sbomscanner/test-assets",
+		Repository:  "golang",
+		Tag:         "1.12-alpine",
+		Platform:    "linux/amd64",
+		Digest:      "sha256:1782cafde43390b032f960c0fad3def745fac18994ced169003cb56e9a93c028",
 	}
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI: "test.io",
 		},
@@ -522,25 +479,21 @@ func TestGenerateSBOMHandler_Handle_ExistingSBOM(t *testing.T) {
 	require.NoError(t, err)
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-			},
-			UID: "scanjob-uid",
+		Name:      "test-scanjob",
+		Namespace: "default",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 		},
+		UID: "scanjob-uid",
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
 		},
 	}
 
 	existingSBOM := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-image",
-			Namespace: "default",
-			UID:       "sbom-uid",
-		},
+		Name:          "test-image",
+		Namespace:     "default",
+		UID:           "sbom-uid",
 		ImageMetadata: image.ImageMetadata,
 	}
 
@@ -564,12 +517,10 @@ func TestGenerateSBOMHandler_Handle_ExistingSBOM(t *testing.T) {
 	publisher := messagingMocks.NewMockPublisher(t)
 
 	expectedScanMessage, err := json.Marshal(&ScanSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		SBOM: ObjectRef{
 			Name:      existingSBOM.Name,
@@ -588,12 +539,10 @@ func TestGenerateSBOMHandler_Handle_ExistingSBOM(t *testing.T) {
 	handler := NewGenerateSBOMHandler(k8sClient, scheme, "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 	message, err := json.Marshal(&GenerateSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		Image: ObjectRef{
 			Name:      image.Name,
@@ -619,10 +568,8 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	defer testPrivateRegistry.Terminate(t.Context())
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI:        testPrivateRegistry.RegistryName,
 			AuthSecret: "registry-secret",
@@ -632,10 +579,8 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	require.NoError(t, err)
 
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "registry-secret",
-			Namespace: "default",
-		},
+		Name:      "registry-secret",
+		Namespace: "default",
 		Data: map[string][]byte{
 			// dXNlcjpwYXNzd29yZA== -> user:password
 			corev1.DockerConfigJsonKey: fmt.Appendf([]byte{},
@@ -651,29 +596,23 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	}
 
 	image := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      computeImageUID("test-registry", fmt.Sprintf("%s/%s", testPrivateRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
-			Namespace: "default",
-			UID:       "image-uid",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "test-registry",
-			RegistryURI: testPrivateRegistry.RegistryName,
-			Repository:  singleArchRef.Context().RepositoryStr(),
-			Tag:         singleArchRef.Identifier(),
-			Platform:    "linux/amd64",
-			Digest:      imageDigestSingleArch,
-		},
+		Name:        computeImageUID("test-registry", fmt.Sprintf("%s/%s", testPrivateRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
+		Namespace:   "default",
+		UID:         "image-uid",
+		Registry:    "test-registry",
+		RegistryURI: testPrivateRegistry.RegistryName,
+		Repository:  singleArchRef.Context().RepositoryStr(),
+		Tag:         singleArchRef.Identifier(),
+		Platform:    "linux/amd64",
+		Digest:      imageDigestSingleArch,
 	}
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			UID:       "test-scanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-			},
+		Name:      "test-scanjob",
+		Namespace: "default",
+		UID:       "test-scanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
@@ -702,12 +641,10 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	publisher := messagingMocks.NewMockPublisher(t)
 
 	expectedScanMessage, err := json.Marshal(&ScanSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		SBOM: ObjectRef{
 			Name:      image.Name,
@@ -726,12 +663,10 @@ func TestGenerateSBOMHandler_Handle_PrivateRegistry(t *testing.T) {
 	handler := NewGenerateSBOMHandler(k8sClient, scheme, "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 	message, err := json.Marshal(&GenerateSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		Image: ObjectRef{
 			Name:      image.Name,
@@ -814,39 +749,31 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			registry := &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tc.registryName,
-					Namespace: "default",
-				},
-				Spec: tc.registrySpec,
+				Name:      tc.registryName,
+				Namespace: "default",
+				Spec:      tc.registrySpec,
 			}
 			registryData, err := json.Marshal(registry)
 			require.NoError(t, err)
 
 			image := &storagev1alpha1.Image{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      computeImageUID(tc.registryName, fmt.Sprintf("%s/%s", testRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
-					Namespace: "default",
-					UID:       "image-uid",
-				},
-				ImageMetadata: storagev1alpha1.ImageMetadata{
-					Registry:    tc.registryName,
-					RegistryURI: testRegistry.RegistryName,
-					Repository:  singleArchRef.Context().RepositoryStr(),
-					Tag:         singleArchRef.Identifier(),
-					Platform:    "linux/amd64",
-					Digest:      imageDigestSingleArch,
-				},
+				Name:        computeImageUID(tc.registryName, fmt.Sprintf("%s/%s", testRegistry.RegistryName, singleArchRef.Context().RepositoryStr()), singleArchRef.Identifier(), imageDigestSingleArch),
+				Namespace:   "default",
+				UID:         "image-uid",
+				Registry:    tc.registryName,
+				RegistryURI: testRegistry.RegistryName,
+				Repository:  singleArchRef.Context().RepositoryStr(),
+				Tag:         singleArchRef.Identifier(),
+				Platform:    "linux/amd64",
+				Digest:      imageDigestSingleArch,
 			}
 
 			scanJob := &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tc.scanJobName,
-					Namespace: "default",
-					UID:       types.UID(tc.scanJobUID),
-					Annotations: map[string]string{
-						v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-					},
+				Name:      tc.scanJobName,
+				Namespace: "default",
+				UID:       types.UID(tc.scanJobUID),
+				Annotations: map[string]string{
+					v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 				},
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: tc.registryName,
@@ -875,12 +802,10 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 			publisher := messagingMocks.NewMockPublisher(t)
 
 			expectedScanMessage, err := json.Marshal(&ScanSBOMMessage{
-				BaseMessage: BaseMessage{
-					ScanJob: ObjectRef{
-						Name:      scanJob.Name,
-						Namespace: scanJob.Namespace,
-						UID:       string(scanJob.UID),
-					},
+				ScanJob: ObjectRef{
+					Name:      scanJob.Name,
+					Namespace: scanJob.Namespace,
+					UID:       string(scanJob.UID),
 				},
 				SBOM: ObjectRef{
 					Name:      image.Name,
@@ -899,12 +824,10 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 			handler := NewGenerateSBOMHandler(k8sClient, scheme, "/tmp", testTrivyJavaDBRepository, publisher, "sbomscanner", slog.Default())
 
 			message, err := json.Marshal(&GenerateSBOMMessage{
-				BaseMessage: BaseMessage{
-					ScanJob: ObjectRef{
-						Name:      scanJob.Name,
-						Namespace: scanJob.Namespace,
-						UID:       string(scanJob.UID),
-					},
+				ScanJob: ObjectRef{
+					Name:      scanJob.Name,
+					Namespace: scanJob.Namespace,
+					UID:       string(scanJob.UID),
 				},
 				Image: ObjectRef{
 					Name:      image.Name,

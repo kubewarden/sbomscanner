@@ -16,7 +16,6 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/registry"
 	"github.com/testcontainers/testcontainers-go/wait"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -173,19 +172,15 @@ func runTestRegistry(ctx context.Context, testImages []name.Reference, opts test
 // imageFactory creates a storagev1alpha1.Image object for testing purposes.
 func imageFactory(registryURI, repository, tag, platform, digest, indexDigest string) *storagev1alpha1.Image {
 	return &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      computeImageUID("test-registry", fmt.Sprintf("%s/%s", registryURI, repository), tag, digest),
-			Namespace: "default",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    "test-registry",
-			RegistryURI: registryURI,
-			Repository:  repository,
-			Tag:         tag,
-			Platform:    platform,
-			Digest:      digest,
-			IndexDigest: indexDigest,
-		},
+		Name:        computeImageUID("test-registry", fmt.Sprintf("%s/%s", registryURI, repository), tag, digest),
+		Namespace:   "default",
+		Registry:    "test-registry",
+		RegistryURI: registryURI,
+		Repository:  repository,
+		Tag:         tag,
+		Platform:    platform,
+		Digest:      digest,
+		IndexDigest: indexDigest,
 	}
 }
 

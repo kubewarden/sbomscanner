@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 
@@ -35,14 +34,12 @@ func NewNodeScanSBOMHandler(
 	logger *slog.Logger,
 ) *NodeScanSBOMHandler {
 	return &NodeScanSBOMHandler{
-		scanSBOMBase: scanSBOMBase{
-			k8sClient:             k8sClient,
-			scheme:                scheme,
-			workDir:               workDir,
-			trivyDBRepository:     trivyDBRepository,
-			trivyJavaDBRepository: trivyJavaDBRepository,
-			logger:                logger.With("handler", "scan_node_sbom_handler"),
-		},
+		k8sClient:             k8sClient,
+		scheme:                scheme,
+		workDir:               workDir,
+		trivyDBRepository:     trivyDBRepository,
+		trivyJavaDBRepository: trivyJavaDBRepository,
+		logger:                logger.With("handler", "scan_node_sbom_handler"),
 	}
 }
 
@@ -132,9 +129,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	)
 
 	nodeVulnerabilityReport := &storagev1alpha1.NodeVulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeSBOMName,
-		},
+		Name: nodeSBOMName,
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, nodeVulnerabilityReport, func() error {

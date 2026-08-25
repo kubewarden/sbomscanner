@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -40,10 +39,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Creating a Registry")
 			registry = v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: "https://registry.example.com",
 				},
@@ -52,10 +49,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Creating a ScanJob")
 			scanJob = v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.New().String(),
-					Namespace: "default",
-				},
+				Name:      uuid.New().String(),
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: registry.Name,
 				},
@@ -66,12 +61,10 @@ var _ = Describe("ScanJob Controller", func() {
 		It("should successfully reconcile and publish CreateCatalog message", func(ctx context.Context) {
 			By("Setting up the expected message publication")
 			message, err := json.Marshal(&handlers.CreateCatalogMessage{
-				BaseMessage: handlers.BaseMessage{
-					ScanJob: handlers.ObjectRef{
-						Name:      scanJob.Name,
-						Namespace: scanJob.Namespace,
-						UID:       string(scanJob.GetUID()),
-					},
+				ScanJob: handlers.ObjectRef{
+					Name:      scanJob.Name,
+					Namespace: scanJob.Namespace,
+					UID:       string(scanJob.GetUID()),
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -79,10 +72,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Reconciling the ScanJob")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      scanJob.Name,
-					Namespace: scanJob.Namespace,
-				},
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -112,10 +103,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Reconciling the ScanJob again after the patch")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      scanJob.Name,
-					Namespace: scanJob.Namespace,
-				},
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -145,10 +134,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Creating a ScanJob with non-existent Registry")
 			scanJob = v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.New().String(),
-					Namespace: "default",
-				},
+				Name:      uuid.New().String(),
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "non-existent-registry",
 				},
@@ -159,10 +146,8 @@ var _ = Describe("ScanJob Controller", func() {
 		It("should mark the ScanJob as failed", func(ctx context.Context) {
 			By("Reconciling the ScanJob")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      scanJob.Name,
-					Namespace: scanJob.Namespace,
-				},
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -192,10 +177,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Creating a Registry with known repositories and match conditions")
 			registry = v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.New().String(),
-					Namespace: "default",
-				},
+				Name:      uuid.New().String(),
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: "https://registry.example.com",
 					Repositories: []v1alpha1.Repository{
@@ -219,10 +202,8 @@ var _ = Describe("ScanJob Controller", func() {
 			func(ctx context.Context, repositories []v1alpha1.ScanJobRepository, expectedReason string) {
 				By("Creating a ScanJob with invalid targets")
 				scanJob := v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry:     registry.Name,
 						Repositories: repositories,
@@ -232,10 +213,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 				By("Reconciling the ScanJob")
 				_, err := reconciler.Reconcile(ctx, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      scanJob.Name,
-						Namespace: scanJob.Namespace,
-					},
+					Name:      scanJob.Name,
+					Namespace: scanJob.Namespace,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -277,10 +256,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Creating a completed ScanJob")
 			scanJob = v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.New().String(),
-					Namespace: "default",
-				},
+				Name:      uuid.New().String(),
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: "test-registry",
 				},
@@ -295,10 +272,8 @@ var _ = Describe("ScanJob Controller", func() {
 		It("should not process the ScanJob", func(ctx context.Context) {
 			By("Reconciling the ScanJob")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      scanJob.Name,
-					Namespace: scanJob.Namespace,
-				},
+				Name:      scanJob.Name,
+				Namespace: scanJob.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -321,10 +296,8 @@ var _ = Describe("ScanJob Controller", func() {
 			}
 			By("Creating a Registry")
 			registry = v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cleanup-test-registry",
-					Namespace: "default",
-				},
+				Name:      "cleanup-test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: "https://registry.example.com",
 				},
@@ -337,12 +310,10 @@ var _ = Describe("ScanJob Controller", func() {
 				creationTimestamp := time.Now().Add(-time.Duration(i) * time.Hour).UTC().Format(time.RFC3339Nano)
 
 				scanJob := v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("old-scanjob-%d", i),
-						Namespace: "default",
-						Annotations: map[string]string{
-							v1alpha1.AnnotationScanJobCreationTimestampKey: creationTimestamp,
-						},
+					Name:      fmt.Sprintf("old-scanjob-%d", i),
+					Namespace: "default",
+					Annotations: map[string]string{
+						v1alpha1.AnnotationScanJobCreationTimestampKey: creationTimestamp,
 					},
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: registry.Name,
@@ -354,10 +325,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Creating a new ScanJob that will trigger cleanup")
 			newScanJob = v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "new-scanjob",
-					Namespace: "default",
-				},
+				Name:      "new-scanjob",
+				Namespace: "default",
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: registry.Name,
 				},
@@ -368,12 +337,10 @@ var _ = Describe("ScanJob Controller", func() {
 		It("should cleanup old ScanJobs during reconciliation", func(ctx context.Context) {
 			By("Setting up the expected message publication")
 			expectedMessage, err := json.Marshal(&handlers.CreateCatalogMessage{
-				BaseMessage: handlers.BaseMessage{
-					ScanJob: handlers.ObjectRef{
-						Name:      newScanJob.Name,
-						Namespace: newScanJob.Namespace,
-						UID:       string(newScanJob.GetUID()),
-					},
+				ScanJob: handlers.ObjectRef{
+					Name:      newScanJob.Name,
+					Namespace: newScanJob.Namespace,
+					UID:       string(newScanJob.GetUID()),
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -381,10 +348,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Reconciling the new ScanJob")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      newScanJob.Name,
-					Namespace: newScanJob.Namespace,
-				},
+				Name:      newScanJob.Name,
+				Namespace: newScanJob.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -396,10 +361,8 @@ var _ = Describe("ScanJob Controller", func() {
 
 			By("Reconciling the ScanJob again after the patch")
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      newScanJob.Name,
-					Namespace: newScanJob.Namespace,
-				},
+				Name:      newScanJob.Name,
+				Namespace: newScanJob.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 

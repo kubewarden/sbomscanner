@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/storage"
 
@@ -122,27 +121,21 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet() {
 
 	err = suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.imageRepo.Create(ctx, tx, &storagev1alpha1.Image{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "nginx-image",
-				Namespace: "default",
-			},
-			ImageMetadata: storagev1alpha1.ImageMetadata{
-				Registry:   "docker-registry",
-				Repository: "library/nginx",
-				Tag:        "latest",
-				Platform:   "linux/amd64",
-				Digest:     "sha256:abc123",
-			},
+			Name:       "nginx-image",
+			Namespace:  "default",
+			Registry:   "docker-registry",
+			Repository: "library/nginx",
+			Tag:        "latest",
+			Platform:   "linux/amd64",
+			Digest:     "sha256:abc123",
 		})
 	})
 	suite.Require().NoError(err)
 
 	err = suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.vulnReportRepo.Create(ctx, tx, &storagev1alpha1.VulnerabilityReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "nginx-vuln",
-				Namespace: "default",
-			},
+			Name:      "nginx-vuln",
+			Namespace: "default",
 			ImageMetadata: storagev1alpha1.ImageMetadata{
 				Registry:   "docker-registry",
 				Repository: "library/nginx",
@@ -274,17 +267,13 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet_ScanInProgress_Image
 	// Insert image but no vulnerability reports (scanning not started yet)
 	err = suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.imageRepo.Create(ctx, tx, &storagev1alpha1.Image{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "app-image",
-				Namespace: "default",
-			},
-			ImageMetadata: storagev1alpha1.ImageMetadata{
-				Registry:   "docker-registry",
-				Repository: "myorg/myapp",
-				Tag:        "v1.0.0",
-				Platform:   "linux/amd64",
-				Digest:     "sha256:abc123",
-			},
+			Name:       "app-image",
+			Namespace:  "default",
+			Registry:   "docker-registry",
+			Repository: "myorg/myapp",
+			Tag:        "v1.0.0",
+			Platform:   "linux/amd64",
+			Digest:     "sha256:abc123",
 		})
 	})
 	suite.Require().NoError(err)
@@ -324,34 +313,26 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet_ScanInProgress_Parti
 	// Insert 2 images (multi-arch) but only 1 vulnerability report
 	err = suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.imageRepo.Create(ctx, tx, &storagev1alpha1.Image{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "app-amd64",
-				Namespace: "default",
-			},
-			ImageMetadata: storagev1alpha1.ImageMetadata{
-				Registry:   "docker-registry",
-				Repository: "myorg/myapp",
-				Tag:        "v1.0.0",
-				Platform:   "linux/amd64",
-				Digest:     "sha256:amd64",
-			},
+			Name:       "app-amd64",
+			Namespace:  "default",
+			Registry:   "docker-registry",
+			Repository: "myorg/myapp",
+			Tag:        "v1.0.0",
+			Platform:   "linux/amd64",
+			Digest:     "sha256:amd64",
 		})
 	})
 	suite.Require().NoError(err)
 
 	err = suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.imageRepo.Create(ctx, tx, &storagev1alpha1.Image{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "app-arm64",
-				Namespace: "default",
-			},
-			ImageMetadata: storagev1alpha1.ImageMetadata{
-				Registry:   "docker-registry",
-				Repository: "myorg/myapp",
-				Tag:        "v1.0.0",
-				Platform:   "linux/arm64",
-				Digest:     "sha256:arm64",
-			},
+			Name:       "app-arm64",
+			Namespace:  "default",
+			Registry:   "docker-registry",
+			Repository: "myorg/myapp",
+			Tag:        "v1.0.0",
+			Platform:   "linux/arm64",
+			Digest:     "sha256:arm64",
 		})
 	})
 	suite.Require().NoError(err)
@@ -359,10 +340,8 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet_ScanInProgress_Parti
 	// Only one vulnerability report (scan in progress)
 	err = suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.vulnReportRepo.Create(ctx, tx, &storagev1alpha1.VulnerabilityReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "app-vuln-amd64",
-				Namespace: "default",
-			},
+			Name:      "app-vuln-amd64",
+			Namespace: "default",
 			ImageMetadata: storagev1alpha1.ImageMetadata{
 				Registry:   "docker-registry",
 				Repository: "myorg/myapp",
@@ -425,27 +404,21 @@ func (suite *workloadScanReportRepositoryTestSuite) TestList() {
 
 	err := suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.imageRepo.Create(ctx, tx, &storagev1alpha1.Image{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "nginx-image",
-				Namespace: "default",
-			},
-			ImageMetadata: storagev1alpha1.ImageMetadata{
-				Registry:   "docker-registry",
-				Repository: "library/nginx",
-				Tag:        "latest",
-				Platform:   "linux/amd64",
-				Digest:     "sha256:nginx",
-			},
+			Name:       "nginx-image",
+			Namespace:  "default",
+			Registry:   "docker-registry",
+			Repository: "library/nginx",
+			Tag:        "latest",
+			Platform:   "linux/amd64",
+			Digest:     "sha256:nginx",
 		})
 	})
 	suite.Require().NoError(err)
 
 	err = suite.runInTx(ctx, func(tx pgx.Tx) error {
 		return suite.vulnReportRepo.Create(ctx, tx, &storagev1alpha1.VulnerabilityReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "nginx-vuln",
-				Namespace: "default",
-			},
+			Name:      "nginx-vuln",
+			Namespace: "default",
 			ImageMetadata: storagev1alpha1.ImageMetadata{
 				Registry:   "docker-registry",
 				Repository: "library/nginx",
@@ -878,10 +851,8 @@ func (suite *workloadScanReportRepositoryTestSuite) runInTx(ctx context.Context,
 
 func testWorkloadScanReportFactory(name, namespace string, containers []storagev1alpha1.ContainerRef) *storagev1alpha1.WorkloadScanReport {
 	return &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: storagev1alpha1.WorkloadScanReportSpec{
 			Containers: containers,
 		},

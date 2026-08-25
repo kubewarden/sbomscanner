@@ -102,10 +102,8 @@ func (r *WorkloadScanReconciler) createOrPatchWorkloadScanReport(ctx context.Con
 	}
 
 	report := &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      reportName,
-			Namespace: namespace,
-		},
+		Name:      reportName,
+		Namespace: namespace,
 	}
 
 	operation, err := controllerutil.CreateOrPatch(ctx, r.Client, report, func() error {

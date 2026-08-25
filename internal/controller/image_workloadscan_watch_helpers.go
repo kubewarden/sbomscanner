@@ -5,7 +5,6 @@ import (
 
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -55,10 +54,8 @@ func mapWorkloadScanReportToImages(c client.Client) handler.MapFunc {
 
 			for _, image := range imageList.Items {
 				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      image.Name,
-						Namespace: image.Namespace,
-					},
+					Name:      image.Name,
+					Namespace: image.Namespace,
 				})
 			}
 		}

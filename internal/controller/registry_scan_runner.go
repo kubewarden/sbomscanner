@@ -9,7 +9,6 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
@@ -314,12 +313,10 @@ func (r *RegistryScanRunner) getLastScanJob(ctx context.Context, registry *v1alp
 // When repositories is non-empty, the ScanJob targets only that subset.
 func (r *RegistryScanRunner) createScanJob(ctx context.Context, registry *v1alpha1.Registry, repositories []v1alpha1.ScanJobRepository) error {
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-", registry.Name),
-			Namespace:    registry.Namespace,
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobTriggerKey: "runner",
-			},
+		GenerateName: fmt.Sprintf("%s-", registry.Name),
+		Namespace:    registry.Namespace,
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobTriggerKey: "runner",
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry:     registry.Name,

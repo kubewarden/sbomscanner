@@ -105,11 +105,9 @@ func TestIndexImageByMetadata(t *testing.T) {
 		{
 			name: "returns composite key for an image",
 			object: &storagev1alpha1.Image{
-				ImageMetadata: storagev1alpha1.ImageMetadata{
-					Registry:   "docker.io",
-					Repository: "library/nginx",
-					Tag:        "latest",
-				},
+				Registry:   "docker.io",
+				Repository: "library/nginx",
+				Tag:        "latest",
 			},
 			expected: []string{"docker.io/library/nginx:latest"},
 		},

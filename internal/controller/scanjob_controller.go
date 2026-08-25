@@ -133,12 +133,10 @@ func (r *ScanJobReconciler) reconcileScanJob(ctx context.Context, scanJob *v1alp
 	log.V(1).Info("Publishing CreateCatalog message for ScanJob", "scanJob", scanJob.Name, "namespace", scanJob.Namespace, "registry", scanJob.Spec.Registry)
 	messageID := fmt.Sprintf("createCatalog/%s", scanJob.GetUID())
 	message, err := json.Marshal(&handlers.CreateCatalogMessage{
-		BaseMessage: handlers.BaseMessage{
-			ScanJob: handlers.ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.GetUID()),
-			},
+		ScanJob: handlers.ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.GetUID()),
 		},
 	})
 	if err != nil {

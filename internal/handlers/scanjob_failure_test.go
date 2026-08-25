@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -23,10 +22,8 @@ func TestScanJobFailureHandler_HandleFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	scanJob := &sbombasticv1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-		},
+		Name:      "test-scanjob",
+		Namespace: "default",
 		Spec: sbombasticv1alpha1.ScanJobSpec{
 			Registry: "test-registry",
 		},
@@ -41,11 +38,9 @@ func TestScanJobFailureHandler_HandleFailure(t *testing.T) {
 	handler := NewScanJobFailureHandler(k8sClient, slog.Default())
 
 	message, err := json.Marshal(&GenerateSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
 		},
 		Image: ObjectRef{
 			Name:      "test-image",

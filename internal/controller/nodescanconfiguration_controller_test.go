@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/google/uuid"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,7 +20,7 @@ import (
 
 var _ = Describe("NodeScanConfiguration Controller", func() {
 	configRequest := reconcile.Request{
-		NamespacedName: types.NamespacedName{Name: v1alpha1.NodeScanConfigurationName},
+		Name: v1alpha1.NodeScanConfigurationName,
 	}
 
 	When("the configuration is disabled", func() {
@@ -33,9 +32,7 @@ var _ = Describe("NodeScanConfiguration Controller", func() {
 
 			By("Creating a disabled NodeScanConfiguration")
 			configuration = &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Enabled: false,
 				},
@@ -54,29 +51,25 @@ var _ = Describe("NodeScanConfiguration Controller", func() {
 			nodeB := fmt.Sprintf("node-b-%s", uuid.New().String())
 
 			jobA := v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("nodescanjob-%s", nodeA)},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: nodeA},
+				Name: fmt.Sprintf("nodescanjob-%s", nodeA),
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: nodeA},
 			}
 			jobB := v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("nodescanjob-%s", nodeB)},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: nodeB},
+				Name: fmt.Sprintf("nodescanjob-%s", nodeB),
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: nodeB},
 			}
 			Expect(k8sClient.Create(ctx, &jobA)).To(Succeed())
 			Expect(k8sClient.Create(ctx, &jobB)).To(Succeed())
 
 			sbomA := storagev1alpha1.NodeSBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   nodeA,
-					Labels: map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
-				},
+				Name:         nodeA,
+				Labels:       map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
 				NodeMetadata: storagev1alpha1.NodeMetadata{Name: nodeA, Platform: "linux/amd64"},
 				SPDX:         runtime.RawExtension{Raw: []byte("{}")},
 			}
 			sbomB := storagev1alpha1.NodeSBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   nodeB,
-					Labels: map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
-				},
+				Name:         nodeB,
+				Labels:       map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
 				NodeMetadata: storagev1alpha1.NodeMetadata{Name: nodeB, Platform: "linux/amd64"},
 				SPDX:         runtime.RawExtension{Raw: []byte("{}")},
 			}
@@ -110,16 +103,14 @@ var _ = Describe("NodeScanConfiguration Controller", func() {
 			By("Seeding a NodeScanJob and a NodeSBOM")
 			nodeName := fmt.Sprintf("node-%s", uuid.New().String())
 			job := v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("nodescanjob-%s", nodeName)},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: nodeName},
+				Name: fmt.Sprintf("nodescanjob-%s", nodeName),
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: nodeName},
 			}
 			Expect(k8sClient.Create(ctx, &job)).To(Succeed())
 
 			sbom := storagev1alpha1.NodeSBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   nodeName,
-					Labels: map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
-				},
+				Name:         nodeName,
+				Labels:       map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
 				NodeMetadata: storagev1alpha1.NodeMetadata{Name: nodeName, Platform: "linux/amd64"},
 				SPDX:         runtime.RawExtension{Raw: []byte("{}")},
 			}
@@ -150,9 +141,7 @@ var _ = Describe("NodeScanConfiguration Controller", func() {
 
 			By("Creating an enabled NodeScanConfiguration")
 			configuration = &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Enabled: true,
 				},
@@ -169,16 +158,14 @@ var _ = Describe("NodeScanConfiguration Controller", func() {
 			By("Seeding a NodeScanJob and a NodeSBOM")
 			nodeName := fmt.Sprintf("node-%s", uuid.New().String())
 			job := v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("nodescanjob-%s", nodeName)},
-				Spec:       v1alpha1.NodeScanJobSpec{NodeName: nodeName},
+				Name: fmt.Sprintf("nodescanjob-%s", nodeName),
+				Spec: v1alpha1.NodeScanJobSpec{NodeName: nodeName},
 			}
 			Expect(k8sClient.Create(ctx, &job)).To(Succeed())
 
 			sbom := storagev1alpha1.NodeSBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   nodeName,
-					Labels: map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
-				},
+				Name:         nodeName,
+				Labels:       map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
 				NodeMetadata: storagev1alpha1.NodeMetadata{Name: nodeName, Platform: "linux/amd64"},
 				SPDX:         runtime.RawExtension{Raw: []byte("{}")},
 			}

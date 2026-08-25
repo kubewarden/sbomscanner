@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	_ "modernc.org/sqlite"
@@ -84,9 +83,7 @@ func TestScanSBOMHandler_Handle(t *testing.T) {
 			platform: "linux/s390x with VEX repo enabled",
 			vexHubList: []v1alpha1.VEXHub{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
+					Name: "test",
 					Spec: v1alpha1.VEXHubSpec{
 						URL:     vexHubServer.URL,
 						Enabled: true,
@@ -100,9 +97,7 @@ func TestScanSBOMHandler_Handle(t *testing.T) {
 			platform: "linux/s390x with VEX repo not enabled",
 			vexHubList: []v1alpha1.VEXHub{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
+					Name: "test",
 					Spec: v1alpha1.VEXHubSpec{
 						URL:     vexHubServer.URL,
 						Enabled: false,
@@ -124,12 +119,10 @@ func testScanSBOM(t *testing.T, cacheDir, platform, sourceSBOMJSON, expectedRepo
 	require.NoError(t, err, "failed to read source SBOM file %s", sourceSBOMJSON)
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-			Labels: map[string]string{
-				api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
-			},
+		Name:      "test-registry",
+		Namespace: "default",
+		Labels: map[string]string{
+			api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
 		},
 		Spec: v1alpha1.RegistrySpec{
 			URI: "test.io",
@@ -139,13 +132,11 @@ func testScanSBOM(t *testing.T, cacheDir, platform, sourceSBOMJSON, expectedRepo
 	require.NoError(t, err)
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			UID:       "test-scanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-			},
+		Name:      "test-scanjob",
+		Namespace: "default",
+		UID:       "test-scanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
@@ -153,11 +144,9 @@ func testScanSBOM(t *testing.T, cacheDir, platform, sourceSBOMJSON, expectedRepo
 	}
 
 	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-sbom",
-			Namespace: "default",
-		},
-		SPDX: runtime.RawExtension{Raw: spdxData},
+		Name:      "test-sbom",
+		Namespace: "default",
+		SPDX:      runtime.RawExtension{Raw: spdxData},
 	}
 	vexHubs := &v1alpha1.VEXHubList{
 		Items: vexHubList,
@@ -185,12 +174,10 @@ func testScanSBOM(t *testing.T, cacheDir, platform, sourceSBOMJSON, expectedRepo
 	handler := NewScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
 
 	message, err := json.Marshal(&ScanSBOMMessage{
-		BaseMessage: BaseMessage{
-			ScanJob: ObjectRef{
-				Name:      scanJob.Name,
-				Namespace: scanJob.Namespace,
-				UID:       string(scanJob.UID),
-			},
+		ScanJob: ObjectRef{
+			Name:      scanJob.Name,
+			Namespace: scanJob.Namespace,
+			UID:       string(scanJob.UID),
 		},
 		SBOM: ObjectRef{
 			Name:      sbom.Name,
@@ -236,11 +223,9 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	spdxData, err := os.ReadFile(filepath.Join("..", "..", "test", "fixtures", "golang-1.12-alpine-amd64.spdx.json"))
 	require.NoError(t, err)
 	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-sbom",
-			Namespace: "default",
-		},
-		SPDX: runtime.RawExtension{Raw: spdxData},
+		Name:      "test-sbom",
+		Namespace: "default",
+		SPDX:      runtime.RawExtension{Raw: spdxData},
 	}
 
 	vexHubs := &v1alpha1.VEXHubList{
@@ -248,10 +233,8 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	}
 
 	stopRegistry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI: "test.io",
 		},
@@ -260,13 +243,11 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	require.NoError(t, err)
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			UID:       "test-scanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(stopRegistryData),
-			},
+		Name:      "test-scanjob",
+		Namespace: "default",
+		UID:       "test-scanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(stopRegistryData),
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
@@ -323,12 +304,10 @@ func TestScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			handler := NewScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
 
 			message, err := json.Marshal(&ScanSBOMMessage{
-				BaseMessage: BaseMessage{
-					ScanJob: ObjectRef{
-						Name:      test.scanJob.Name,
-						Namespace: test.scanJob.Namespace,
-						UID:       string(test.scanJob.UID),
-					},
+				ScanJob: ObjectRef{
+					Name:      test.scanJob.Name,
+					Namespace: test.scanJob.Namespace,
+					UID:       string(test.scanJob.UID),
 				},
 				SBOM: ObjectRef{
 					Name:      sbom.Name,

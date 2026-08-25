@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -26,10 +25,8 @@ type registryTestCase struct {
 
 func TestRegistryDefaulter_Default(t *testing.T) {
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI:         "registry.test.local",
 			CatalogType: "",
@@ -51,10 +48,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should admit when scanInterval is nil",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI:          "registry.example.com",
 				ScanInterval: nil,
@@ -64,10 +59,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should admit when scanInterval is exactly 1 minute",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.example.com",
 				ScanInterval: &metav1.Duration{
@@ -79,10 +72,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should admit when scanInterval is greater than 1 minute",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
 				ScanInterval: &metav1.Duration{
@@ -94,10 +85,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should deny when scanInterval is less than 1 minute",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
 				ScanInterval: &metav1.Duration{
@@ -111,10 +100,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should allow when catalogType is NoCatalog and Repositories are provided",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI:         "registry.test.local",
 				CatalogType: "NoCatalog",
@@ -135,10 +122,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should deny when catalogType is NoCatalog and Repositories are not provided",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI:         "registry.test.local",
 				CatalogType: "NoCatalog",
@@ -150,10 +135,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should allow when catalogType is valid",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI:         "registry.test.local",
 				CatalogType: "OCIDistribution",
@@ -163,10 +146,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should deny when catalogType is not valid",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI:         "registry.test.local",
 				CatalogType: "notvalidcatalogtype",
@@ -178,10 +159,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should allow when platforms are valid",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
 				Platforms: []v1alpha1.Platform{
@@ -196,10 +175,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should deny when platforms are not valid",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
 				Platforms: []v1alpha1.Platform{
@@ -216,10 +193,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should deny when match conditions are not valid",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
 				Repositories: []v1alpha1.Repository{
@@ -245,10 +220,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should deny when match conditions are non boolean",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
 				Repositories: []v1alpha1.Repository{
@@ -270,10 +243,8 @@ var registryTestCases = []registryTestCase{
 	{
 		name: "should allow when match conditions are valid",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-			},
+			Name:      "test-registry",
+			Namespace: "default",
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
 				Repositories: []v1alpha1.Repository{
@@ -358,10 +329,8 @@ func TestRegistryCustomValidator_ValidateDelete(t *testing.T) {
 	}
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI: "registry.test.local",
 		},
@@ -385,12 +354,10 @@ var registryManagedResourceTestCases = []registryManagedResourceTestCase{
 	{
 		name: "should allow for managed resource by allowed service account",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-				Labels: map[string]string{
-					api.LabelManagedByKey: api.LabelManagedByValue,
-				},
+			Name:      "test-registry",
+			Namespace: "default",
+			Labels: map[string]string{
+				api.LabelManagedByKey: api.LabelManagedByValue,
 			},
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
@@ -402,12 +369,10 @@ var registryManagedResourceTestCases = []registryManagedResourceTestCase{
 	{
 		name: "should deny for managed resource by other user",
 		registry: &v1alpha1.Registry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-registry",
-				Namespace: "default",
-				Labels: map[string]string{
-					api.LabelManagedByKey: api.LabelManagedByValue,
-				},
+			Name:      "test-registry",
+			Namespace: "default",
+			Labels: map[string]string{
+				api.LabelManagedByKey: api.LabelManagedByValue,
 			},
 			Spec: v1alpha1.RegistrySpec{
 				URI: "registry.test.local",
@@ -428,10 +393,8 @@ func TestRegistryCustomValidator_ManagedResourceCreate(t *testing.T) {
 			}
 
 			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UserInfo: authenticationv1.UserInfo{
-						Username: test.username,
-					},
+				UserInfo: authenticationv1.UserInfo{
+					Username: test.username,
 				},
 			})
 
@@ -451,12 +414,10 @@ func TestRegistryCustomValidator_ManagedResourceCreate(t *testing.T) {
 
 func TestRegistryCustomValidator_ManagedResourceUpdate(t *testing.T) {
 	oldRegistry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-			Labels: map[string]string{
-				api.LabelManagedByKey: api.LabelManagedByValue,
-			},
+		Name:      "test-registry",
+		Namespace: "default",
+		Labels: map[string]string{
+			api.LabelManagedByKey: api.LabelManagedByValue,
 		},
 		Spec: v1alpha1.RegistrySpec{
 			URI: "registry.test.local",
@@ -472,10 +433,8 @@ func TestRegistryCustomValidator_ManagedResourceUpdate(t *testing.T) {
 			}
 
 			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UserInfo: authenticationv1.UserInfo{
-						Username: test.username,
-					},
+				UserInfo: authenticationv1.UserInfo{
+					Username: test.username,
 				},
 			})
 
@@ -503,10 +462,8 @@ func TestRegistryCustomValidator_ManagedResourceDelete(t *testing.T) {
 			}
 
 			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UserInfo: authenticationv1.UserInfo{
-						Username: test.username,
-					},
+				UserInfo: authenticationv1.UserInfo{
+					Username: test.username,
 				},
 			})
 

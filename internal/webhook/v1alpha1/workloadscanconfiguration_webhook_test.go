@@ -26,10 +26,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should allow when scanInterval is nil",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				ScanInterval: nil,
 			},
@@ -38,10 +36,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should admit when scanInterval is exactly 1 minute",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				ScanInterval: &metav1.Duration{
 					Duration: time.Minute,
@@ -52,10 +48,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should admit when scanInterval is greater than 1 minute",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				ScanInterval: &metav1.Duration{
 					Duration: 1 * time.Hour,
@@ -66,10 +60,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should deny when scanInterval is less than 1 minute",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				ScanInterval: &metav1.Duration{
 					Duration: 30 * time.Second,
@@ -83,10 +75,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should allow when platforms are valid",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				Platforms: []v1alpha1.Platform{
 					{
@@ -100,10 +90,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should deny when platforms are not valid",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				Platforms: []v1alpha1.Platform{
 					{
@@ -120,10 +108,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should allow when namespaceSelector is nil",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				NamespaceSelector: nil,
 			},
@@ -132,10 +118,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should allow when namespaceSelector is valid",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
@@ -148,10 +132,8 @@ var workloadScanConfigurationTestCases = []workloadScanConfigurationTestCase{
 	{
 		name: "should deny when namespaceSelector is invalid",
 		configuration: &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 			Spec: v1alpha1.WorkloadScanConfigurationSpec{
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
@@ -303,10 +285,8 @@ func TestWorkloadScanConfigurationCustomValidator_ValidateDelete(t *testing.T) {
 		}
 
 		configuration := &v1alpha1.WorkloadScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-workload-scan-configuration",
-				Namespace: "default",
-			},
+			Name:      "test-workload-scan-configuration",
+			Namespace: "default",
 		}
 
 		warnings, err := validator.ValidateDelete(t.Context(), configuration)

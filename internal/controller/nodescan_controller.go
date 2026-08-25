@@ -6,7 +6,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,7 +87,7 @@ func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager) error {
 		Named("nodescan-controller").
 		Watches(&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []ctrl.Request {
-				return []ctrl.Request{{NamespacedName: types.NamespacedName{Name: obj.GetName()}}}
+				return []ctrl.Request{{Name: obj.GetName()}}
 			}),
 			builder.WithPredicates(predicate.Funcs{
 				// Only trigger reconciliation on Node deletions, ignore creates and updates.

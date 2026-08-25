@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -336,9 +335,7 @@ func (s *Server) getNodeScanConfiguration(ctx context.Context, _ *mcp.CallToolRe
 
 func (s *Server) createNodeScanJobs(ctx context.Context, _ *mcp.CallToolRequest, args nodeScanJobCreateArgs) (*mcp.CallToolResult, any, error) {
 	nodescanjob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: args.Name,
-		},
+		Name: args.Name,
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: args.NodeName,
 		},
@@ -501,10 +498,8 @@ CEL expression reference:
 
 func (s *Server) createRegistry(ctx context.Context, _ *mcp.CallToolRequest, args registryCreateArgs) (*mcp.CallToolResult, any, error) {
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      args.Name,
-			Namespace: args.Namespace,
-		},
+		Name:      args.Name,
+		Namespace: args.Namespace,
 		Spec: v1alpha1.RegistrySpec{
 			URI:          args.URI,
 			CatalogType:  args.CatalogType,
@@ -554,10 +549,8 @@ func (s *Server) deleteRegistry(ctx context.Context, _ *mcp.CallToolRequest, arg
 
 func (s *Server) createScanJob(ctx context.Context, _ *mcp.CallToolRequest, args scanJobCreateArgs) (*mcp.CallToolResult, any, error) {
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      args.Name,
-			Namespace: args.Namespace,
-		},
+		Name:      args.Name,
+		Namespace: args.Namespace,
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: args.Registry,
 		},
@@ -581,9 +574,7 @@ func (s *Server) deleteScanJob(ctx context.Context, _ *mcp.CallToolRequest, args
 
 func (s *Server) createVEXHub(ctx context.Context, _ *mcp.CallToolRequest, args vexHubCreateArgs) (*mcp.CallToolResult, any, error) {
 	vexHub := &v1alpha1.VEXHub{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: args.Name,
-		},
+		Name: args.Name,
 		Spec: v1alpha1.VEXHubSpec{
 			URL:     args.URL,
 			Enabled: args.Enabled,

@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -162,10 +161,8 @@ func (suite *workloadScanReportWatcherTestSuite) TestNoMatchingWorkloadScanRepor
 	go watcher.Start(ctx)
 
 	vulnReport := storagev1alpha1.VulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "orphan-vuln-report",
-			Namespace: "default",
-		},
+		Name:      "orphan-vuln-report",
+		Namespace: "default",
 		ImageMetadata: storagev1alpha1.ImageMetadata{
 			Registry:   "docker.io",
 			Repository: "library/redis",
@@ -189,10 +186,8 @@ func (suite *workloadScanReportWatcherTestSuite) TestMultipleWorkloadScanReports
 
 	for _, name := range []string{"workload-1", "workload-2"} {
 		report := &storagev1alpha1.WorkloadScanReport{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: "default",
-			},
+			Name:      name,
+			Namespace: "default",
 			Spec: storagev1alpha1.WorkloadScanReportSpec{
 				Containers: []storagev1alpha1.ContainerRef{
 					{
@@ -233,10 +228,8 @@ func (suite *workloadScanReportWatcherTestSuite) TestMultipleWorkloadScanReports
 	go watcher.Start(ctx)
 
 	vulnReport := storagev1alpha1.VulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "myapp-vuln-report",
-			Namespace: "default",
-		},
+		Name:      "myapp-vuln-report",
+		Namespace: "default",
 		ImageMetadata: storagev1alpha1.ImageMetadata{
 			Registry:   "ghcr.io",
 			Repository: "myorg/myapp",
