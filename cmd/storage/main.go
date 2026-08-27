@@ -15,9 +15,13 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/docker/go-units"
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 
 	"github.com/kubewarden/sbomscanner/internal/apiserver"
 	"github.com/kubewarden/sbomscanner/internal/cmdutil"
@@ -85,7 +89,16 @@ func run() error {
 	ctx := genericapiserver.SetupSignalContext()
 
 	// Initialize OpenTelemetry. No-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
-	shutdownTelemetry, err := telemetry.Setup(ctx, "sbomscanner-storage", version.Version)
+	// The Prometheus bridge exports the process and Go runtime metrics
+	// (process_*, go_*) over OTLP alongside our own.
+	runtimeRegistry := prometheus.NewRegistry()
+	runtimeRegistry.MustRegister(
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+	)
+	shutdownTelemetry, _, err := telemetry.Setup(ctx, "sbomscanner-storage", version.Version,
+		telemetry.WithMetricProducer(prombridge.NewMetricProducer(prombridge.WithGatherer(runtimeRegistry))),
+	)
 	if err != nil {
 		return fmt.Errorf("initializing telemetry: %w", err)
 	}
@@ -196,16 +209,43 @@ func newDB(ctx context.Context, pgURIFile, pgTLSCAFile string) (*pgxpool.Pool, e
 		return nil
 	}
 
+	// Trace SQL queries as child spans of the API request spans and record the
+	// semconv db.client.* operation metrics. Span names keep only the leading
+	// SQL keyword; full statements go on the span attributes.
+	// Pool-acquire spans are disabled as noise: acquire latency stays observable
+	// through the pgxpool.acquire_duration metric registered by RecordStats.
+	config.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithTrimSQLInSpanName(),
+		otelpgx.WithDisableAcquireTracer(),
+	)
+
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("creating connection pool: %w", err)
+	}
+
+	if err := otelpgx.RecordStats(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("recording database pool metrics: %w", err)
 	}
 
 	return db, nil
 }
 
 func runServer(ctx context.Context, db *pgxpool.Pool, nc *nats.Conn, logger *slog.Logger, cfg apiserver.StorageAPIServerConfig) error {
-	srv, err := apiserver.NewStorageAPIServer(db, nc, logger, cfg)
+	instrumentation, err := apiserver.NewInstrumentation(telemetry.Meter("internal/apiserver"))
+	if err != nil {
+		return fmt.Errorf("creating apiserver instrumentation: %w", err)
+	}
+	storeInstrumentation, err := storage.NewInstrumentation(
+		telemetry.Tracer("internal/storage"),
+		telemetry.Meter("internal/storage"),
+	)
+	if err != nil {
+		return fmt.Errorf("creating storage instrumentation: %w", err)
+	}
+
+	srv, err := apiserver.NewStorageAPIServer(db, nc, instrumentation, storeInstrumentation, logger, cfg)
 	if err != nil {
 		return fmt.Errorf("creating storage API server: %w", err)
 	}

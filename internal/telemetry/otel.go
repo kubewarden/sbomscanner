@@ -16,6 +16,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/trace"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 )
 
 // ShutdownFunc flushes and stops the providers installed by Setup.
@@ -62,7 +64,14 @@ func WithMetricProducer(producer sdkmetric.Producer) Option {
 //
 // serviceName and serviceVersion populate the standard resource attributes,
 // and are overridable via OTEL_SERVICE_NAME / OTEL_RESOURCE_ATTRIBUTES.
-func Setup(ctx context.Context, serviceName, serviceVersion string, opts ...Option) (ShutdownFunc, error) {
+//
+// The returned tracer provider instruments Kubernetes API clients
+// (pass it to the upstream k8s.io/component-base/tracing.WrapperFor):
+// API calls made inside a sampled span produce child client spans,
+// while calls outside any trace produce nothing instead of one-span root traces.
+// When telemetry is disabled it is a no-op provider,
+// which used with otelhttp still propagates an existing trace context.
+func Setup(ctx context.Context, serviceName, serviceVersion string, opts ...Option) (ShutdownFunc, trace.TracerProvider, error) {
 	// Always install W3C propagators so application code can call otel.GetTextMapPropagator() without branching on whether export is enabled.
 	// Propagation through NATS headers (see nats.go) is a pure in-process concern and works even with no-op providers.
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
@@ -73,17 +82,17 @@ func Setup(ctx context.Context, serviceName, serviceVersion string, opts ...Opti
 	if os.Getenv(envOTLPEndpoint) == "" {
 		// No-op shutdown.
 		// The default global TracerProvider and MeterProvider are already no-op implementations.
-		return func(context.Context) error { return nil }, nil
+		return func(context.Context) error { return nil }, tracenoop.NewTracerProvider(), nil
 	}
 
 	res, err := buildResource(ctx, serviceName, serviceVersion)
 	if err != nil {
-		return nil, fmt.Errorf("building otel resource: %w", err)
+		return nil, nil, fmt.Errorf("building otel resource: %w", err)
 	}
 
 	traceExporter, err := otlptracegrpc.New(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("creating OTLP trace exporter: %w", err)
+		return nil, nil, fmt.Errorf("creating OTLP trace exporter: %w", err)
 	}
 
 	// Histograms default to base2 exponential aggregation: bucket resolution adapts
@@ -100,17 +109,25 @@ func Setup(ctx context.Context, serviceName, serviceVersion string, opts ...Opti
 		// The rollback error (if any) is joined onto the returned error, never dropped.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		return nil, errors.Join(
+		return nil, nil, errors.Join(
 			fmt.Errorf("creating OTLP metric exporter: %w", err),
 			traceExporter.Shutdown(shutdownCtx),
 		)
 	}
 
+	// Both tracer providers share the processor; its Shutdown is idempotent.
+	spanProcessor := sdktrace.NewBatchSpanProcessor(traceExporter)
 	tracerProvider := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithSpanProcessor(spanProcessor),
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tracerProvider)
+
+	clientProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithSpanProcessor(spanProcessor),
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.NeverSample())),
+	)
 
 	var config setupConfig
 	for _, opt := range opts {
@@ -128,14 +145,15 @@ func Setup(ctx context.Context, serviceName, serviceVersion string, opts ...Opti
 	otel.SetMeterProvider(meterProvider)
 
 	shutdown := func(ctx context.Context) error {
-		// Best-effort: try both, surface both errors.
+		// Best-effort: try all, surface every error.
 		return errors.Join(
 			tracerProvider.Shutdown(ctx),
+			clientProvider.Shutdown(ctx),
 			meterProvider.Shutdown(ctx),
 		)
 	}
 
-	return shutdown, nil
+	return shutdown, clientProvider, nil
 }
 
 // histogramAggregationSelector aggregates histograms as base2 exponential histograms
