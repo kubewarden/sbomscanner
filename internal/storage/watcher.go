@@ -6,8 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -16,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // event is the payload sent via NATS for watch events.
@@ -37,6 +42,7 @@ type natsWatcher struct {
 	subject          string
 	resource         string
 	watchBroadcaster *watch.Broadcaster
+	instrumentation  *Instrumentation
 	logger           *slog.Logger
 	store            *store
 	sub              *nats.Subscription
@@ -46,6 +52,7 @@ func newNatsWatcher(nc *nats.Conn,
 	resource string,
 	watchBroadcaster *watch.Broadcaster,
 	store *store,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
 ) *natsWatcher {
 	subject := fmt.Sprintf("watch.%s", resource)
@@ -56,6 +63,7 @@ func newNatsWatcher(nc *nats.Conn,
 		subject:          subject,
 		watchBroadcaster: watchBroadcaster,
 		store:            store,
+		instrumentation:  instrumentation,
 		logger:           logger.With("component", "nats-watcher", "subject", subject),
 	}
 }
@@ -110,16 +118,42 @@ func (w *natsWatcher) Start(ctx context.Context) error {
 	return nil
 }
 
-// handleMessage processes a NATS message and broadcasts it locally.
+// handleMessage runs one consumed watch event in a consumer span.
+// The span joins the trace of the write that published the event.
 func (w *natsWatcher) handleMessage(ctx context.Context, msg *nats.Msg) error {
+	ctx = telemetry.ExtractNATS(ctx, msg.Header)
+	ctx, span := w.instrumentation.tracer.Start(ctx, "NatsWatcher.HandleMessage",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			attribute.String("messaging.system", "nats"),
+			attribute.String("messaging.destination.name", w.subject),
+		),
+	)
+	defer span.End()
+
+	eventType, err := w.processMessage(ctx, msg)
+	if eventType != "" {
+		span.SetAttributes(attribute.String("event.type", strings.ToLower(string(eventType))))
+		w.instrumentation.recordWatchEvent(ctx, w.resource, eventType)
+	}
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+
+// processMessage decodes a NATS message and broadcasts it locally.
+// It returns the event type as soon as it is known, even on failure.
+func (w *natsWatcher) processMessage(ctx context.Context, msg *nats.Msg) (watch.EventType, error) {
 	var payload event
 	if err := json.Unmarshal(msg.Data, &payload); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
+		return "", fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
 	obj := w.store.newFunc()
 	if err := json.Unmarshal(payload.Object.Raw, obj); err != nil {
-		return fmt.Errorf("failed to decode object: %w", err)
+		return payload.EventType, fmt.Errorf("failed to decode object: %w", err)
 	}
 
 	// For deleted events broadcast the payload directly since the store no longer has it.
@@ -127,20 +161,20 @@ func (w *natsWatcher) handleMessage(ctx context.Context, msg *nats.Msg) error {
 	if payload.EventType != watch.Deleted {
 		rehydrated, err := w.rehydrate(ctx, obj)
 		if err != nil {
-			return err
+			return payload.EventType, err
 		}
 		obj = rehydrated
 	}
 
 	if err := w.watchBroadcaster.Action(payload.EventType, obj); err != nil {
-		return fmt.Errorf("failed to broadcast action while handling message: %w", err)
+		return payload.EventType, fmt.Errorf("failed to broadcast action while handling message: %w", err)
 	}
 
 	w.logger.DebugContext(ctx, "Broadcasted watch event",
 		"type", payload.EventType,
 		"obj", payload.Object,
 	)
-	return nil
+	return payload.EventType, nil
 }
 
 // rehydrate returns the stored object matching the payload, or the payload itself when the store does not hold a matching object.
@@ -190,6 +224,7 @@ type natsBroadcaster struct {
 	nc               *nats.Conn
 	subject          string
 	watchBroadcaster *watch.Broadcaster
+	instrumentation  *Instrumentation
 	logger           *slog.Logger
 	transform        cache.TransformFunc
 }
@@ -198,6 +233,7 @@ func newNatsBroadcaster(nc *nats.Conn,
 	resource string,
 	watchBroadcaster *watch.Broadcaster,
 	transform cache.TransformFunc,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
 ) *natsBroadcaster {
 	subject := fmt.Sprintf("watch.%s", resource)
@@ -207,6 +243,7 @@ func newNatsBroadcaster(nc *nats.Conn,
 		subject:          subject,
 		watchBroadcaster: watchBroadcaster,
 		transform:        transform,
+		instrumentation:  instrumentation,
 		logger:           logger.With("component", "nats-broadcaster", "subject", subject),
 	}
 }
@@ -231,8 +268,22 @@ func (b *natsBroadcaster) WatchWithPrefix(events []watch.Event) (watch.Interface
 	return watch, nil
 }
 
-// Action broadcasts an event to all local watchers.
-func (b *natsBroadcaster) Action(eventType watch.EventType, obj runtime.Object) error {
+// Action publishes an event to NATS so every storage replica rebroadcasts it locally.
+// The message headers carry the trace context of the write that produced the event.
+func (b *natsBroadcaster) Action(ctx context.Context, eventType watch.EventType, obj runtime.Object) error {
+	ctx, span := b.instrumentation.startPublishSpan(ctx, b.subject, eventType)
+	defer span.End()
+
+	err := b.publish(ctx, eventType, obj)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
+}
+
+// publish transforms, marshals, and publishes one watch event to NATS.
+func (b *natsBroadcaster) publish(ctx context.Context, eventType watch.EventType, obj runtime.Object) error {
 	t, err := b.transform(obj.DeepCopyObject())
 	if err != nil {
 		return fmt.Errorf("failed to transform object: %w", err)
@@ -255,11 +306,17 @@ func (b *natsBroadcaster) Action(eventType watch.EventType, obj runtime.Object) 
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
 	}
-	if err := b.nc.Publish(b.subject, payloadBytes); err != nil {
+
+	msg := &nats.Msg{
+		Subject: b.subject,
+		Data:    payloadBytes,
+	}
+	telemetry.InjectNATS(ctx, msg)
+	if err := b.nc.PublishMsg(msg); err != nil {
 		return fmt.Errorf("publish to NATS: %w", err)
 	}
 
-	b.logger.Debug("Published watch event to NATS", "eventType", eventType, "object", transformedObj)
+	b.logger.DebugContext(ctx, "Published watch event to NATS", "eventType", eventType, "object", transformedObj)
 
 	return nil
 }

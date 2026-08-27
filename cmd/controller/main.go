@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/component-base/tracing"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -128,7 +129,7 @@ func run(cfg Config) error {
 	// The Prometheus bridge exports the controller-runtime metrics
 	// (controller_runtime_*, workqueue_*, rest_client_*, ...) over OTLP alongside our own;
 	// the controller-runtime metrics server keeps serving them for users on legacy Prometheus pull.
-	shutdownTelemetry, err := telemetry.Setup(signalHandler, "sbomscanner-controller", version.Version,
+	shutdownTelemetry, kubernetesClientTracerProvider, err := telemetry.Setup(signalHandler, "sbomscanner-controller", version.Version,
 		telemetry.WithMetricProducer(prombridge.NewMetricProducer(prombridge.WithGatherer(ctrlmetrics.Registry))),
 	)
 	if err != nil {
@@ -241,7 +242,13 @@ func run(cfg Config) error {
 
 	cacheByObject := buildCacheByObject(cfg)
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	// Wrap the client transport (upstream Kubernetes wrapper) so API calls made
+	// inside a trace carry the W3C trace context and produce client spans,
+	// joining them to the storage apiserver's server spans.
+	restConfig := ctrl.GetConfigOrDie()
+	restConfig.Wrap(tracing.WrapperFor(kubernetesClientTracerProvider))
+
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		PprofBindAddress:       cfg.PprofAddr,
