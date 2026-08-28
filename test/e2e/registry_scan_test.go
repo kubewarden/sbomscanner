@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
@@ -34,10 +33,8 @@ func TestRegistryScan(t *testing.T) {
 	f := features.New("Scan a Registry").
 		Assess("Create a Registry", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			registry := &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      registryName,
-					Namespace: cfg.Namespace(),
-				},
+				Name:      registryName,
+				Namespace: cfg.Namespace(),
 				Spec: v1alpha1.RegistrySpec{
 					URI: registryURI,
 					Repositories: []v1alpha1.Repository{
@@ -53,9 +50,7 @@ func TestRegistryScan(t *testing.T) {
 		}).
 		Assess("Create a VEXHub", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			vexHub := &v1alpha1.VEXHub{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "kubewarden-vexhub",
-				},
+				Name: "kubewarden-vexhub",
 				Spec: v1alpha1.VEXHubSpec{
 					URL:     "https://github.com/rancher/vexhub",
 					Enabled: true,
@@ -68,10 +63,8 @@ func TestRegistryScan(t *testing.T) {
 		}).
 		Assess("Create a ScanJob", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			scanJob := &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scanjob",
-					Namespace: cfg.Namespace(),
-				},
+				Name:      "test-scanjob",
+				Namespace: cfg.Namespace(),
 				Spec: v1alpha1.ScanJobSpec{
 					Registry: registryName,
 				},
@@ -82,7 +75,7 @@ func TestRegistryScan(t *testing.T) {
 			return ctx
 		}).
 		Assess("Wait for the ScanJob to complete", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			scanJob := &v1alpha1.ScanJob{ObjectMeta: metav1.ObjectMeta{Name: "test-scanjob", Namespace: cfg.Namespace()}}
+			scanJob := &v1alpha1.ScanJob{Name: "test-scanjob", Namespace: cfg.Namespace()}
 
 			err := wait.For(conditions.New(cfg.Client().Resources()).ResourceMatch(scanJob, func(object k8s.Object) bool {
 				s := object.(*v1alpha1.ScanJob)
@@ -153,7 +146,7 @@ func TestRegistryScan(t *testing.T) {
 
 			// Delete the Registry CR
 			registry := &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{Name: registryName, Namespace: cfg.Namespace()},
+				Name: registryName, Namespace: cfg.Namespace(),
 			}
 			err = cfg.Client().Resources().Delete(ctx, registry)
 			require.NoError(t, err)
@@ -169,10 +162,8 @@ func TestRegistryScan(t *testing.T) {
 			require.NoError(t, err)
 			// Verify the ScanJob is deleted
 			err = wait.For(conditions.New(cfg.Client().Resources()).ResourceDeleted(&v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scanjob",
-					Namespace: cfg.Namespace(),
-				},
+				Name:      "test-scanjob",
+				Namespace: cfg.Namespace(),
 			}))
 			require.NoError(t, err)
 

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	_ "modernc.org/sqlite"
@@ -29,20 +28,16 @@ func TestNodeScanSBOMHandler_Handle(t *testing.T) {
 	require.NoError(t, err)
 
 	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodescanjob",
-			UID:  "test-nodescanjob-uid",
-		},
+		Name: "test-nodescanjob",
+		UID:  "test-nodescanjob-uid",
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: "test-node",
 		},
 	}
 
 	nodeSBOM := &storagev1alpha1.NodeSBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-node",
-			UID:  "test-nodesbom-uid",
-		},
+		Name: "test-node",
+		UID:  "test-nodesbom-uid",
 		NodeMetadata: storagev1alpha1.NodeMetadata{
 			Name:     "test-node",
 			Platform: "linux/amd64",
@@ -67,11 +62,9 @@ func TestNodeScanSBOMHandler_Handle(t *testing.T) {
 	handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
 
 	message, err := json.Marshal(&ScanNodeSBOMMessage{
-		NodeBaseMessage: NodeBaseMessage{
-			NodeScanJob: ObjectRef{
-				Name: nodeScanJob.Name,
-				UID:  string(nodeScanJob.UID),
-			},
+		NodeScanJob: ObjectRef{
+			Name: nodeScanJob.Name,
+			UID:  string(nodeScanJob.UID),
 		},
 		NodeSBOM: ObjectRef{
 			Name: nodeSBOM.Name,
@@ -104,9 +97,7 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	require.NoError(t, err)
 
 	nodeSBOM := &storagev1alpha1.NodeSBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-node",
-		},
+		Name: "test-node",
 		NodeMetadata: storagev1alpha1.NodeMetadata{
 			Name:     "test-node",
 			Platform: "linux/amd64",
@@ -119,10 +110,8 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	}
 
 	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodescanjob",
-			UID:  "test-nodescanjob-uid",
-		},
+		Name: "test-nodescanjob",
+		UID:  "test-nodescanjob-uid",
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: "test-node",
 		},
@@ -177,11 +166,9 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
 
 			message, err := json.Marshal(&ScanNodeSBOMMessage{
-				NodeBaseMessage: NodeBaseMessage{
-					NodeScanJob: ObjectRef{
-						Name: test.nodeScanJob.Name,
-						UID:  string(test.nodeScanJob.UID),
-					},
+				NodeScanJob: ObjectRef{
+					Name: test.nodeScanJob.Name,
+					UID:  string(test.nodeScanJob.UID),
 				},
 				NodeSBOM: ObjectRef{
 					Name: nodeSBOM.Name,

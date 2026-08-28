@@ -359,19 +359,15 @@ func main() {
 func buildCacheByObject(cfg Config) map[client.Object]cache.ByObject {
 	cacheByObject := map[client.Object]cache.ByObject{
 		&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: storagev1alpha1.SchemeGroupVersion.String(),
-				Kind:       "VulnerabilityReport",
-			},
+			APIVersion: storagev1alpha1.SchemeGroupVersion.String(),
+			Kind:       "VulnerabilityReport",
 		}: {
 			// Read-only
 			UnsafeDisableDeepCopy: new(true),
 		},
 		&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: corev1.SchemeGroupVersion.String(),
-				Kind:       "Namespace",
-			},
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       "Namespace",
 		}: {
 			// Read-only
 			UnsafeDisableDeepCopy: new(true),
@@ -392,19 +388,15 @@ func buildCacheByObject(cfg Config) map[client.Object]cache.ByObject {
 			UnsafeDisableDeepCopy: new(true),
 		}
 		cacheByObject[&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: appsv1.SchemeGroupVersion.String(),
-				Kind:       "ReplicaSet",
-			},
+			APIVersion: appsv1.SchemeGroupVersion.String(),
+			Kind:       "ReplicaSet",
 		}] = cache.ByObject{
 			// Read-only
 			UnsafeDisableDeepCopy: new(true),
 		}
 		cacheByObject[&metav1.PartialObjectMetadata{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: batchv1.SchemeGroupVersion.String(),
-				Kind:       "Job",
-			},
+			APIVersion: batchv1.SchemeGroupVersion.String(),
+			Kind:       "Job",
 		}] = cache.ByObject{
 			// Read-only
 			UnsafeDisableDeepCopy: new(true),

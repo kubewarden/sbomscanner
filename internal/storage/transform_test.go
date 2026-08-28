@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
@@ -13,8 +12,8 @@ import (
 
 func TestTransformStripImage(t *testing.T) {
 	image := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-image"},
-		Layers:     []storagev1alpha1.ImageLayer{{Digest: "sha256:abc"}},
+		Name:   "test-image",
+		Layers: []storagev1alpha1.ImageLayer{{Digest: "sha256:abc"}},
 	}
 
 	result, err := TransformStripImage(image)
@@ -27,8 +26,8 @@ func TestTransformStripImage(t *testing.T) {
 
 func TestTransformStripSBOM(t *testing.T) {
 	sbom := &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-sbom"},
-		SPDX:       runtime.RawExtension{Raw: []byte(`{"test": "data"}`)},
+		Name: "test-sbom",
+		SPDX: runtime.RawExtension{Raw: []byte(`{"test": "data"}`)},
 	}
 
 	result, err := TransformStripSBOM(sbom)
@@ -41,8 +40,8 @@ func TestTransformStripSBOM(t *testing.T) {
 
 func TestTransformStripNodeSBOM(t *testing.T) {
 	nodeSBOM := &storagev1alpha1.NodeSBOM{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-node-sbom"},
-		SPDX:       runtime.RawExtension{Raw: []byte(`{"test": "data"}`)},
+		Name: "test-node-sbom",
+		SPDX: runtime.RawExtension{Raw: []byte(`{"test": "data"}`)},
 	}
 
 	result, err := TransformStripNodeSBOM(nodeSBOM)
@@ -55,7 +54,7 @@ func TestTransformStripNodeSBOM(t *testing.T) {
 
 func TestTransformStripVulnerabilityReport(t *testing.T) {
 	vuln := &storagev1alpha1.VulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-vuln"},
+		Name: "test-vuln",
 		Report: storagev1alpha1.Report{
 			Results: []storagev1alpha1.Result{{Target: "test-target"}},
 		},
@@ -71,7 +70,7 @@ func TestTransformStripVulnerabilityReport(t *testing.T) {
 
 func TestTransformStripNodeVulnerabilityReport(t *testing.T) {
 	nodeVuln := &storagev1alpha1.NodeVulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-node-vuln"},
+		Name: "test-node-vuln",
 		Report: storagev1alpha1.Report{
 			Results: []storagev1alpha1.Result{{Target: "test-target"}},
 		},
@@ -87,7 +86,7 @@ func TestTransformStripNodeVulnerabilityReport(t *testing.T) {
 
 func TestTransformStripWorkloadScanReport(t *testing.T) {
 	report := &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-workloadscanreport"},
+		Name: "test-workloadscanreport",
 		Spec: storagev1alpha1.WorkloadScanReportSpec{
 			Containers: []storagev1alpha1.ContainerRef{
 				{

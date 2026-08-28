@@ -241,7 +241,7 @@ func (s *store) Watch(ctx context.Context, key string, opts storage.ListOptions)
 	var events []watch.Event
 	for i := range itemsValue.Len() {
 		// Cast the item address to a runtime.Object
-		item, ok := itemsValue.Index(i).Addr().Interface().(runtime.Object)
+		item, ok := reflect.TypeAssert[runtime.Object](itemsValue.Index(i).Addr())
 		if !ok {
 			return nil, storage.NewInternalError(
 				fmt.Errorf("unexpected item type: %T", itemsValue.Index(i).Addr().Interface()),
@@ -285,7 +285,7 @@ func (s *store) watchList(ctx context.Context, key string, opts storage.ListOpti
 
 	events := make([]watch.Event, 0, itemsValue.Len()+1)
 	for i := range itemsValue.Len() {
-		item, ok := itemsValue.Index(i).Addr().Interface().(runtime.Object)
+		item, ok := reflect.TypeAssert[runtime.Object](itemsValue.Index(i).Addr())
 		if !ok {
 			return nil, storage.NewInternalError(
 				fmt.Errorf("unexpected item type: %T", itemsValue.Index(i).Addr().Interface()),

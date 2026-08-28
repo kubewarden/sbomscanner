@@ -24,9 +24,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should allow when all fields are empty",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{},
 		},
 	},
@@ -34,9 +32,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should allow when scanInterval is nil",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				ScanInterval: nil,
 			},
@@ -45,9 +41,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should admit when scanInterval is exactly 1 minute",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				ScanInterval: &metav1.Duration{
 					Duration: time.Minute,
@@ -58,9 +52,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should admit when scanInterval is greater than 1 minute",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				ScanInterval: &metav1.Duration{
 					Duration: 1 * time.Hour,
@@ -71,9 +63,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should deny when scanInterval is less than 1 minute",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				ScanInterval: &metav1.Duration{
 					Duration: 30 * time.Second,
@@ -87,9 +77,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should allow when platforms are valid",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				Platforms: []v1alpha1.Platform{
 					{
@@ -103,9 +91,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should deny when platforms are not valid",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				Platforms: []v1alpha1.Platform{
 					{
@@ -122,9 +108,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should allow when nodeSelector is nil",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				NodeSelector: nil,
 			},
@@ -133,9 +117,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should allow when nodeSelector is valid",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				NodeSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
@@ -148,9 +130,7 @@ var nodeScanConfigurationTestCases = []nodeScanConfigurationTestCase{
 	{
 		name: "should deny when nodeSelector is invalid",
 		configuration: &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 			Spec: v1alpha1.NodeScanConfigurationSpec{
 				NodeSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
@@ -285,9 +265,7 @@ func TestNodeScanConfigurationCustomValidator_SkipPatternsWarnings(t *testing.T)
 			}
 
 			config := &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "default",
-				},
+				Name: "default",
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					SkipPatterns: test.skipPatterns,
 				},
@@ -341,9 +319,7 @@ func TestNodeScanConfigurationCustomDefaulter_Default(t *testing.T) {
 			}
 
 			config := &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "default",
-				},
+				Name: "default",
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					SkipPatterns: test.skipPatterns,
 				},
@@ -364,9 +340,7 @@ func TestNodeScanConfigurationCustomDefaulter_DefaultDoesNotAliasPackageSlice(t 
 	}
 
 	config := &v1alpha1.NodeScanConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
-		},
+		Name: "default",
 	}
 
 	require.NoError(t, defaulter.Default(t.Context(), config))
@@ -384,9 +358,7 @@ func TestNodeScanConfigurationCustomValidator_ValidateDelete(t *testing.T) {
 		}
 
 		config := &v1alpha1.NodeScanConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default",
-			},
+			Name: "default",
 		}
 
 		warnings, err := validator.ValidateDelete(t.Context(), config)

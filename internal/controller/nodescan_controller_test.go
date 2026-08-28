@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,16 +31,14 @@ var _ = Describe("NodeScan Controller", func() {
 
 			By("Creating a Node")
 			node = corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("node-%s", uuid.New().String()),
-				},
+				Name: fmt.Sprintf("node-%s", uuid.New().String()),
 			}
 			Expect(k8sClient.Create(ctx, &node)).To(Succeed())
 		})
 
 		It("should be a no-op", func(ctx context.Context) {
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: node.Name},
+				Name: node.Name,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -60,9 +57,7 @@ var _ = Describe("NodeScan Controller", func() {
 
 			By("Creating and then deleting a Node")
 			node := corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeName,
-				},
+				Name: nodeName,
 			}
 			Expect(k8sClient.Create(ctx, &node)).To(Succeed())
 			Expect(k8sClient.Delete(ctx, &node)).To(Succeed())
@@ -71,9 +66,7 @@ var _ = Describe("NodeScan Controller", func() {
 		It("should cleanup NodeScanJobs for the deleted node", func(ctx context.Context) {
 			By("Creating a NodeScanJob tied to the deleted node")
 			nodeScanJob := v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("nodescanjob-%s", nodeName),
-				},
+				Name: fmt.Sprintf("nodescanjob-%s", nodeName),
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: nodeName,
 				},
@@ -82,7 +75,7 @@ var _ = Describe("NodeScan Controller", func() {
 
 			By("Reconciling the deleted node")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: nodeName},
+				Name: nodeName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -96,11 +89,9 @@ var _ = Describe("NodeScan Controller", func() {
 		It("should cleanup NodeSBOMs for the deleted node", func(ctx context.Context) {
 			By("Creating a NodeSBOM tied to the deleted node")
 			nodesbom := storagev1alpha1.NodeSBOM{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeName,
-					Labels: map[string]string{
-						api.LabelManagedByKey: api.LabelManagedByValue,
-					},
+				Name: nodeName,
+				Labels: map[string]string{
+					api.LabelManagedByKey: api.LabelManagedByValue,
 				},
 				NodeMetadata: storagev1alpha1.NodeMetadata{
 					Name:     nodeName,
@@ -112,7 +103,7 @@ var _ = Describe("NodeScan Controller", func() {
 
 			By("Reconciling the deleted node")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: nodeName},
+				Name: nodeName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -127,9 +118,7 @@ var _ = Describe("NodeScan Controller", func() {
 			By("Creating a NodeScanJob for a different node")
 			otherNodeName := fmt.Sprintf("other-node-%s", uuid.New().String())
 			otherJob := v1alpha1.NodeScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("nodescanjob-%s", otherNodeName),
-				},
+				Name: fmt.Sprintf("nodescanjob-%s", otherNodeName),
 				Spec: v1alpha1.NodeScanJobSpec{
 					NodeName: otherNodeName,
 				},
@@ -138,7 +127,7 @@ var _ = Describe("NodeScan Controller", func() {
 
 			By("Reconciling the deleted node")
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: nodeName},
+				Name: nodeName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 

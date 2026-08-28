@@ -39,9 +39,7 @@ func TestWorkloadScan(t *testing.T) {
 	f := features.New("Workload Scan").
 		Assess("Create WorkloadScanConfiguration", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			workloadScanConfiguration := &v1alpha1.WorkloadScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.WorkloadScanConfigurationName,
-				},
+				Name: v1alpha1.WorkloadScanConfigurationName,
 				Spec: v1alpha1.WorkloadScanConfigurationSpec{
 					Enabled:            true,
 					ArtifactsNamespace: namespace,
@@ -132,10 +130,8 @@ func TestWorkloadScan(t *testing.T) {
 		}).
 		Assess("Delete deployment and verify WorkloadScanReport is garbage collected", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			deployment := &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deploymentName,
-					Namespace: workloadScanNamespace1,
-				},
+				Name:      deploymentName,
+				Namespace: workloadScanNamespace1,
 			}
 			err := cfg.Client().Resources().Delete(ctx, deployment)
 			require.NoError(t, err, "failed to delete deployment in %s", workloadScanNamespace1)
@@ -228,9 +224,7 @@ func TestWorkloadScan(t *testing.T) {
 		}).
 		Assess("Delete WorkloadScanConfiguration and verify full cleanup", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			workloadScanConfiguration := &v1alpha1.WorkloadScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.WorkloadScanConfigurationName,
-				},
+				Name: v1alpha1.WorkloadScanConfigurationName,
 			}
 			err := cfg.Client().Resources().Delete(ctx, workloadScanConfiguration)
 			require.NoError(t, err, "failed to delete WorkloadScanConfiguration")
@@ -264,7 +258,7 @@ func TestWorkloadScan(t *testing.T) {
 		Teardown(func(ctx context.Context, _ *testing.T, cfg *envconf.Config) context.Context {
 			// Clean up namespaces
 			for _, namespace := range []string{workloadScanNamespace1, workloadScanNamespace2} {
-				nsObj := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
+				nsObj := &corev1.Namespace{Name: namespace}
 				_ = cfg.Client().Resources().Delete(ctx, nsObj)
 			}
 			return ctx
@@ -276,11 +270,9 @@ func TestWorkloadScan(t *testing.T) {
 func createWorkloadScanNamespace(ctx context.Context, t *testing.T, cfg *envconf.Config, name string) {
 	t.Helper()
 	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
-			},
+		Name: name,
+		Labels: map[string]string{
+			api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
 		},
 	}
 	err := cfg.Client().Resources().Create(ctx, namespace)
@@ -290,10 +282,8 @@ func createWorkloadScanNamespace(ctx context.Context, t *testing.T, cfg *envconf
 func createWorkloadScanDeployment(ctx context.Context, t *testing.T, cfg *envconf.Config, namespace string) {
 	t.Helper()
 	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      deploymentName,
-			Namespace: namespace,
-		},
+		Name:      deploymentName,
+		Namespace: namespace,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
 			Selector: &metav1.LabelSelector{

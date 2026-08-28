@@ -25,30 +25,24 @@ func TestMapObjToNamespace(t *testing.T) {
 		{
 			name: "pod in default namespace",
 			object: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod",
-					Namespace: "default",
-				},
+				Name:      "test-pod",
+				Namespace: "default",
 			},
 			expectedNamespace: "default",
 		},
 		{
 			name: "pod in custom namespace",
 			object: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod",
-					Namespace: "my-namespace",
-				},
+				Name:      "test-pod",
+				Namespace: "my-namespace",
 			},
 			expectedNamespace: "my-namespace",
 		},
 		{
 			name: "registry in sbomscanner namespace",
 			object: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "sbomscanner",
-				},
+				Name:      "test-registry",
+				Namespace: "sbomscanner",
 			},
 			expectedNamespace: "sbomscanner",
 		},
@@ -74,18 +68,14 @@ func TestMapNamespace(t *testing.T) {
 		{
 			name: "default namespace",
 			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "default",
-				},
+				Name: "default",
 			},
 			expectedNamespace: "default",
 		},
 		{
 			name: "custom namespace",
 			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "my-namespace",
-				},
+				Name: "my-namespace",
 			},
 			expectedNamespace: "my-namespace",
 		},
@@ -116,26 +106,22 @@ func TestMapConfigToNamespaces(t *testing.T) {
 		{
 			name: "selector is not specified matches all namespaces",
 			configuration: &v1alpha1.WorkloadScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.WorkloadScanConfigurationName,
-				},
+				Name: v1alpha1.WorkloadScanConfigurationName,
 				Spec: v1alpha1.WorkloadScanConfigurationSpec{
 					NamespaceSelector: nil,
 				},
 			},
 			namespaces: []corev1.Namespace{
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-one"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-two"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-three"}},
+				{Name: "namespace-one"},
+				{Name: "namespace-two"},
+				{Name: "namespace-three"},
 			},
 			expectedNamespaces: []string{"namespace-one", "namespace-two", "namespace-three"},
 		},
 		{
 			name: "selector matches subset of namespaces",
 			configuration: &v1alpha1.WorkloadScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.WorkloadScanConfigurationName,
-				},
+				Name: v1alpha1.WorkloadScanConfigurationName,
 				Spec: v1alpha1.WorkloadScanConfigurationSpec{
 					NamespaceSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -145,18 +131,16 @@ func TestMapConfigToNamespaces(t *testing.T) {
 				},
 			},
 			namespaces: []corev1.Namespace{
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-one", Labels: map[string]string{"scan": "enabled"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-two", Labels: map[string]string{"scan": "disabled"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-three", Labels: map[string]string{"scan": "enabled"}}},
+				{Name: "namespace-one", Labels: map[string]string{"scan": "enabled"}},
+				{Name: "namespace-two", Labels: map[string]string{"scan": "disabled"}},
+				{Name: "namespace-three", Labels: map[string]string{"scan": "enabled"}},
 			},
 			expectedNamespaces: []string{"namespace-one", "namespace-three"},
 		},
 		{
 			name: "selector matches no namespaces",
 			configuration: &v1alpha1.WorkloadScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.WorkloadScanConfigurationName,
-				},
+				Name: v1alpha1.WorkloadScanConfigurationName,
 				Spec: v1alpha1.WorkloadScanConfigurationSpec{
 					NamespaceSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -166,17 +150,15 @@ func TestMapConfigToNamespaces(t *testing.T) {
 				},
 			},
 			namespaces: []corev1.Namespace{
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-one"}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-two"}},
+				{Name: "namespace-one"},
+				{Name: "namespace-two"},
 			},
 			expectedNamespaces: []string{},
 		},
 		{
 			name: "selector with match expressions",
 			configuration: &v1alpha1.WorkloadScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.WorkloadScanConfigurationName,
-				},
+				Name: v1alpha1.WorkloadScanConfigurationName,
 				Spec: v1alpha1.WorkloadScanConfigurationSpec{
 					NamespaceSelector: &metav1.LabelSelector{
 						MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -190,9 +172,9 @@ func TestMapConfigToNamespaces(t *testing.T) {
 				},
 			},
 			namespaces: []corev1.Namespace{
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-production", Labels: map[string]string{"environment": "production"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-staging", Labels: map[string]string{"environment": "staging"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "namespace-development", Labels: map[string]string{"environment": "development"}}},
+				{Name: "namespace-production", Labels: map[string]string{"environment": "production"}},
+				{Name: "namespace-staging", Labels: map[string]string{"environment": "staging"}},
+				{Name: "namespace-development", Labels: map[string]string{"environment": "development"}},
 			},
 			expectedNamespaces: []string{"namespace-production", "namespace-staging"},
 		},
@@ -378,9 +360,7 @@ func TestPodImagesChangedPredicate_UpdateEvent(t *testing.T) {
 		{
 			name: "only labels changed",
 			oldPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"version": "v1"},
-				},
+				Labels: map[string]string{"version": "v1"},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{Name: "app", Image: "nginx:1.19"},
@@ -388,9 +368,7 @@ func TestPodImagesChangedPredicate_UpdateEvent(t *testing.T) {
 				},
 			},
 			newPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"version": "v2"},
-				},
+				Labels: map[string]string{"version": "v2"},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{Name: "app", Image: "nginx:1.19"},
@@ -402,9 +380,7 @@ func TestPodImagesChangedPredicate_UpdateEvent(t *testing.T) {
 		{
 			name: "only annotations changed",
 			oldPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"note": "old"},
-				},
+				Annotations: map[string]string{"note": "old"},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{Name: "app", Image: "nginx:1.19"},
@@ -412,9 +388,7 @@ func TestPodImagesChangedPredicate_UpdateEvent(t *testing.T) {
 				},
 			},
 			newPod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"note": "new"},
-				},
+				Annotations: map[string]string{"note": "new"},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{Name: "app", Image: "nginx:1.19"},

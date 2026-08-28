@@ -20,7 +20,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -313,9 +312,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 
 		messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.GetUID(), image.Name)
 		message, err := json.Marshal(&GenerateSBOMMessage{
-			BaseMessage: BaseMessage{
-				ScanJob: createCatalogMessage.ScanJob,
-			},
+			ScanJob: createCatalogMessage.ScanJob,
 			Image: ObjectRef{
 				Name:      image.Name,
 				Namespace: image.Namespace,
@@ -601,10 +598,8 @@ func (h *CreateCatalogHandler) deleteObsoleteImages(
 
 	for obsoleteImageName := range obsoleteImageNames {
 		existingImage := storagev1alpha1.Image{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      obsoleteImageName,
-				Namespace: namespace,
-			},
+			Name:      obsoleteImageName,
+			Namespace: namespace,
 		}
 
 		h.logger.DebugContext(ctx, "Deleting obsolete image", "name", obsoleteImageName, "namespace", namespace)
@@ -673,21 +668,17 @@ func imageDetailsToImage(
 	}
 
 	image := storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      computeImageUID(registry.Name, ref.Context().Name(), ref.Identifier(), details.Digest.String()),
-			Namespace: registry.Namespace,
-			Labels:    labels,
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:    registry.Name,
-			RegistryURI: ref.Context().RegistryStr(),
-			Repository:  ref.Context().RepositoryStr(),
-			Tag:         ref.Identifier(),
-			Platform:    details.Platform.String(),
-			Digest:      details.Digest.String(),
-			IndexDigest: indexDigest,
-		},
-		Layers: imageLayers,
+		Name:        computeImageUID(registry.Name, ref.Context().Name(), ref.Identifier(), details.Digest.String()),
+		Namespace:   registry.Namespace,
+		Labels:      labels,
+		Registry:    registry.Name,
+		RegistryURI: ref.Context().RegistryStr(),
+		Repository:  ref.Context().RepositoryStr(),
+		Tag:         ref.Identifier(),
+		Platform:    details.Platform.String(),
+		Digest:      details.Digest.String(),
+		IndexDigest: indexDigest,
+		Layers:      imageLayers,
 	}
 
 	if err := controllerutil.SetControllerReference(registry, &image, scheme); err != nil {

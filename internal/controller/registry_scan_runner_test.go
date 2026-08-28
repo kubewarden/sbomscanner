@@ -36,10 +36,8 @@ var _ = Describe("RegistryScanRunner", func() {
 			BeforeEach(func(ctx context.Context) {
 				By("Creating a Registry with a scan interval of 1 hour")
 				registry = &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
 					},
@@ -75,10 +73,8 @@ var _ = Describe("RegistryScanRunner", func() {
 			It("Should not create a new job when one is already running", func(ctx context.Context) {
 				By("Creating an existing scan job for the registry")
 				existingJob := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "existing-job-" + uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      "existing-job-" + uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: registry.Name,
 					},
@@ -101,10 +97,8 @@ var _ = Describe("RegistryScanRunner", func() {
 			It("Should create a new scan job when the last one completed and interval has passed", func(ctx context.Context) {
 				By("Creating a completed scan job that's older than the scan interval")
 				completedJob := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "completed-job-" + uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      "completed-job-" + uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: registry.Name,
 					},
@@ -130,11 +124,9 @@ var _ = Describe("RegistryScanRunner", func() {
 			It("Should not create a new scan job when the last one completed recently", func(ctx context.Context) {
 				By("Creating a recently completed scan job within the scan interval")
 				recentJob := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "recent-job-" + uuid.New().String(),
-						Namespace:         "default",
-						CreationTimestamp: metav1.Time{Time: time.Now()},
-					},
+					Name:              "recent-job-" + uuid.New().String(),
+					Namespace:         "default",
+					CreationTimestamp: metav1.Time{Time: time.Now()},
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: registry.Name,
 					},
@@ -162,10 +154,8 @@ var _ = Describe("RegistryScanRunner", func() {
 			BeforeEach(func(ctx context.Context) {
 				By("Creating a Registry with scan interval disabled (0 duration)")
 				registry = &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "disabled-registry-" + uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      "disabled-registry-" + uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 0},
 					},
@@ -195,12 +185,10 @@ var _ = Describe("RegistryScanRunner", func() {
 				By("Creating a Registry with a rescan annotation")
 				rescanKey = fmt.Sprintf("%s%d", v1alpha1.AnnotationRescanRequestedKeyPrefix, time.Now().UnixNano())
 				registry = &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-						Annotations: map[string]string{
-							rescanKey: `{}`,
-						},
+					Name:      uuid.New().String(),
+					Namespace: "default",
+					Annotations: map[string]string{
+						rescanKey: `{}`,
 					},
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
@@ -234,10 +222,8 @@ var _ = Describe("RegistryScanRunner", func() {
 			It("Should not create a scan job and keep the annotation when a job is already running", func(ctx context.Context) {
 				By("Creating an existing running scan job for the registry")
 				existingJob := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "running-job-" + uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      "running-job-" + uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: registry.Name,
 					},
@@ -268,10 +254,8 @@ var _ = Describe("RegistryScanRunner", func() {
 			It("Should create a scan job after running job completes and remove the annotation", func(ctx context.Context) {
 				By("Creating a completed scan job for the registry")
 				completedJob := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "completed-job-" + uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      "completed-job-" + uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: registry.Name,
 					},
@@ -305,10 +289,8 @@ var _ = Describe("RegistryScanRunner", func() {
 			It("Should preserve a rescan annotation added during processing", func(ctx context.Context) {
 				By("Creating a completed scan job for the registry")
 				completedJob := &v1alpha1.ScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "completed-job-" + uuid.New().String(),
-						Namespace: "default",
-					},
+					Name:      "completed-job-" + uuid.New().String(),
+					Namespace: "default",
 					Spec: v1alpha1.ScanJobSpec{
 						Registry: registry.Name,
 					},
@@ -360,12 +342,10 @@ var _ = Describe("RegistryScanRunner", func() {
 
 				By("Creating a Registry with the JSON rescan annotation")
 				registry = &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-						Annotations: map[string]string{
-							rescanKey: rescanValue,
-						},
+					Name:      uuid.New().String(),
+					Namespace: "default",
+					Annotations: map[string]string{
+						rescanKey: rescanValue,
 					},
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
@@ -424,13 +404,11 @@ var _ = Describe("RegistryScanRunner", func() {
 
 				By("Creating a Registry with both annotations set")
 				registry = &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-						Annotations: map[string]string{
-							keyA: string(vA),
-							keyB: string(vB),
-						},
+					Name:      uuid.New().String(),
+					Namespace: "default",
+					Annotations: map[string]string{
+						keyA: string(vA),
+						keyB: string(vB),
 					},
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
@@ -479,13 +457,11 @@ var _ = Describe("RegistryScanRunner", func() {
 				validKey = fmt.Sprintf("%s%d", v1alpha1.AnnotationRescanRequestedKeyPrefix, time.Now().UnixNano()) + "-good"
 
 				registry = &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-						Annotations: map[string]string{
-							malformedKey: `{not json`,
-							validKey:     string(v),
-						},
+					Name:      uuid.New().String(),
+					Namespace: "default",
+					Annotations: map[string]string{
+						malformedKey: `{not json`,
+						validKey:     string(v),
 					},
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
@@ -524,12 +500,10 @@ var _ = Describe("RegistryScanRunner", func() {
 				By("Creating a Registry with rescan annotation but disabled scan interval")
 				rescanKey = fmt.Sprintf("%s%d", v1alpha1.AnnotationRescanRequestedKeyPrefix, time.Now().UnixNano())
 				registry = &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-						Annotations: map[string]string{
-							rescanKey: `{}`,
-						},
+					Name:      uuid.New().String(),
+					Namespace: "default",
+					Annotations: map[string]string{
+						rescanKey: `{}`,
 					},
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 0},
@@ -646,7 +620,7 @@ func TestCollectRescanRequests(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			registry := &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{Annotations: test.annotations},
+				Annotations: test.annotations,
 			}
 			keys, targets, scanEverything := collectRescanRequests(context.Background(), registry)
 			require.ElementsMatch(t, test.wantKeys, keys)

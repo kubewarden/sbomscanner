@@ -1,6 +1,6 @@
 module github.com/kubewarden/sbomscanner
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/aquasecurity/trivy v0.74.0
@@ -299,7 +299,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/buildkit v0.32.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/go-archive v0.3.0 // indirect
+	github.com/moby/go-archive v0.3.3 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/moby/api v1.55.0 // indirect
 	github.com/moby/moby/client v0.5.1 // indirect
@@ -469,3 +469,7 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+// TODO: remove this replace directive when a trivy release contains
+// https://github.com/aquasecurity/trivy/pull/11127 (Go 1.27 support).
+replace github.com/aquasecurity/trivy => github.com/aquasecurity/trivy v0.74.1-0.20260821131025-dc3c56eed58a

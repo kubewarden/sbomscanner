@@ -14,7 +14,6 @@ import (
 	trivyCommands "github.com/aquasecurity/trivy/pkg/commands"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -170,9 +169,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 	}
 
 	nodeSBOM := &storagev1alpha1.NodeSBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generated.Name,
-		},
+		Name: generated.Name,
 	}
 	if _, err = controllerutil.CreateOrUpdate(ctx, h.k8sClient, nodeSBOM, func() error {
 		nodeSBOM.Labels = generated.Labels
@@ -185,9 +182,7 @@ func (h *GenerateNodeSBOMHandler) Handle(ctx context.Context, message messaging.
 
 	scanNodeSBOMMessageID := fmt.Sprintf("nodeScanSBOM/%s/%s", nodeScanJob.GetUID(), generateNodeSBOMMessage.Node.Name)
 	scanNodeSBOMMessage, err := json.Marshal(&ScanNodeSBOMMessage{
-		NodeBaseMessage: NodeBaseMessage{
-			NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
-		},
+		NodeScanJob: generateNodeSBOMMessage.NodeScanJob,
 		NodeSBOM: ObjectRef{
 			Name: generateNodeSBOMMessage.Node.Name,
 		},
@@ -231,10 +226,8 @@ func (h *GenerateNodeSBOMHandler) generateNodeSBOM(ctx context.Context, node *co
 
 	nodePlatform := fmt.Sprintf("%s/%s", node.Status.NodeInfo.OperatingSystem, node.Status.NodeInfo.Architecture)
 	nodeSbom := &storagev1alpha1.NodeSBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   message.Node.Name,
-			Labels: sbomLabels,
-		},
+		Name:   message.Node.Name,
+		Labels: sbomLabels,
 		NodeMetadata: storagev1alpha1.NodeMetadata{
 			Name:     node.Name,
 			Platform: nodePlatform,

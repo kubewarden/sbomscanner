@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -161,8 +162,8 @@ func TestStoreTestSuite(t *testing.T) {
 			transform:     TransformStripSBOM,
 			newObj: func(name, namespace string, objLabels map[string]string, spdx []byte) runtime.Object {
 				return &storagev1alpha1.SBOM{
-					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: objLabels},
-					SPDX:       runtime.RawExtension{Raw: spdx},
+					Name: name, Namespace: namespace, Labels: objLabels,
+					SPDX: runtime.RawExtension{Raw: spdx},
 				}
 			},
 			setUID:  func(obj runtime.Object, uid types.UID) { obj.(*storagev1alpha1.SBOM).UID = uid },
@@ -180,7 +181,7 @@ func TestStoreTestSuite(t *testing.T) {
 			transform:     TransformStripNodeSBOM,
 			newObj: func(name, _ string, objLabels map[string]string, spdx []byte) runtime.Object {
 				return &storagev1alpha1.NodeSBOM{
-					ObjectMeta:   metav1.ObjectMeta{Name: name, Labels: objLabels},
+					Name: name, Labels: objLabels,
 					NodeMetadata: storagev1alpha1.NodeMetadata{Name: name, Platform: "linux/amd64"},
 					SPDX:         runtime.RawExtension{Raw: spdx},
 				}
@@ -1096,7 +1097,7 @@ func (suite *storeTestSuite) listItems(listObj runtime.Object) []runtime.Object 
 
 	out := make([]runtime.Object, 0, itemsValue.Len())
 	for i := range itemsValue.Len() {
-		item, ok := itemsValue.Index(i).Addr().Interface().(runtime.Object)
+		item, ok := reflect.TypeAssert[runtime.Object](itemsValue.Index(i).Addr())
 		suite.Require().True(ok, "list element does not implement runtime.Object")
 		out = append(out, item)
 	}

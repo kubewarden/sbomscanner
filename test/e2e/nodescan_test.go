@@ -28,11 +28,9 @@ func TestNodeScan(t *testing.T) {
 	f := features.New("Node Scan").
 		Assess("Create NodeScanConfiguration", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			nodeScanConfig := &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-					Annotations: map[string]string{
-						"sbomscanner.kubewarden.io/node-rescan-requested": "true",
-					},
+				Name: v1alpha1.NodeScanConfigurationName,
+				Annotations: map[string]string{
+					"sbomscanner.kubewarden.io/node-rescan-requested": "true",
 				},
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Enabled: true,
@@ -162,9 +160,7 @@ func TestNodeScan(t *testing.T) {
 		}).
 		Assess("Delete NodeScanConfiguration and verify cleanup", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			nodeScanConfig := &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 			}
 			err := cfg.Client().Resources().Delete(ctx, nodeScanConfig)
 			require.NoError(t, err, "failed to delete NodeScanConfiguration")
@@ -196,9 +192,7 @@ func TestNodeScan(t *testing.T) {
 		}).
 		Assess("Recreate NodeScanConfiguration with NodeSelector and verify filtering", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			nodeScanConfig := &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 				Spec: v1alpha1.NodeScanConfigurationSpec{
 					Enabled: true,
 					NodeSelector: &metav1.LabelSelector{
@@ -228,9 +222,7 @@ func TestNodeScan(t *testing.T) {
 		}).
 		Assess("Final cleanup", func(ctx context.Context, _ *testing.T, cfg *envconf.Config) context.Context {
 			nodeScanConfig := &v1alpha1.NodeScanConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: v1alpha1.NodeScanConfigurationName,
-				},
+				Name: v1alpha1.NodeScanConfigurationName,
 			}
 			_ = cfg.Client().Resources().Delete(ctx, nodeScanConfig)
 

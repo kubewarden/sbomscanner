@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -77,10 +76,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "catalog all images",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI:         testRegistry.RegistryName,
 					CatalogType: v1alpha1.CatalogTypeOCIDistribution,
@@ -110,10 +107,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "singlearch image",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -130,10 +125,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "multiarch image",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -156,10 +149,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "multiarch image with platform filter",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -179,10 +170,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "tag filter does not match",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -203,10 +192,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "tag filter matches",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -229,10 +216,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "multiarch image with unknown/unknown platform",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -250,10 +235,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "multiarch image with same platform but different digest",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -274,10 +257,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "obsolete images are deleted",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -312,10 +293,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "repository with non-image artifacts",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -333,10 +312,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "ScanJob targets a subset of the Registry: obsolete-image cleanup is skipped",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -367,10 +344,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "ScanJob targets one repo out of multiple: only targeted repo is scanned",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -404,10 +379,8 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "ScanJob targets multiple repos: images from all targeted repos are discovered",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI: testRegistry.RegistryName,
 					Repositories: []v1alpha1.Repository{
@@ -443,20 +416,16 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		{
 			name: "private registry",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry",
-					Namespace: "default",
-				},
+				Name:      "test-registry",
+				Namespace: "default",
 				Spec: v1alpha1.RegistrySpec{
 					URI:        testPrivateRegistry.RegistryName,
 					AuthSecret: "test-registry-auth-secret",
 				},
 			},
 			authSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-registry-auth-secret",
-					Namespace: "default",
-				},
+				Name:      "test-registry-auth-secret",
+				Namespace: "default",
 				Data: map[string][]byte{
 					// dXNlcjpwYXNzd29yZA== -> user:password
 					corev1.DockerConfigJsonKey: fmt.Appendf([]byte{},
@@ -482,13 +451,11 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			require.NoError(t, err)
 
 			scanJob := &v1alpha1.ScanJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-scanjob",
-					Namespace: "default",
-					UID:       "test-scanjob-uid",
-					Annotations: map[string]string{
-						v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-					},
+				Name:      "test-scanjob",
+				Namespace: "default",
+				UID:       "test-scanjob-uid",
+				Annotations: map[string]string{
+					v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 				},
 				Spec: v1alpha1.ScanJobSpec{
 					Registry:     test.registry.Name,
@@ -533,12 +500,10 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			for _, expectedImage := range test.expectedImages {
 				messageID := fmt.Sprintf("generateSBOM/%s/%s", scanJob.GetUID(), expectedImage.Name)
 				expectedMessage, err := json.Marshal(&GenerateSBOMMessage{
-					BaseMessage: BaseMessage{
-						ScanJob: ObjectRef{
-							Name:      scanJob.Name,
-							Namespace: scanJob.Namespace,
-							UID:       string(scanJob.UID),
-						},
+					ScanJob: ObjectRef{
+						Name:      scanJob.Name,
+						Namespace: scanJob.Namespace,
+						UID:       string(scanJob.UID),
 					},
 					Image: ObjectRef{
 						Name:      expectedImage.Name,
@@ -553,12 +518,10 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 			handler := NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, mockPublisher, "sbomscanner", slog.Default())
 
 			message, err := json.Marshal(&CreateCatalogMessage{
-				BaseMessage: BaseMessage{
-					ScanJob: ObjectRef{
-						Name:      scanJob.Name,
-						Namespace: scanJob.Namespace,
-						UID:       string(scanJob.UID),
-					},
+				ScanJob: ObjectRef{
+					Name:      scanJob.Name,
+					Namespace: scanJob.Namespace,
+					UID:       string(scanJob.UID),
 				},
 			})
 			require.NoError(t, err)
@@ -622,10 +585,8 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 	// A registry with a single repository and platform
 	// so that only one image is created during the test
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI: "ghcr.io",
 			Repositories: []v1alpha1.Repository{
@@ -645,13 +606,11 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 	require.NoError(t, err)
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-scanjob",
-			Namespace: "default",
-			UID:       "test-scanjob-uid",
-			Annotations: map[string]string{
-				v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
-			},
+		Name:      "test-scanjob",
+		Namespace: "default",
+		UID:       "test-scanjob-uid",
+		Annotations: map[string]string{
+			v1alpha1.AnnotationScanJobRegistryKey: string(registryData),
 		},
 		Spec: v1alpha1.ScanJobSpec{
 			Registry: "test-registry",
@@ -797,12 +756,10 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 			handler := NewCreateCatalogHandler(registryClient, k8sClientWithInterceptors, scheme, mockPublisher, "sbomscanner", slog.Default())
 
 			message, err := json.Marshal(&CreateCatalogMessage{
-				BaseMessage: BaseMessage{
-					ScanJob: ObjectRef{
-						Name:      scanJob.Name,
-						Namespace: scanJob.Namespace,
-						UID:       string(scanJob.UID),
-					},
+				ScanJob: ObjectRef{
+					Name:      scanJob.Name,
+					Namespace: scanJob.Namespace,
+					UID:       string(scanJob.UID),
 				},
 			})
 			require.NoError(t, err)
@@ -840,10 +797,8 @@ func TestCreateCatalogHandler_imageDetailsToImage(t *testing.T) {
 	require.NoError(t, err)
 
 	registry := &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-registry",
-			Namespace: "default",
-		},
+		Name:      "test-registry",
+		Namespace: "default",
 		Spec: v1alpha1.RegistrySpec{
 			URI: registryURI,
 			Repositories: []v1alpha1.Repository{
@@ -1037,7 +992,7 @@ func TestApplyTargetsToRegistry(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			registry := &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-registry"},
+				Name: "test-registry",
 				Spec: v1alpha1.RegistrySpec{
 					Repositories: []v1alpha1.Repository{
 						{

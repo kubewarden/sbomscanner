@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,14 +33,12 @@ func NewScanSBOMHandler(
 	logger *slog.Logger,
 ) *ScanSBOMHandler {
 	return &ScanSBOMHandler{
-		scanSBOMBase: scanSBOMBase{
-			k8sClient:             k8sClient,
-			scheme:                scheme,
-			workDir:               workDir,
-			trivyDBRepository:     trivyDBRepository,
-			trivyJavaDBRepository: trivyJavaDBRepository,
-			logger:                logger.With("handler", "scan_sbom_handler"),
-		},
+		k8sClient:             k8sClient,
+		scheme:                scheme,
+		workDir:               workDir,
+		trivyDBRepository:     trivyDBRepository,
+		trivyJavaDBRepository: trivyJavaDBRepository,
+		logger:                logger.With("handler", "scan_sbom_handler"),
 	}
 }
 
@@ -121,10 +118,8 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 	)
 
 	vulnerabilityReport := &storagev1alpha1.VulnerabilityReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sbomName,
-			Namespace: sbomNamespace,
-		},
+		Name:      sbomName,
+		Namespace: sbomNamespace,
 	}
 	if err = controllerutil.SetControllerReference(sbom, vulnerabilityReport, h.scheme); err != nil {
 		return fmt.Errorf("failed to set owner reference: %w", err)

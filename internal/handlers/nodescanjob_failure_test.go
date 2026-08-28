@@ -10,7 +10,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -23,9 +22,7 @@ func TestNodeScanJobFailureHandler_HandleFailure(t *testing.T) {
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 
 	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodescanjob",
-		},
+		Name: "test-nodescanjob",
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: "test-node",
 		},
@@ -40,10 +37,8 @@ func TestNodeScanJobFailureHandler_HandleFailure(t *testing.T) {
 	handler := NewNodeScanJobFailureHandler(k8sClient, slog.Default())
 
 	message, err := json.Marshal(&GenerateNodeSBOMMessage{
-		NodeBaseMessage: NodeBaseMessage{
-			NodeScanJob: ObjectRef{
-				Name: nodeScanJob.Name,
-			},
+		NodeScanJob: ObjectRef{
+			Name: nodeScanJob.Name,
 		},
 		Node: ObjectRef{
 			Name: "test-node",
@@ -77,10 +72,8 @@ func TestNodeScanJobFailureHandler_HandleFailure_NodeScanJobNotFound(t *testing.
 	handler := NewNodeScanJobFailureHandler(k8sClient, slog.Default())
 
 	message, err := json.Marshal(&GenerateNodeSBOMMessage{
-		NodeBaseMessage: NodeBaseMessage{
-			NodeScanJob: ObjectRef{
-				Name: "missing-nodescanjob",
-			},
+		NodeScanJob: ObjectRef{
+			Name: "missing-nodescanjob",
 		},
 		Node: ObjectRef{
 			Name: "test-node",

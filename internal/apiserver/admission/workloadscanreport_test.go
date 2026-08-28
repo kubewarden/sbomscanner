@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -32,22 +31,18 @@ func TestWorkloadScanReportValidation_Validate(t *testing.T) {
 	}
 
 	managedReport := &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-report",
-			Namespace: "default",
-			Labels: map[string]string{
-				api.LabelManagedByKey: api.LabelManagedByValue,
-			},
+		Name:      "test-report",
+		Namespace: "default",
+		Labels: map[string]string{
+			api.LabelManagedByKey: api.LabelManagedByValue,
 		},
 	}
 
 	unmanagedReport := &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-report",
-			Namespace: "default",
-			Labels: map[string]string{
-				api.LabelManagedByKey: "something-else",
-			},
+		Name:      "test-report",
+		Namespace: "default",
+		Labels: map[string]string{
+			api.LabelManagedByKey: "something-else",
 		},
 	}
 

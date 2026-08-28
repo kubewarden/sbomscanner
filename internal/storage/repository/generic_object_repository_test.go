@@ -365,10 +365,8 @@ func (suite *genericObjectRepositoryTestSuite) withTxReturn(ctx context.Context,
 
 func testSBOMFactory(name, namespace, digest string) *storagev1alpha1.SBOM {
 	return &storagev1alpha1.SBOM{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		ImageMetadata: storagev1alpha1.ImageMetadata{
 			Registry:    "test-registry",
 			RegistryURI: "registry-1.docker.io:5000",

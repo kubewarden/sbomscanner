@@ -36,17 +36,13 @@ var _ = Describe("NodeScanRunner", func() {
 			BeforeEach(func(ctx context.Context) {
 				By("Creating a Node")
 				node = &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("node-%s", uuid.New().String()),
-					},
+					Name: fmt.Sprintf("node-%s", uuid.New().String()),
 				}
 				Expect(k8sClient.Create(ctx, node)).To(Succeed())
 
 				By("Creating a NodeScanConfiguration with a scan interval of 1 hour")
 				config = &v1alpha1.NodeScanConfiguration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: v1alpha1.NodeScanConfigurationName,
-					},
+					Name: v1alpha1.NodeScanConfigurationName,
 					Spec: v1alpha1.NodeScanConfigurationSpec{
 						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
@@ -81,9 +77,7 @@ var _ = Describe("NodeScanRunner", func() {
 			BeforeEach(func(ctx context.Context) {
 				By("Creating a Node with linux/arm64 platform")
 				node = &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("node-%s", uuid.New().String()),
-					},
+					Name: fmt.Sprintf("node-%s", uuid.New().String()),
 				}
 				Expect(k8sClient.Create(ctx, node)).To(Succeed())
 				node.Status = corev1.NodeStatus{
@@ -96,9 +90,7 @@ var _ = Describe("NodeScanRunner", func() {
 
 				By("Creating a NodeScanConfiguration that only allows linux/amd64")
 				config = &v1alpha1.NodeScanConfiguration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: v1alpha1.NodeScanConfigurationName,
-					},
+					Name: v1alpha1.NodeScanConfigurationName,
 					Spec: v1alpha1.NodeScanConfigurationSpec{
 						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
@@ -132,19 +124,15 @@ var _ = Describe("NodeScanRunner", func() {
 			BeforeEach(func(ctx context.Context) {
 				By("Creating a Node")
 				node = &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("node-%s", uuid.New().String()),
-					},
+					Name: fmt.Sprintf("node-%s", uuid.New().String()),
 				}
 				Expect(k8sClient.Create(ctx, node)).To(Succeed())
 
 				By("Creating a NodeScanConfiguration with the force-node-scan annotation")
 				config = &v1alpha1.NodeScanConfiguration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: v1alpha1.NodeScanConfigurationName,
-						Annotations: map[string]string{
-							v1alpha1.AnnotationNodeRescanRequested: "true",
-						},
+					Name: v1alpha1.NodeScanConfigurationName,
+					Annotations: map[string]string{
+						v1alpha1.AnnotationNodeRescanRequested: "true",
 					},
 					Spec: v1alpha1.NodeScanConfigurationSpec{
 						Enabled:      true,
@@ -161,9 +149,7 @@ var _ = Describe("NodeScanRunner", func() {
 			It("Should create a NodeScanJob even if the timer has not expired and remove the annotation", func(ctx context.Context) {
 				By("Creating a recently completed NodeScanJob within the scan interval")
 				recentJob := &v1alpha1.NodeScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("recent-node-job-%s", uuid.New().String()),
-					},
+					Name: fmt.Sprintf("recent-node-job-%s", uuid.New().String()),
 					Spec: v1alpha1.NodeScanJobSpec{
 						NodeName: node.Name,
 					},
@@ -193,9 +179,7 @@ var _ = Describe("NodeScanRunner", func() {
 			It("Should not create a NodeScanJob when one is already running", func(ctx context.Context) {
 				By("Creating an existing running NodeScanJob for the node")
 				existingJob := &v1alpha1.NodeScanJob{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("running-node-job-%s", uuid.New().String()),
-					},
+					Name: fmt.Sprintf("running-node-job-%s", uuid.New().String()),
 					Spec: v1alpha1.NodeScanJobSpec{
 						NodeName: node.Name,
 					},
@@ -219,19 +203,15 @@ var _ = Describe("NodeScanRunner", func() {
 			BeforeEach(func(ctx context.Context) {
 				By("Creating a Node")
 				node = &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("node-%s", uuid.New().String()),
-					},
+					Name: fmt.Sprintf("node-%s", uuid.New().String()),
 				}
 				Expect(k8sClient.Create(ctx, node)).To(Succeed())
 
 				By("Creating a NodeScanConfiguration with force annotation and disabled interval")
 				config = &v1alpha1.NodeScanConfiguration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: v1alpha1.NodeScanConfigurationName,
-						Annotations: map[string]string{
-							v1alpha1.AnnotationNodeRescanRequested: "true",
-						},
+					Name: v1alpha1.NodeScanConfigurationName,
+					Annotations: map[string]string{
+						v1alpha1.AnnotationNodeRescanRequested: "true",
 					},
 					Spec: v1alpha1.NodeScanConfigurationSpec{
 						Enabled:      true,
@@ -268,17 +248,13 @@ var _ = Describe("NodeScanRunner", func() {
 			BeforeEach(func(ctx context.Context) {
 				By("Creating a Node")
 				node = &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("node-%s", uuid.New().String()),
-					},
+					Name: fmt.Sprintf("node-%s", uuid.New().String()),
 				}
 				Expect(k8sClient.Create(ctx, node)).To(Succeed())
 
 				By("Creating a NodeScanConfiguration with scan interval disabled (0 duration)")
 				config = &v1alpha1.NodeScanConfiguration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: v1alpha1.NodeScanConfigurationName,
-					},
+					Name: v1alpha1.NodeScanConfigurationName,
 					Spec: v1alpha1.NodeScanConfigurationSpec{
 						Enabled:      true,
 						ScanInterval: &metav1.Duration{Duration: 0},

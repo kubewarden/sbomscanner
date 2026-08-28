@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -34,21 +33,17 @@ func TestBuildDockerConfigForRegistry(t *testing.T) {
 		{
 			name: "regular registry uses registry namespace for secret lookup",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-registry",
-					Namespace: "registry-ns",
-				},
+				Name:      "my-registry",
+				Namespace: "registry-ns",
 				Spec: v1alpha1.RegistrySpec{
 					URI:        "ghcr.io",
 					AuthSecret: "my-secret",
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-secret",
-					Namespace: "registry-ns",
-				},
-				Type: corev1.SecretTypeDockerConfigJson,
+				Name:      "my-secret",
+				Namespace: "registry-ns",
+				Type:      corev1.SecretTypeDockerConfigJson,
 				Data: map[string][]byte{
 					corev1.DockerConfigJsonKey: dockerConfigJSON(t, "ghcr.io", "user", "pass"),
 				},
@@ -58,12 +53,10 @@ func TestBuildDockerConfigForRegistry(t *testing.T) {
 		{
 			name: "workloadscan-managed registry uses installation namespace for secret lookup",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "workloadscan-ghcr-io",
-					Namespace: "artifacts-ns",
-					Labels: map[string]string{
-						api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
-					},
+				Name:      "workloadscan-ghcr-io",
+				Namespace: "artifacts-ns",
+				Labels: map[string]string{
+					api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
 				},
 				Spec: v1alpha1.RegistrySpec{
 					URI:        "ghcr.io",
@@ -71,11 +64,9 @@ func TestBuildDockerConfigForRegistry(t *testing.T) {
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-secret",
-					Namespace: "sbomscanner",
-				},
-				Type: corev1.SecretTypeDockerConfigJson,
+				Name:      "my-secret",
+				Namespace: "sbomscanner",
+				Type:      corev1.SecretTypeDockerConfigJson,
 				Data: map[string][]byte{
 					corev1.DockerConfigJsonKey: dockerConfigJSON(t, "ghcr.io", "user", "pass"),
 				},
@@ -85,10 +76,8 @@ func TestBuildDockerConfigForRegistry(t *testing.T) {
 		{
 			name: "secret not found",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-registry",
-					Namespace: "registry-ns",
-				},
+				Name:      "my-registry",
+				Namespace: "registry-ns",
 				Spec: v1alpha1.RegistrySpec{
 					URI:        "ghcr.io",
 					AuthSecret: "missing-secret",
@@ -100,21 +89,17 @@ func TestBuildDockerConfigForRegistry(t *testing.T) {
 		{
 			name: "secret with wrong type",
 			registry: &v1alpha1.Registry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-registry",
-					Namespace: "registry-ns",
-				},
+				Name:      "my-registry",
+				Namespace: "registry-ns",
 				Spec: v1alpha1.RegistrySpec{
 					URI:        "ghcr.io",
 					AuthSecret: "my-secret",
 				},
 			},
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "my-secret",
-					Namespace: "registry-ns",
-				},
-				Type: corev1.SecretTypeOpaque,
+				Name:      "my-secret",
+				Namespace: "registry-ns",
+				Type:      corev1.SecretTypeOpaque,
 				Data: map[string][]byte{
 					"data": []byte("not-docker-config"),
 				},

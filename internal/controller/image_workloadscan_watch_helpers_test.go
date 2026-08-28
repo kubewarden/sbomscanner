@@ -28,10 +28,8 @@ func TestWorkloadScanPredicate(t *testing.T) {
 		{
 			name: "image with workloadscan label",
 			object: &storagev1alpha1.Image{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
-					},
+				Labels: map[string]string{
+					api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
 				},
 			},
 			expected: true,
@@ -39,10 +37,8 @@ func TestWorkloadScanPredicate(t *testing.T) {
 		{
 			name: "image without workloadscan label",
 			object: &storagev1alpha1.Image{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"other-label": "other-value",
-					},
+				Labels: map[string]string{
+					"other-label": "other-value",
 				},
 			},
 			expected: false,
@@ -57,10 +53,8 @@ func TestWorkloadScanPredicate(t *testing.T) {
 		{
 			name: "image with workloadscan label set to wrong value",
 			object: &storagev1alpha1.Image{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						api.LabelWorkloadScanKey: "false",
-					},
+				Labels: map[string]string{
+					api.LabelWorkloadScanKey: "false",
 				},
 			},
 			expected: false,
@@ -89,10 +83,8 @@ func TestMapWorkloadScanReportToImages(t *testing.T) {
 		{
 			name: "workload scan with matching images",
 			workloadScan: &storagev1alpha1.WorkloadScanReport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-workload",
-					Namespace: "default",
-				},
+				Name:      "test-workload",
+				Namespace: "default",
 				Spec: storagev1alpha1.WorkloadScanReportSpec{
 					Containers: []storagev1alpha1.ContainerRef{
 						{
@@ -109,15 +101,11 @@ func TestMapWorkloadScanReportToImages(t *testing.T) {
 			},
 			existingImages: []storagev1alpha1.Image{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "image-1",
-						Namespace: "sbomscanner",
-					},
-					ImageMetadata: storagev1alpha1.ImageMetadata{
-						Registry:   "docker-hub",
-						Repository: "nginx",
-						Tag:        "1.19",
-					},
+					Name:       "image-1",
+					Namespace:  "sbomscanner",
+					Registry:   "docker-hub",
+					Repository: "nginx",
+					Tag:        "1.19",
 				},
 			},
 			expectedRequests: 1,
@@ -125,10 +113,8 @@ func TestMapWorkloadScanReportToImages(t *testing.T) {
 		{
 			name: "workload scan with no matching images",
 			workloadScan: &storagev1alpha1.WorkloadScanReport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-workload",
-					Namespace: "default",
-				},
+				Name:      "test-workload",
+				Namespace: "default",
 				Spec: storagev1alpha1.WorkloadScanReportSpec{
 					Containers: []storagev1alpha1.ContainerRef{
 						{
@@ -149,10 +135,8 @@ func TestMapWorkloadScanReportToImages(t *testing.T) {
 		{
 			name: "workload scan with duplicate image refs deduplicates",
 			workloadScan: &storagev1alpha1.WorkloadScanReport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-workload",
-					Namespace: "default",
-				},
+				Name:      "test-workload",
+				Namespace: "default",
 				Spec: storagev1alpha1.WorkloadScanReportSpec{
 					Containers: []storagev1alpha1.ContainerRef{
 						{
@@ -178,15 +162,11 @@ func TestMapWorkloadScanReportToImages(t *testing.T) {
 			},
 			existingImages: []storagev1alpha1.Image{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "image-1",
-						Namespace: "sbomscanner",
-					},
-					ImageMetadata: storagev1alpha1.ImageMetadata{
-						Registry:   "docker-hub",
-						Repository: "nginx",
-						Tag:        "1.19",
-					},
+					Name:       "image-1",
+					Namespace:  "sbomscanner",
+					Registry:   "docker-hub",
+					Repository: "nginx",
+					Tag:        "1.19",
 				},
 			},
 			expectedRequests: 1,
@@ -194,10 +174,8 @@ func TestMapWorkloadScanReportToImages(t *testing.T) {
 		{
 			name: "workload scan with multiple different image refs",
 			workloadScan: &storagev1alpha1.WorkloadScanReport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-workload",
-					Namespace: "default",
-				},
+				Name:      "test-workload",
+				Namespace: "default",
 				Spec: storagev1alpha1.WorkloadScanReportSpec{
 					Containers: []storagev1alpha1.ContainerRef{
 						{
@@ -223,26 +201,18 @@ func TestMapWorkloadScanReportToImages(t *testing.T) {
 			},
 			existingImages: []storagev1alpha1.Image{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "image-nginx",
-						Namespace: "sbomscanner",
-					},
-					ImageMetadata: storagev1alpha1.ImageMetadata{
-						Registry:   "docker-hub",
-						Repository: "nginx",
-						Tag:        "1.19",
-					},
+					Name:       "image-nginx",
+					Namespace:  "sbomscanner",
+					Registry:   "docker-hub",
+					Repository: "nginx",
+					Tag:        "1.19",
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "image-envoy",
-						Namespace: "sbomscanner",
-					},
-					ImageMetadata: storagev1alpha1.ImageMetadata{
-						Registry:   "docker-hub",
-						Repository: "envoy",
-						Tag:        "latest",
-					},
+					Name:       "image-envoy",
+					Namespace:  "sbomscanner",
+					Registry:   "docker-hub",
+					Repository: "envoy",
+					Tag:        "latest",
 				},
 			},
 			expectedRequests: 2,
@@ -294,15 +264,11 @@ func TestMapWorkloadScanReportToImages_VerifiesRequestContent(t *testing.T) {
 	require.NoError(t, storagev1alpha1.AddToScheme(scheme))
 
 	image := &storagev1alpha1.Image{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-image",
-			Namespace: "sbomscanner",
-		},
-		ImageMetadata: storagev1alpha1.ImageMetadata{
-			Registry:   "docker-hub",
-			Repository: "nginx",
-			Tag:        "1.19",
-		},
+		Name:       "my-image",
+		Namespace:  "sbomscanner",
+		Registry:   "docker-hub",
+		Repository: "nginx",
+		Tag:        "1.19",
 	}
 
 	fakeClient := fake.NewClientBuilder().
@@ -316,10 +282,8 @@ func TestMapWorkloadScanReportToImages_VerifiesRequestContent(t *testing.T) {
 		Build()
 
 	workloadScan := &storagev1alpha1.WorkloadScanReport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-workload",
-			Namespace: "default",
-		},
+		Name:      "test-workload",
+		Namespace: "default",
 		Spec: storagev1alpha1.WorkloadScanReportSpec{
 			Containers: []storagev1alpha1.ContainerRef{
 				{

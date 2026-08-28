@@ -253,11 +253,9 @@ func (r *NodeScanRunner) getLastNodeScanJob(ctx context.Context, nodeName string
 
 func (r *NodeScanRunner) createNodeScanJob(ctx context.Context, nodeName string) error {
 	nodeScanJob := &v1alpha1.NodeScanJob{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("node-%s-", nodeName),
-			Annotations: map[string]string{
-				v1alpha1.AnnotationNodeScanJobTriggerKey: "runner",
-			},
+		GenerateName: fmt.Sprintf("node-%s-", nodeName),
+		Annotations: map[string]string{
+			v1alpha1.AnnotationNodeScanJobTriggerKey: "runner",
 		},
 		Spec: v1alpha1.NodeScanJobSpec{
 			NodeName: nodeName,
