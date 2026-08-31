@@ -30,6 +30,11 @@
       "matchManagers": ["gomod"],
       "matchDepTypes": ["replace"],
       "enabled": false
+    },
+    {
+      "description": "cel-go moved to cel.dev/cel-go in v0.32.0; blocked until k8s.io/apiserver migrates",
+      "matchPackageNames": ["github.com/google/cel-go"],
+      "allowedVersions": "<0.32.0"
     }
   ]
 }
