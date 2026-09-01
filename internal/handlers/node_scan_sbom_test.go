@@ -123,6 +123,9 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	failedNodeScanJob := nodeScanJob.DeepCopy()
 	failedNodeScanJob.MarkFailed(v1alpha1.ReasonScanJobInternalError, "kaboom")
 
+	completeNodeScanJob := nodeScanJob.DeepCopy()
+	completeNodeScanJob.MarkComplete(v1alpha1.ReasonNodeScanJobComplete, "done")
+
 	tests := []struct {
 		name            string
 		nodeScanJob     *v1alpha1.NodeScanJob
@@ -142,6 +145,11 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			name:            "nodescanjob is failed",
 			nodeScanJob:     failedNodeScanJob,
 			existingObjects: []runtime.Object{failedNodeScanJob, nodeSBOM, vexHubs},
+		},
+		{
+			name:            "nodescanjob is complete, e.g. a redelivered message",
+			nodeScanJob:     completeNodeScanJob,
+			existingObjects: []runtime.Object{completeNodeScanJob, nodeSBOM, vexHubs},
 		},
 		{
 			name:            "nodesbom not found",

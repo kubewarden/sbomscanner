@@ -617,6 +617,9 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 		},
 	}
 
+	completeScanJob := scanJob.DeepCopy()
+	completeScanJob.MarkComplete(v1alpha1.ReasonScanJobNoImagesToScan, "No images to process")
+
 	tests := []struct {
 		name               string
 		existingObjects    []runtime.Object
@@ -627,6 +630,13 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 		{
 			name:               "scanjob not found initially",
 			existingObjects:    []runtime.Object{registry},
+			setup:              func(_ client.Client, _ *v1alpha1.ScanJob) {},
+			interceptorFuncs:   interceptor.Funcs{},
+			expectedImageCount: 0,
+		},
+		{
+			name:               "scanjob already finished, e.g. a redelivered message",
+			existingObjects:    []runtime.Object{registry, completeScanJob},
 			setup:              func(_ client.Client, _ *v1alpha1.ScanJob) {},
 			interceptorFuncs:   interceptor.Funcs{},
 			expectedImageCount: 0,

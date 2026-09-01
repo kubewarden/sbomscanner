@@ -32,9 +32,10 @@ var _ = Describe("ScanJob Controller", func() {
 			By("Creating a new ScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = ScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a Registry")
@@ -127,9 +128,10 @@ var _ = Describe("ScanJob Controller", func() {
 			By("Creating a new ScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = ScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a ScanJob with non-existent Registry")
@@ -170,9 +172,10 @@ var _ = Describe("ScanJob Controller", func() {
 		BeforeEach(func(ctx context.Context) {
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = ScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a Registry with known repositories and match conditions")
@@ -249,9 +252,10 @@ var _ = Describe("ScanJob Controller", func() {
 			By("Creating a new ScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = ScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a completed ScanJob")
@@ -290,9 +294,10 @@ var _ = Describe("ScanJob Controller", func() {
 			By("Creating a new ScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = ScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 			By("Creating a Registry")
 			registry = v1alpha1.Registry{

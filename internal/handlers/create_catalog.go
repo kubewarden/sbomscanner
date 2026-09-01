@@ -35,6 +35,7 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/handlers/dockerauth"
 	registryclient "github.com/kubewarden/sbomscanner/internal/handlers/registry"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // CreateCatalogHandler is a handler for creating a catalog of images in a registry.
@@ -85,6 +86,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	// It is possible that the controller is slow to set the status condition "Scheduled" to true,
 	// so we might encounter conflicts when setting the status condition to "InProgress".
 	scanJob := &v1alpha1.ScanJob{}
+	var alreadyFinished bool
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err = h.k8sClient.Get(ctx, client.ObjectKey{
 			Name:      createCatalogMessage.ScanJob.Name,
@@ -100,6 +102,13 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			)
 		}
 
+		// A finished job means this message is a redelivery: skip it, so the job
+		// is not moved back to in-progress and completed (and counted) again.
+		if telemetry.JobFinished(scanJob) {
+			alreadyFinished = true
+			return nil
+		}
+
 		scanJob.MarkInProgress(v1alpha1.ReasonScanJobCatalogCreationInProgress, "Catalog creation in progress")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
@@ -111,6 +120,11 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			return nil
 		}
 		return fmt.Errorf("cannot update scan job status %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
+	}
+	if alreadyFinished {
+		h.logger.InfoContext(ctx, "ScanJob is already finished, stopping catalog creation", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace)
+		recordSpanSkipReason(ctx, skipReasonJobFinished)
+		return nil
 	}
 
 	// Retrieve the registry from the scan job annotations.
@@ -277,6 +291,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 
 	// It is possible that the controller is slow to set the status condition "Scheduled" to true,
 	// so we might encounter conflicts when setting the status conditions.
+	var wasFinished bool
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err = h.k8sClient.Get(ctx, types.NamespacedName{
 			Name:      scanJob.Name,
@@ -292,6 +307,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			)
 		}
 
+		wasFinished = telemetry.JobFinished(scanJob)
 		if len(discoveredImages) == 0 {
 			h.logger.InfoContext(ctx, "No images to process", "scanjob", scanJob.Name, "namespace", scanJob.Namespace)
 			scanJob.MarkComplete(v1alpha1.ReasonScanJobNoImagesToScan, "No images to process")
@@ -311,6 +327,12 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			return nil
 		}
 		return fmt.Errorf("cannot update scan job status %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
+	}
+
+	// Count the completion persisted here (the no-images case); a job that was
+	// already finished was counted by the writer that finished it.
+	if !wasFinished {
+		h.instrumentation.recordScanJobFinished(ctx, scanJob)
 	}
 
 	for _, image := range discoveredImages {
