@@ -18,6 +18,7 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // NodeScanSBOMHandler handles SBOM scan requests for nodes.
@@ -87,9 +88,11 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		return nil
 	}
 
-	if scanJob.IsFailed() {
-		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
-		recordSpanSkipReason(ctx, skipReasonJobFailed)
+	// A finished job means this message is a redelivery: skip it, so the job
+	// is not moved back to in-progress and completed (and counted) again.
+	if telemetry.JobFinished(scanJob) {
+		h.logger.InfoContext(ctx, "NodeScanJob is already finished, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+		recordSpanSkipReason(ctx, skipReasonJobFinished)
 		return nil
 	}
 
@@ -171,6 +174,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		"namespace", nodeSBOMNamespace,
 	)
 
+	var wasFinished bool
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := h.k8sClient.Get(ctx, client.ObjectKey{
 			Name:      nodeScanJobName,
@@ -179,6 +183,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 			return fmt.Errorf("failed to get ScanJob: %w", err)
 		}
 
+		wasFinished = telemetry.JobFinished(scanJob)
 		scanJob.MarkComplete(v1alpha1.ReasonNodeScanJobComplete, "NodeSBOM scanned successfully")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
@@ -190,6 +195,12 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 			return nil
 		}
 		return fmt.Errorf("failed to update NodeScanJob status: %w", err)
+	}
+
+	// Count the completion persisted here; a job that was already finished
+	// was counted by the writer that finished it.
+	if !wasFinished {
+		h.instrumentation.recordNodeScanJobFinished(ctx, scanJob)
 	}
 	h.logger.InfoContext(ctx, "NodeSBOM scanned",
 		"nodesbom", nodeSBOMName,

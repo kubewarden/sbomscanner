@@ -32,6 +32,8 @@ type NodeScanJobReconciler struct {
 
 	Scheme    *runtime.Scheme
 	Publisher messaging.Publisher
+
+	instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=nodescanjobs,verbs=get;list;watch;create;update;patch;delete
@@ -73,6 +75,8 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if err := r.Status().Update(ctx, nodeScanJob); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
 			}
+			// The job was pending on entry, so a terminal status persisted here is a fresh completion.
+			r.instrumentation.recordNodeScanJobFinished(ctx, nodeScanJob)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to get NodeScanConfiguration: %w", err)
@@ -87,6 +91,7 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if err := r.Status().Update(ctx, nodeScanJob); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
 		}
+		r.instrumentation.recordNodeScanJobFinished(ctx, nodeScanJob)
 		return ctrl.Result{}, nil
 	}
 
@@ -95,6 +100,7 @@ func (r *NodeScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.Status().Update(ctx, nodeScanJob); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update NodeScanJob status: %w", err)
 	}
+	r.instrumentation.recordNodeScanJobFinished(ctx, nodeScanJob)
 
 	log.V(1).Info("Successfully reconciled NodeScanJob", "nodeScanJob", req.NamespacedName)
 	return reconcileResult, reconcileErr
@@ -254,16 +260,9 @@ func (r *NodeScanJobReconciler) cleanupOldNodeScanJobs(ctx context.Context, curr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NodeScanJobReconciler) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
-	// Count job completions on the controller's informer, observing every status writer.
-	informer, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.NodeScanJob{})
-	if err != nil {
-		return fmt.Errorf("failed to get NodeScanJob informer: %w", err)
-	}
-	if _, err := informer.AddEventHandler(instrumentation.nodeScanJobTransitions()); err != nil {
-		return fmt.Errorf("failed to register NodeScanJob transitions handler: %w", err)
-	}
+	r.instrumentation = instrumentation
 
-	err = ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.NodeScanJob{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,

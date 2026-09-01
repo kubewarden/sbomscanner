@@ -33,6 +33,8 @@ type ScanJobReconciler struct {
 
 	Scheme    *runtime.Scheme
 	Publisher messaging.Publisher
+
+	instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=scanjobs,verbs=get;list;watch;create;update;patch;delete
@@ -72,6 +74,9 @@ func (r *ScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.Status().Update(ctx, scanJob); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update ScanJob status: %w", err)
 	}
+
+	// The job was pending on entry, so a terminal status persisted here is a fresh completion.
+	r.instrumentation.recordScanJobFinished(ctx, scanJob)
 
 	return reconcileResult, reconcileErr
 }
@@ -224,16 +229,9 @@ func validateScanJobTargets(scanJob *v1alpha1.ScanJob, registry *v1alpha1.Regist
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ScanJobReconciler) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
-	// Count job completions on the controller's informer, observing every status writer.
-	informer, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.ScanJob{})
-	if err != nil {
-		return fmt.Errorf("failed to get ScanJob informer: %w", err)
-	}
-	if _, err := informer.AddEventHandler(instrumentation.scanJobTransitions()); err != nil {
-		return fmt.Errorf("failed to register ScanJob transitions handler: %w", err)
-	}
+	r.instrumentation = instrumentation
 
-	err = ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ScanJob{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
