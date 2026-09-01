@@ -33,9 +33,10 @@ var _ = Describe("NodeScanJob Controller", func() {
 			By("Creating a new NodeScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = NodeScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a NodeScanConfiguration")
@@ -127,9 +128,10 @@ var _ = Describe("NodeScanJob Controller", func() {
 			By("Creating a new NodeScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = NodeScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a Node")
@@ -176,9 +178,10 @@ var _ = Describe("NodeScanJob Controller", func() {
 			By("Creating a new NodeScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = NodeScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a NodeScanConfiguration with a nodeSelector")
@@ -241,9 +244,10 @@ var _ = Describe("NodeScanJob Controller", func() {
 			By("Creating a new NodeScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = NodeScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a NodeScanConfiguration with platform filter")
@@ -310,9 +314,10 @@ var _ = Describe("NodeScanJob Controller", func() {
 			By("Creating a new NodeScanJobReconciler")
 			mockPublisher = messagingMocks.NewMockPublisher(GinkgoT())
 			reconciler = NodeScanJobReconciler{
-				Client:    k8sClient,
-				Publisher: mockPublisher,
-				Scheme:    k8sClient.Scheme(),
+				Client:          k8sClient,
+				Publisher:       mockPublisher,
+				Scheme:          k8sClient.Scheme(),
+				instrumentation: newNoopInstrumentation(),
 			}
 
 			By("Creating a NodeScanConfiguration")

@@ -8,12 +8,10 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-	toolscache "k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
@@ -31,8 +29,7 @@ type Instrumentation struct {
 	tracer            trace.Tracer
 	registryScanTicks metric.Int64Counter
 	nodeScanTicks     metric.Int64Counter
-	scanJobs          metric.Int64Counter
-	nodeScanJobs      metric.Int64Counter
+	jobs              *telemetry.JobMetrics
 }
 
 // NewInstrumentation creates a new Instrumentation.
@@ -53,28 +50,16 @@ func NewInstrumentation(tracer trace.Tracer, meter metric.Meter) (*Instrumentati
 		return nil, fmt.Errorf("creating controller.node_scan.ticks counter: %w", err)
 	}
 
-	scanJobs, err := meter.Int64Counter(
-		"sbomscanner.scanjobs",
-		metric.WithDescription("Number of ScanJobs that reached a terminal state."),
-	)
+	jobs, err := telemetry.NewJobMetrics(meter)
 	if err != nil {
-		return nil, fmt.Errorf("creating sbomscanner.scanjobs counter: %w", err)
-	}
-
-	nodeScanJobs, err := meter.Int64Counter(
-		"sbomscanner.nodescanjobs",
-		metric.WithDescription("Number of NodeScanJobs that reached a terminal state."),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating sbomscanner.nodescanjobs counter: %w", err)
+		return nil, fmt.Errorf("creating job metrics: %w", err)
 	}
 
 	return &Instrumentation{
 		tracer:            tracer,
 		registryScanTicks: registryScanTicks,
 		nodeScanTicks:     nodeScanTicks,
-		scanJobs:          scanJobs,
-		nodeScanJobs:      nodeScanJobs,
+		jobs:              jobs,
 	}, nil
 }
 
@@ -88,6 +73,18 @@ func (i *Instrumentation) recordNodeScanTick(ctx context.Context, result string)
 	i.nodeScanTicks.Add(ctx, 1, metric.WithAttributes(attribute.String("result", result)))
 }
 
+// recordScanJobFinished counts a ScanJob whose terminal status this process persisted.
+// It is a no-op when the job is not in a terminal state.
+func (i *Instrumentation) recordScanJobFinished(ctx context.Context, scanJob *v1alpha1.ScanJob) {
+	i.jobs.RecordScanJobFinished(ctx, scanJob)
+}
+
+// recordNodeScanJobFinished counts a NodeScanJob whose terminal status this process persisted.
+// It is a no-op when the job is not in a terminal state.
+func (i *Instrumentation) recordNodeScanJobFinished(ctx context.Context, nodeScanJob *v1alpha1.NodeScanJob) {
+	i.jobs.RecordNodeScanJobFinished(ctx, nodeScanJob)
+}
+
 // startJobTrace starts a fresh trace for a job being created.
 //
 //nolint:spancheck // The span is returned to the caller, which is responsible for ending it.
@@ -97,19 +94,6 @@ func (i *Instrumentation) startJobTrace(ctx context.Context, name string, attrs 
 		trace.WithLinks(trace.LinkFromContext(ctx)),
 		trace.WithAttributes(attrs...),
 	)
-}
-
-// scanJobTransitions returns an informer event handler counting ScanJobs that reach a terminal state,
-// labelled with the scan source (registry or workload).
-func (i *Instrumentation) scanJobTransitions() toolscache.ResourceEventHandler {
-	return jobTransitions(i.scanJobs, func(job client.Object) []attribute.KeyValue {
-		return []attribute.KeyValue{attribute.String("source", scanJobSource(job))}
-	})
-}
-
-// nodeScanJobTransitions returns an informer event handler counting NodeScanJobs that reach a terminal state.
-func (i *Instrumentation) nodeScanJobTransitions() toolscache.ResourceEventHandler {
-	return jobTransitions(i.nodeScanJobs, nil)
 }
 
 // instrumentedReconciler decorates a reconcile.Reconciler with a span per call,
@@ -202,42 +186,6 @@ func reconcileOutcome(result ctrl.Result, err error) string {
 		return resultRequeue
 	default:
 		return resultSuccess
-	}
-}
-
-// isTerminal reports whether the job reached a final state.
-func isTerminal(job v1alpha1.ConditionedJob) bool {
-	return job.IsComplete() || job.IsFailed()
-}
-
-// scanJobSource returns the bounded source label of a ScanJob:
-// workload when the job carries the workloadscan label
-// (stamped by the runner for jobs created against workloadscan-managed registries), registry otherwise.
-func scanJobSource(job client.Object) string {
-	if job.GetLabels()[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue {
-		return "workload"
-	}
-	return "registry"
-}
-
-// jobTransitions returns an informer event handler that increments counter each time a job finishes
-// (its status transitions to complete or failed).
-// It misses jobs that finish while the controller is not running.
-func jobTransitions(counter metric.Int64Counter, extraAttributes func(client.Object) []attribute.KeyValue) toolscache.ResourceEventHandler {
-	return toolscache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj, newObj any) {
-			oldJob, oldOK := oldObj.(v1alpha1.ConditionedJob)
-			newJob, newOK := newObj.(v1alpha1.ConditionedJob)
-			if !oldOK || !newOK || isTerminal(oldJob) || !isTerminal(newJob) {
-				return
-			}
-
-			attrs := []attribute.KeyValue{attribute.String("result", jobStatus(newJob))}
-			if newObject, ok := newObj.(client.Object); ok && extraAttributes != nil {
-				attrs = append(attrs, extraAttributes(newObject)...)
-			}
-			counter.Add(context.Background(), 1, metric.WithAttributes(attrs...))
-		},
 	}
 }
 

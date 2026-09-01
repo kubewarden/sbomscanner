@@ -12,7 +12,6 @@ import (
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
@@ -24,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
@@ -40,22 +38,21 @@ func (f *fakeReconciler) Reconcile(context.Context, ctrl.Request) (ctrl.Result, 
 }
 
 // newTestInstrumentation builds an Instrumentation backed by in-memory SDK providers,
-// returning the span recorder and metric reader used for assertions.
-func newTestInstrumentation(t *testing.T) (*Instrumentation, *tracetest.SpanRecorder, *sdkmetric.ManualReader) {
+// returning the span recorder used for assertions.
+func newTestInstrumentation(t *testing.T) (*Instrumentation, *tracetest.SpanRecorder) {
 	t.Helper()
 
 	spanRecorder := tracetest.NewSpanRecorder()
 	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spanRecorder))
 	t.Cleanup(func() { _ = tracerProvider.Shutdown(context.Background()) })
 
-	reader := sdkmetric.NewManualReader()
-	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	meterProvider := sdkmetric.NewMeterProvider()
 	t.Cleanup(func() { _ = meterProvider.Shutdown(context.Background()) })
 
 	instrumentation, err := NewInstrumentation(tracerProvider.Tracer("test"), meterProvider.Meter("test"))
 	require.NoError(t, err)
 
-	return instrumentation, spanRecorder, reader
+	return instrumentation, spanRecorder
 }
 
 // newFakeReader returns a fake cached client seeded with the given objects,
@@ -80,7 +77,7 @@ func newNoopInstrumentation() *Instrumentation {
 }
 
 func TestInstrumentedReconciler_Success(t *testing.T) {
-	instrumentation, spanRecorder, _ := newTestInstrumentation(t)
+	instrumentation, spanRecorder := newTestInstrumentation(t)
 	reconciler := instrumentReconciler(instrumentation, "ScanJob", "ScanJob", &fakeReconciler{})
 
 	request := ctrl.Request{}
@@ -102,7 +99,7 @@ func TestInstrumentedReconciler_Success(t *testing.T) {
 }
 
 func TestInstrumentedReconciler_Error(t *testing.T) {
-	instrumentation, spanRecorder, _ := newTestInstrumentation(t)
+	instrumentation, spanRecorder := newTestInstrumentation(t)
 	notFound := apierrors.NewNotFound(schema.GroupResource{Group: v1alpha1.GroupVersion.Group, Resource: "scanjobs"}, "my-job")
 	reconciler := instrumentReconciler(instrumentation, "ScanJob", "ScanJob", &fakeReconciler{err: notFound})
 
@@ -116,7 +113,7 @@ func TestInstrumentedReconciler_Error(t *testing.T) {
 }
 
 func TestInstrumentedReconciler_Requeue(t *testing.T) {
-	instrumentation, spanRecorder, _ := newTestInstrumentation(t)
+	instrumentation, spanRecorder := newTestInstrumentation(t)
 	reconciler := instrumentReconciler(instrumentation, "ScanJob", "ScanJob", &fakeReconciler{result: ctrl.Result{RequeueAfter: time.Minute}})
 
 	_, err := reconciler.Reconcile(context.Background(), ctrl.Request{})
@@ -132,7 +129,7 @@ func TestInstrumentedReconciler_Requeue(t *testing.T) {
 // trace carried by the object's traceparent annotation, resolved before the span starts.
 func TestInstrumentedReconciler_JoinsJobTrace(t *testing.T) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
-	instrumentation, spanRecorder, _ := newTestInstrumentation(t)
+	instrumentation, spanRecorder := newTestInstrumentation(t)
 
 	// Simulate the runner: a job trace injected into the object's annotations.
 	jobCtx, jobSpan := instrumentation.startJobTrace(context.Background(), "RegistryScanRunner.CreateScanJob")
@@ -165,7 +162,7 @@ func TestInstrumentedReconciler_JoinsJobTrace(t *testing.T) {
 // linked back to the runner tick span instead of being parented under it.
 func TestStartJobTrace(t *testing.T) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
-	instrumentation, spanRecorder, _ := newTestInstrumentation(t)
+	instrumentation, spanRecorder := newTestInstrumentation(t)
 
 	tickCtx, tickSpan := instrumentation.tracer.Start(context.Background(), "runner cycle")
 	defer tickSpan.End()
@@ -203,71 +200,6 @@ func TestJobStatus(t *testing.T) {
 
 	scanJob.MarkFailed(v1alpha1.ReasonScanJobRegistryNotFound, "failed")
 	assert.Equal(t, "failed", jobStatus(scanJob))
-}
-
-// scanJobInStatus returns a ScanJob in the given lifecycle status for transition tests.
-func scanJobInStatus(status string) *v1alpha1.ScanJob {
-	scanJob := &v1alpha1.ScanJob{}
-	scanJob.InitializeConditions()
-	switch status {
-	case "scheduled":
-		scanJob.MarkScheduled(v1alpha1.ReasonScanJobScheduled, "scheduled")
-	case "in_progress":
-		scanJob.MarkInProgress(v1alpha1.ReasonScanJobImageScanInProgress, "in progress")
-	case "complete":
-		scanJob.MarkComplete(v1alpha1.ReasonScanJobAllImagesScanned, "complete")
-	case "failed":
-		scanJob.MarkFailed(v1alpha1.ReasonScanJobRegistryNotFound, "failed")
-	}
-	return scanJob
-}
-
-// collectJobResults returns the sbomscanner.scanjobs data points keyed by "result/source", empty when absent.
-func collectJobResults(t *testing.T, reader *sdkmetric.ManualReader) map[string]int64 {
-	t.Helper()
-
-	var resourceMetrics metricdata.ResourceMetrics
-	require.NoError(t, reader.Collect(context.Background(), &resourceMetrics))
-
-	results := map[string]int64{}
-	for _, scopeMetrics := range resourceMetrics.ScopeMetrics {
-		for _, m := range scopeMetrics.Metrics {
-			if m.Name != "sbomscanner.scanjobs" {
-				continue
-			}
-			sum, ok := m.Data.(metricdata.Sum[int64])
-			require.True(t, ok)
-			for _, point := range sum.DataPoints {
-				key := attrValue(point.Attributes, "result") + "/" + attrValue(point.Attributes, "source")
-				results[key] += point.Value
-			}
-		}
-	}
-	return results
-}
-
-// TestScanJobTransitions asserts that only transitions into a terminal state are counted,
-// labelled with the scan source.
-func TestScanJobTransitions(t *testing.T) {
-	instrumentation, _, reader := newTestInstrumentation(t)
-	handler := instrumentation.scanJobTransitions()
-
-	workloadJob := scanJobInStatus("complete")
-	workloadJob.Labels = map[string]string{api.LabelWorkloadScanKey: api.LabelWorkloadScanValue}
-
-	handler.OnUpdate(scanJobInStatus("pending"), scanJobInStatus("failed"))
-	handler.OnUpdate(scanJobInStatus("in_progress"), scanJobInStatus("complete"))
-	handler.OnUpdate(scanJobInStatus("in_progress"), workloadJob)
-	handler.OnUpdate(scanJobInStatus("pending"), scanJobInStatus("scheduled")) // non-terminal transition
-	handler.OnUpdate(scanJobInStatus("failed"), scanJobInStatus("failed"))     // already terminal, e.g. a resync
-	handler.OnUpdate(scanJobInStatus("complete"), scanJobInStatus("complete")) // already terminal, e.g. a resync
-
-	results := collectJobResults(t, reader)
-	assert.Equal(t, map[string]int64{
-		"failed/registry":   1,
-		"complete/registry": 1,
-		"complete/workload": 1,
-	}, results)
 }
 
 // attrValue returns the string form of the attribute with the given key, or "" when absent.

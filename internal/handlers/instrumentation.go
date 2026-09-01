@@ -13,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
@@ -28,6 +29,7 @@ const (
 	skipReasonJobNotFound    = "job_not_found"
 	skipReasonUIDMismatch    = "uid_mismatch"
 	skipReasonJobFailed      = "job_failed"
+	skipReasonJobFinished    = "job_finished"
 	skipReasonObjectNotFound = "object_not_found"
 )
 
@@ -47,6 +49,7 @@ type Instrumentation struct {
 	registryCallDuration metric.Float64Histogram
 	trivyDuration        metric.Float64Histogram
 	handlerErrors        metric.Int64Counter
+	jobs                 *telemetry.JobMetrics
 }
 
 // NewInstrumentation creates a new Instrumentation.
@@ -94,6 +97,11 @@ func NewInstrumentation(tracer trace.Tracer, meter metric.Meter) (*Instrumentati
 		return nil, fmt.Errorf("creating worker.handler.errors counter: %w", err)
 	}
 
+	jobs, err := telemetry.NewJobMetrics(meter)
+	if err != nil {
+		return nil, fmt.Errorf("creating job metrics: %w", err)
+	}
+
 	return &Instrumentation{
 		tracer:               tracer,
 		scanDuration:         scanDuration,
@@ -101,7 +109,20 @@ func NewInstrumentation(tracer trace.Tracer, meter metric.Meter) (*Instrumentati
 		registryCallDuration: registryCallDuration,
 		trivyDuration:        trivyDuration,
 		handlerErrors:        handlerErrors,
+		jobs:                 jobs,
 	}, nil
+}
+
+// recordScanJobFinished counts a ScanJob whose terminal status this process persisted.
+// It is a no-op when the job is not in a terminal state.
+func (i *Instrumentation) recordScanJobFinished(ctx context.Context, scanJob *v1alpha1.ScanJob) {
+	i.jobs.RecordScanJobFinished(ctx, scanJob)
+}
+
+// recordNodeScanJobFinished counts a NodeScanJob whose terminal status this process persisted.
+// It is a no-op when the job is not in a terminal state.
+func (i *Instrumentation) recordNodeScanJobFinished(ctx context.Context, nodeScanJob *v1alpha1.NodeScanJob) {
+	i.jobs.RecordNodeScanJobFinished(ctx, nodeScanJob)
 }
 
 // recordHandled records the duration of one handled message, and counts the error when it failed.
