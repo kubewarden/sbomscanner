@@ -22,7 +22,7 @@
     {
       "id": 201,
       "type": "stat",
-      "title": "Registry scans completed",
+      "title": "Registry scan jobs completed",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -73,7 +73,7 @@
     {
       "id": 202,
       "type": "stat",
-      "title": "Registry scans failed",
+      "title": "Registry scan jobs failed",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -128,7 +128,7 @@
     {
       "id": 203,
       "type": "stat",
-      "title": "Node scans completed",
+      "title": "Node scan jobs completed",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -179,7 +179,7 @@
     {
       "id": 204,
       "type": "stat",
-      "title": "Node scans failed",
+      "title": "Node scan jobs failed",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -234,7 +234,7 @@
     {
       "id": 205,
       "type": "stat",
-      "title": "Workload scans completed",
+      "title": "Workload scan jobs completed",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -285,7 +285,7 @@
     {
       "id": 206,
       "type": "stat",
-      "title": "Workload scans failed",
+      "title": "Workload scan jobs failed",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -340,7 +340,7 @@
     {
       "id": 207,
       "type": "timeseries",
-      "title": "Registry scans by result",
+      "title": "Registry scan jobs by result",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -388,7 +388,7 @@
     {
       "id": 208,
       "type": "timeseries",
-      "title": "Node scans by result",
+      "title": "Node scan jobs by result",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -436,7 +436,7 @@
     {
       "id": 209,
       "type": "timeseries",
-      "title": "Workload scans by result",
+      "title": "Workload scan jobs by result",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
