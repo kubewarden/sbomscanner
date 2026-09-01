@@ -12,12 +12,14 @@ import (
 
 	sbombasticv1alpha1 "github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // ScanJobFailureHandler handles failures for messages related to scan jobs.
 type ScanJobFailureHandler struct {
-	k8sClient client.Client
-	logger    *slog.Logger
+	k8sClient       client.Client
+	instrumentation *Instrumentation
+	logger          *slog.Logger
 }
 
 // NewScanJobFailureHandler creates a new instance of ScanJobFailureHandler.
@@ -27,8 +29,9 @@ func NewScanJobFailureHandler(
 	logger *slog.Logger,
 ) *InstrumentedFailureHandler {
 	return instrumentFailureHandler(instrumentation, "ScanJobFailureHandler", &ScanJobFailureHandler{
-		k8sClient: k8sClient,
-		logger:    logger.With("handler", "scanjob_failure_handler"),
+		k8sClient:       k8sClient,
+		instrumentation: instrumentation,
+		logger:          logger.With("handler", "scanjob_failure_handler"),
 	})
 }
 
@@ -48,6 +51,7 @@ func (h *ScanJobFailureHandler) HandleFailure(ctx context.Context, message messa
 
 	// It is possible that the controller is slow to set the status condition "Scheduled" to true,
 	// so we might encounter conflicts when setting the status conditions.
+	var wasFinished bool
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := h.k8sClient.Get(ctx, client.ObjectKey{
 			Name:      baseMessage.ScanJob.Name,
@@ -56,6 +60,7 @@ func (h *ScanJobFailureHandler) HandleFailure(ctx context.Context, message messa
 			return fmt.Errorf("cannot get scanjob %s/%s: %w", baseMessage.ScanJob.Namespace, baseMessage.ScanJob.Name, err)
 		}
 
+		wasFinished = telemetry.JobFinished(scanJob)
 		scanJob.MarkFailed(sbombasticv1alpha1.ReasonScanJobInternalError, errorMessage)
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
@@ -65,6 +70,12 @@ func (h *ScanJobFailureHandler) HandleFailure(ctx context.Context, message messa
 			return nil
 		}
 		return fmt.Errorf("failed to update ScanJob %s/%s status to failed: %w", scanJob.Namespace, scanJob.Name, err)
+	}
+
+	// Count the failure persisted here; a job that was already finished
+	// was counted by the writer that finished it.
+	if !wasFinished {
+		h.instrumentation.recordScanJobFinished(ctx, scanJob)
 	}
 
 	h.logger.DebugContext(ctx, "ScanJob marked as failed",

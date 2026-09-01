@@ -12,12 +12,14 @@ import (
 
 	v1alpha1 "github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // NodeScanJobFailureHandler handles failures for messages related to node scan jobs.
 type NodeScanJobFailureHandler struct {
-	k8sClient client.Client
-	logger    *slog.Logger
+	k8sClient       client.Client
+	instrumentation *Instrumentation
+	logger          *slog.Logger
 }
 
 // NewNodeScanJobFailureHandler creates a new instance of NodeScanJobFailureHandler.
@@ -27,8 +29,9 @@ func NewNodeScanJobFailureHandler(
 	logger *slog.Logger,
 ) *InstrumentedFailureHandler {
 	return instrumentFailureHandler(instrumentation, "NodeScanJobFailureHandler", &NodeScanJobFailureHandler{
-		k8sClient: k8sClient,
-		logger:    logger.With("handler", "nodescanjob_failure_handler"),
+		k8sClient:       k8sClient,
+		instrumentation: instrumentation,
+		logger:          logger.With("handler", "nodescanjob_failure_handler"),
 	})
 }
 
@@ -45,6 +48,7 @@ func (h *NodeScanJobFailureHandler) HandleFailure(ctx context.Context, message m
 
 	nodeScanJob := &v1alpha1.NodeScanJob{}
 
+	var wasFinished bool
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := h.k8sClient.Get(ctx, client.ObjectKey{
 			Name: nodeBaseMessage.NodeScanJob.Name,
@@ -52,6 +56,7 @@ func (h *NodeScanJobFailureHandler) HandleFailure(ctx context.Context, message m
 			return fmt.Errorf("cannot get NodeScanJob %s: %w", nodeBaseMessage.NodeScanJob.Name, err)
 		}
 
+		wasFinished = telemetry.JobFinished(nodeScanJob)
 		nodeScanJob.MarkFailed(v1alpha1.ReasonScanJobInternalError, errorMessage)
 		return h.k8sClient.Status().Update(ctx, nodeScanJob)
 	})
@@ -61,6 +66,12 @@ func (h *NodeScanJobFailureHandler) HandleFailure(ctx context.Context, message m
 			return nil
 		}
 		return fmt.Errorf("failed to update NodeScanJob %s status to failed: %w", nodeScanJob.Name, err)
+	}
+
+	// Count the failure persisted here; a job that was already finished
+	// was counted by the writer that finished it.
+	if !wasFinished {
+		h.instrumentation.recordNodeScanJobFinished(ctx, nodeScanJob)
 	}
 
 	h.logger.DebugContext(ctx, "NodeScanJob marked as failed",
