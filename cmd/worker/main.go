@@ -162,7 +162,7 @@ func main() {
 			handlers.GenerateNodeSBOMSubject + "." + nodeName: handlers.NewGenerateNodeSBOMHandler(k8sClient, scheme, runDir, targetDir, trivyJavaDBRepository, publisher, installationNamespace, logger),
 			handlers.ScanNodeSBOMSubject + "." + nodeName:     handlers.NewNodeScanSBOMHandler(k8sClient, scheme, runDir, trivyDBRepository, trivyJavaDBRepository, logger),
 		}
-		durableName = "worker-node-" + nodeName
+		durableName = sanitizeNodeSubscriberName(nodeName)
 	default:
 		logger.Error("Invalid scanning mode", "mode", mode)
 		os.Exit(1)
