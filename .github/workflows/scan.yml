@@ -69,7 +69,7 @@ jobs:
         # the token in that case, so the upload would fail. The SARIF is still
         # available as a workflow artifact (uploaded below) for reviewers.
         if: github.event.pull_request.head.repo.fork != true
-        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: govulncheck-stripped.sarif
           category: govulncheck
@@ -97,7 +97,7 @@ jobs:
       - name: Install Trivy
         env:
           # renovate: datasource=github-releases depName=aquasecurity/trivy
-          TRIVY_VERSION: "0.73.0"
+          TRIVY_VERSION: "0.74.0"
         run: |
           set -euo pipefail
           tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
@@ -131,7 +131,7 @@ jobs:
         # the token in that case, so the upload would fail. The SARIF is still
         # available as a workflow artifact (uploaded below) for reviewers.
         if: github.event.pull_request.head.repo.fork != true
-        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: trivy.sarif
           category: trivy
