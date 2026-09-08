@@ -840,6 +840,30 @@ ContainerStatus contains the scan status for a single container.
 |===
 
 
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-epss"]
+==== EPSS
+
+
+
+EPSS holds the Exploit Prediction Scoring System data for a vulnerability
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vulnerability[$$Vulnerability$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`score`* __string__ | Score is the probability (0..1) that the CVE will be exploited +
+in the next 30 days + |  | 
+| *`percentile`* __string__ | Percentile is the rank of the score among all scored CVEs (0..1) + |  | 
+| *`date`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__ | Date is the score_date of the EPSS feed, when the scores were computed + |  | 
+|===
+
+
 [id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-image"]
 ==== Image
 
@@ -990,6 +1014,30 @@ ImageWorkloadScanReports identifies a workload that references this image
 |===
 
 
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-kev"]
+==== KEV
+
+
+
+KEV holds the CISA Known Exploited Vulnerabilities catalog entry
+for a vulnerability
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vulnerability[$$Vulnerability$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`dateAdded`* __string__ | DateAdded is the date CISA added the CVE to the catalog, as published (YYYY-MM-DD) + |  | 
+| *`dueDate`* __string__ | DueDate is the remediation due date set by CISA, as published (YYYY-MM-DD) + |  | 
+| *`knownRansomwareCampaignUse`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-ransomwarecampaignuse[$$RansomwareCampaignUse$$]__ | KnownRansomwareCampaignUse is the CISA assessment of use in ransomware campaigns + |  | 
+|===
+
+
 [id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata"]
 ==== NodeMetadata
 
@@ -1064,6 +1112,22 @@ NodeVulnerabilityReport is the Schema for the scanresults API
 | *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__ | Report is the actual vulnerability scan report + |  | 
 |===
 
+
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-ransomwarecampaignuse"]
+==== RansomwareCampaignUse
+
+_Underlying type:_ _string_
+
+RansomwareCampaignUse is the value CISA publishes for knownRansomwareCampaignUse
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-kev[$$KEV$$]
+****
 
 
 
@@ -1250,12 +1314,10 @@ May be empty when the source vendor is not known. + |  |
 | *`suppressed`* __boolean__ | Suppressed identify when vulnerability has +
 been suppressed by VEX documents + |  | 
 | *`vexStatus`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vexstatus[$$VEXStatus$$]__ | VEXStatus information + |  | 
-| *`knownExploited`* __boolean__ | KnownExploited is true when the CVE appears in the CISA Known Exploited +
-Vulnerabilities (KEV) catalog, i.e. it is being actively exploited in the wild. + |  | 
-| *`epssScore`* __string__ | EPSSScore is the Exploit Prediction Scoring System probability that the CVE +
-will be exploited (0..1), as a string. Empty when no EPSS data is available. + |  | 
-| *`epssPercentile`* __string__ | EPSSPercentile is the EPSS score's percentile rank (0..1), as a string. +
-Empty when no EPSS data is available. + |  | 
+| *`kev`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-kev[$$KEV$$]__ | KEV is the CISA Known Exploited Vulnerabilities catalog entry for the CVE. +
+Nil when the CVE is not in the catalog or no KEV data is available. + |  | 
+| *`epss`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-epss[$$EPSS$$]__ | EPSS is the Exploit Prediction Scoring System data for the CVE. +
+Nil when no EPSS data is available. + |  | 
 |===
 
 

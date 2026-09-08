@@ -21,6 +21,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.ContainerRef{}.OpenAPIModelName():                    schema_sbomscanner_api_storage_v1alpha1_ContainerRef(ref),
 		v1alpha1.ContainerResult{}.OpenAPIModelName():                 schema_sbomscanner_api_storage_v1alpha1_ContainerResult(ref),
 		v1alpha1.ContainerStatus{}.OpenAPIModelName():                 schema_sbomscanner_api_storage_v1alpha1_ContainerStatus(ref),
+		v1alpha1.EPSS{}.OpenAPIModelName():                            schema_sbomscanner_api_storage_v1alpha1_EPSS(ref),
 		v1alpha1.Image{}.OpenAPIModelName():                           schema_sbomscanner_api_storage_v1alpha1_Image(ref),
 		v1alpha1.ImageLayer{}.OpenAPIModelName():                      schema_sbomscanner_api_storage_v1alpha1_ImageLayer(ref),
 		v1alpha1.ImageList{}.OpenAPIModelName():                       schema_sbomscanner_api_storage_v1alpha1_ImageList(ref),
@@ -28,6 +29,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.ImageRef{}.OpenAPIModelName():                        schema_sbomscanner_api_storage_v1alpha1_ImageRef(ref),
 		v1alpha1.ImageStatus{}.OpenAPIModelName():                     schema_sbomscanner_api_storage_v1alpha1_ImageStatus(ref),
 		v1alpha1.ImageWorkloadScanReports{}.OpenAPIModelName():        schema_sbomscanner_api_storage_v1alpha1_ImageWorkloadScanReports(ref),
+		v1alpha1.KEV{}.OpenAPIModelName():                             schema_sbomscanner_api_storage_v1alpha1_KEV(ref),
 		v1alpha1.NodeMetadata{}.OpenAPIModelName():                    schema_sbomscanner_api_storage_v1alpha1_NodeMetadata(ref),
 		v1alpha1.NodeSBOM{}.OpenAPIModelName():                        schema_sbomscanner_api_storage_v1alpha1_NodeSBOM(ref),
 		v1alpha1.NodeSBOMList{}.OpenAPIModelName():                    schema_sbomscanner_api_storage_v1alpha1_NodeSBOMList(ref),
@@ -231,6 +233,44 @@ func schema_sbomscanner_api_storage_v1alpha1_ContainerStatus(ref common.Referenc
 				Required: []string{"name", "scanStatus"},
 			},
 		},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_EPSS(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EPSS holds the Exploit Prediction Scoring System data for a vulnerability",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"score": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Score is the probability (0..1) that the CVE will be exploited in the next 30 days",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"percentile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Percentile is the rank of the score among all scored CVEs (0..1)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"date": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Date is the score_date of the EPSS feed, when the scores were computed",
+							Ref:         ref(v1.Time{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"score", "percentile", "date"},
+			},
+		},
+		Dependencies: []string{
+			v1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -554,6 +594,42 @@ func schema_sbomscanner_api_storage_v1alpha1_ImageWorkloadScanReports(ref common
 					},
 				},
 				Required: []string{"name", "namespace"},
+			},
+		},
+	}
+}
+
+func schema_sbomscanner_api_storage_v1alpha1_KEV(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KEV holds the CISA Known Exploited Vulnerabilities catalog entry for a vulnerability",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"dateAdded": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DateAdded is the date CISA added the CVE to the catalog, as published (YYYY-MM-DD)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dueDate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DueDate is the remediation due date set by CISA, as published (YYYY-MM-DD)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"knownRansomwareCampaignUse": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KnownRansomwareCampaignUse is the CISA assessment of use in ransomware campaigns",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"dateAdded"},
 			},
 		},
 	}
@@ -1229,25 +1305,16 @@ func schema_sbomscanner_api_storage_v1alpha1_Vulnerability(ref common.ReferenceC
 							Ref:         ref(v1alpha1.VEXStatus{}.OpenAPIModelName()),
 						},
 					},
-					"knownExploited": {
+					"kev": {
 						SchemaProps: spec.SchemaProps{
-							Description: "KnownExploited is true when the CVE appears in the CISA Known Exploited Vulnerabilities (KEV) catalog, i.e. it is being actively exploited in the wild.",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Description: "KEV is the CISA Known Exploited Vulnerabilities catalog entry for the CVE. Nil when the CVE is not in the catalog or no KEV data is available.",
+							Ref:         ref(v1alpha1.KEV{}.OpenAPIModelName()),
 						},
 					},
-					"epssScore": {
+					"epss": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EPSSScore is the Exploit Prediction Scoring System probability that the CVE will be exploited (0..1), as a string. Empty when no EPSS data is available.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"epssPercentile": {
-						SchemaProps: spec.SchemaProps{
-							Description: "EPSSPercentile is the EPSS score's percentile rank (0..1), as a string. Empty when no EPSS data is available.",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "EPSS is the Exploit Prediction Scoring System data for the CVE. Nil when no EPSS data is available.",
+							Ref:         ref(v1alpha1.EPSS{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -1255,7 +1322,7 @@ func schema_sbomscanner_api_storage_v1alpha1_Vulnerability(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.CVSS{}.OpenAPIModelName(), v1alpha1.VEXStatus{}.OpenAPIModelName()},
+			v1alpha1.CVSS{}.OpenAPIModelName(), v1alpha1.EPSS{}.OpenAPIModelName(), v1alpha1.KEV{}.OpenAPIModelName(), v1alpha1.VEXStatus{}.OpenAPIModelName()},
 	}
 }
 

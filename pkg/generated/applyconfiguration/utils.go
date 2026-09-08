@@ -24,6 +24,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &storagev1alpha1.ContainerStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("CVSS"):
 		return &storagev1alpha1.CVSSApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EPSS"):
+		return &storagev1alpha1.EPSSApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Image"):
 		return &storagev1alpha1.ImageApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ImageLayer"):
@@ -36,6 +38,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &storagev1alpha1.ImageStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("ImageWorkloadScanReports"):
 		return &storagev1alpha1.ImageWorkloadScanReportsApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("KEV"):
+		return &storagev1alpha1.KEVApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("NodeMetadata"):
 		return &storagev1alpha1.NodeMetadataApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("NodeSBOM"):
