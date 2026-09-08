@@ -17,17 +17,19 @@ import (
 )
 
 var (
-	testenv              env.Environment
-	kindClusterName      string
-	namespace            = "sbomscanner"
-	workerImage          = "ghcr.io/kubewarden/sbomscanner/worker:latest"
-	controllerImage      = "ghcr.io/kubewarden/sbomscanner/controller:latest"
-	storageImage         = "ghcr.io/kubewarden/sbomscanner/storage:latest"
-	certManagerNamespace = "cert-manager"
-	certManagerVersion   = "v1.18.2"
-	cnpgNamespace        = "cnpg-system"
-	releaseName          = "sbomscanner"
-	chartPath            = "../../charts/sbomscanner"
+	testenv         env.Environment
+	kindClusterName string
+	namespace       = "sbomscanner"
+	workerImage     = "ghcr.io/kubewarden/sbomscanner/worker:latest"
+	controllerImage = "ghcr.io/kubewarden/sbomscanner/controller:latest"
+	storageImage    = "ghcr.io/kubewarden/sbomscanner/storage:latest"
+	// sbomscannerDBRepository is a fixed test asset whose KEV and EPSS entries cover the scanned test images.
+	sbomscannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb:1"
+	certManagerNamespace    = "cert-manager"
+	certManagerVersion      = "v1.18.2"
+	cnpgNamespace           = "cnpg-system"
+	releaseName             = "sbomscanner"
+	chartPath               = "../../charts/sbomscanner"
 )
 
 func TestMain(m *testing.M) {
@@ -103,6 +105,7 @@ func TestMain(m *testing.M) {
 					"--set", "controller.logLevel=debug",
 					"--set", "storage.logLevel=debug",
 					"--set", "worker.logLevel=debug",
+					"--set", "worker.sbomscannerDBRepository="+sbomscannerDBRepository,
 				),
 				helm.WithTimeout("3m"))
 			if err != nil {
