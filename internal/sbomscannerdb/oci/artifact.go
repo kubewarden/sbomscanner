@@ -46,7 +46,7 @@ const (
 
 // UpdateWindow bounds the artifact's freshness: LastUpdate is when it was built,
 // NextUpdate is when the next rebuild is expected. Both are rendered as the
-// lastUpdate/nextUpdate annotations on the manifest and on every layer.
+// lastUpdate/nextUpdate annotations on the manifest.
 type UpdateWindow struct {
 	LastUpdate time.Time
 	NextUpdate time.Time
@@ -155,8 +155,6 @@ func (b *Builder) build(ctx context.Context, ref, dataDir string, layers []Layer
 		return Artifact{}, err
 	}
 
-	windowAnnotations := window.annotations()
-
 	b.logger.InfoContext(ctx, "packing artifact", "ref", ref, "layers", len(layers))
 
 	// Archive each data file into a temp dir before pushing;
@@ -174,7 +172,7 @@ func (b *Builder) build(ctx context.Context, ref, dataDir string, layers []Layer
 		if err := writeTarGz(archivePath, dataDir, []string{layer.FileName}); err != nil {
 			return Artifact{}, fmt.Errorf("archive %s: %w", layer.FileName, err)
 		}
-		desc, err := pushFileAsLayer(ctx, layout, archivePath, layer.MediaType, archiveName, windowAnnotations)
+		desc, err := pushFileAsLayer(ctx, layout, archivePath, layer.MediaType, archiveName)
 		if err != nil {
 			return Artifact{}, fmt.Errorf("push layer %s: %w", archiveName, err)
 		}
@@ -299,9 +297,7 @@ func manifestAnnotations(window UpdateWindow) map[string]string {
 // pushFileAsLayer streams the file at path into the layout as a blob with the given media type.
 // The title annotation records the layer archive name (e.g. kev.tar.gz),
 // so that generic tools like `oras pull` write it under an honest file name.
-// The update-window annotations are mirrored onto every layer so each layer
-// carries the same freshness metadata as the manifest.
-func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType, title string, window map[string]string) (ocispec.Descriptor, error) {
+func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType, title string) (ocispec.Descriptor, error) {
 	desc, err := descriptorFromFile(path, mediaType)
 	if err != nil {
 		return ocispec.Descriptor{}, err
@@ -309,7 +305,6 @@ func pushFileAsLayer(ctx context.Context, layout *orasoci.Store, path, mediaType
 	desc.Annotations = map[string]string{
 		ocispec.AnnotationTitle: title,
 	}
-	maps.Copy(desc.Annotations, window)
 
 	file, err := os.Open(path)
 	if err != nil {

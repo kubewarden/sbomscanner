@@ -162,8 +162,6 @@ func assertViewMatchesBuild(t *testing.T, view ManifestView, built Artifact) {
 		assert.NotEmpty(t, layer.Digest)
 		assert.Positive(t, layer.Size)
 		assert.NotEmpty(t, layer.Annotations[ocispec.AnnotationTitle])
-		assert.Equal(t, window[AnnotationLastUpdate], layer.Annotations[AnnotationLastUpdate])
-		assert.Equal(t, window[AnnotationNextUpdate], layer.Annotations[AnnotationNextUpdate])
 	}
 }
 
@@ -180,7 +178,39 @@ func TestStoreInspect_FailsForUnknownRef(t *testing.T) {
 
 	_, err := store.Inspect(context.Background(), testRef)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "run `build` first")
+	assert.Contains(t, err.Error(), "run `build` or `pull` first")
+}
+
+func TestStoreExport_WritesDataFiles(t *testing.T) {
+	dataDir, layers := writeTestData(t)
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+	_, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").
+		build(context.Background(), testRef, dataDir, layers, testWindow())
+	require.NoError(t, err)
+
+	outDir := t.TempDir()
+	paths, err := store.Export(context.Background(), testRef, outDir)
+	require.NoError(t, err)
+	require.Len(t, paths, len(layers))
+
+	// Each feed comes back as its own file, in layer order, and nothing else lands in outDir.
+	for i, layer := range layers {
+		assert.Equal(t, filepath.Join(outDir, layer.FileName), paths[i])
+		data, err := os.ReadFile(paths[i])
+		require.NoError(t, err)
+		assert.Equal(t, "data for "+layer.FileName, string(data))
+	}
+	entries, err := os.ReadDir(outDir)
+	require.NoError(t, err)
+	assert.Len(t, entries, len(layers))
+}
+
+func TestStoreExport_FailsForUnknownRef(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+
+	_, err := store.Export(context.Background(), testRef, t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run `build` or `pull` first")
 }
 
 func TestWriteTarGz_ContainsFile(t *testing.T) {

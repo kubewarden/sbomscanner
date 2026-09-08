@@ -1,27 +1,19 @@
 package oci
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync/atomic"
 	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	oras "oras.land/oras-go/v2"
-	"oras.land/oras-go/v2/content"
-	orasoci "oras.land/oras-go/v2/content/oci"
-	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry"
 	orasremote "oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
@@ -37,10 +29,6 @@ type Config struct {
 	SkipTLSVerify bool
 	// PlainHTTP uses HTTP instead of HTTPS.
 	PlainHTTP bool
-	// AllowAnonymous permits pulls when no docker config.json is present.
-	// When a config.json IS present it is still used, so this makes
-	// credentials optional rather than disabling them.
-	AllowAnonymous bool
 }
 
 // Remote performs push and pull operations against OCI registries.
@@ -66,11 +54,8 @@ func (r *Remote) Push(ctx context.Context, store *Store, ref string) (Artifact, 
 	if err != nil {
 		return Artifact{}, err
 	}
-	if _, err := layout.Resolve(ctx, ref); err != nil {
-		if errors.Is(err, errdef.ErrNotFound) {
-			return Artifact{}, fmt.Errorf("%s not found in local store (run `build` first)", ref)
-		}
-		return Artifact{}, fmt.Errorf("resolve %s in local store: %w", ref, err)
+	if err := resolveLocal(ctx, layout, ref); err != nil {
+		return Artifact{}, err
 	}
 
 	repo, err := r.newRepository(dstRef)
@@ -104,37 +89,25 @@ func (r *Remote) Push(ctx context.Context, store *Store, ref string) (Artifact, 
 	}, nil
 }
 
-// pullCacheDir is the content-addressable cache subdirectory created inside a
-// pull's outDir. It persists between pulls so oras.Copy downloads each blob once
-// and skips it on subsequent rebuilds whose feed content (and thus blob digest)
-// is unchanged.
-const pullCacheDir = ".store"
-
-// Pull fetches the DB artifact at the given tag reference into a persistent
-// content-addressable cache under outDir (re-downloading only blobs it does not
-// already have), then extracts each data layer (a tar.gz) and writes the
-// contained files (e.g. known_exploited_vulnerabilities.json, epss_scores.csv)
-// into outDir. It returns the written file paths in manifest layer order.
-func (r *Remote) Pull(ctx context.Context, ref, outDir string) ([]string, error) {
+// Pull copies the artifact at ref from the registry into store, under the same reference.
+// Blobs that the store already holds are not downloaded again.
+func (r *Remote) Pull(ctx context.Context, store *Store, ref string) (Artifact, error) {
 	srcRef, err := parseTagReference(ref)
 	if err != nil {
-		return nil, err
+		return Artifact{}, err
 	}
 
 	repo, err := r.newRepository(srcRef)
 	if err != nil {
-		return nil, err
+		return Artifact{}, err
 	}
 
-	store, err := openPullCache(filepath.Join(outDir, pullCacheDir))
+	layout, err := store.open()
 	if err != nil {
-		return nil, err
+		return Artifact{}, err
 	}
 
-	// oras.Copy walks the manifest graph and fetches only blobs the local cache
-	// is missing; unchanged feeds keep their blob digest and are skipped.
-	// PreCopy/OnCopySkipped run concurrently across copy goroutines, so the
-	// counters must be updated atomically.
+	// PreCopy and OnCopySkipped run concurrently, so the counters must be atomic.
 	var fetched, skipped atomic.Int64
 	copyOpts := oras.DefaultCopyOptions
 	copyOpts.PreCopy = func(_ context.Context, desc ocispec.Descriptor) error {
@@ -144,46 +117,24 @@ func (r *Remote) Pull(ctx context.Context, ref, outDir string) ([]string, error)
 	}
 	copyOpts.OnCopySkipped = func(_ context.Context, desc ocispec.Descriptor) error {
 		skipped.Add(1)
-		r.logger.DebugContext(ctx, "skipped blob, already cached", "mediaType", desc.MediaType, "digest", desc.Digest)
+		r.logger.DebugContext(ctx, "skipped blob, already in local store", "mediaType", desc.MediaType, "digest", desc.Digest)
 		return nil
 	}
-	if _, err := oras.Copy(ctx, repo, srcRef.Reference, store, srcRef.Reference, copyOpts); err != nil {
-		return nil, fmt.Errorf("copy from remote: %w", err)
+	pulledDesc, err := oras.Copy(ctx, repo, srcRef.Reference, layout, ref, copyOpts)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("copy from remote: %w", err)
 	}
 	if fetched.Load() == 0 {
-		r.logger.InfoContext(ctx, "enrichment DB unchanged, served from local cache", "ref", srcRef.String(), "cachedBlobs", skipped.Load())
+		r.logger.InfoContext(ctx, "artifact unchanged, already in local store", "ref", srcRef.String(), "digest", pulledDesc.Digest, "cachedBlobs", skipped.Load())
 	} else {
-		r.logger.InfoContext(ctx, "enrichment DB updated from registry", "ref", srcRef.String(), "fetchedBlobs", fetched.Load(), "cachedBlobs", skipped.Load())
+		r.logger.InfoContext(ctx, "pulled artifact", "ref", srcRef.String(), "digest", pulledDesc.Digest, "fetchedBlobs", fetched.Load(), "cachedBlobs", skipped.Load())
 	}
 
-	layerDescs, err := resolveDataLayers(ctx, store, srcRef.Reference)
-	if err != nil {
-		return nil, err
-	}
-
-	var paths []string
-	for _, layerDesc := range layerDescs {
-		r.logger.InfoContext(ctx, "extracting data layer", "ref", srcRef.String(), "layer", layerDesc.Annotations[ocispec.AnnotationTitle], "digest", layerDesc.Digest, "bytes", layerDesc.Size)
-		extracted, err := fetchAndExtractLayer(ctx, store, layerDesc, outDir)
-		if err != nil {
-			return nil, err
-		}
-		paths = append(paths, extracted...)
-	}
-	return paths, nil
-}
-
-// openPullCache opens (creating if needed) the OCI image layout backing the
-// pull cache at dir.
-func openPullCache(dir string) (*orasoci.Store, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create pull cache %s: %w", dir, err)
-	}
-	store, err := orasoci.New(dir)
-	if err != nil {
-		return nil, fmt.Errorf("open pull cache %s: %w", dir, err)
-	}
-	return store, nil
+	return Artifact{
+		Ref:    ref,
+		Digest: pulledDesc.Digest.String(),
+		Size:   pulledDesc.Size,
+	}, nil
 }
 
 // resolveDataLayers fetches the manifest at tag from target
@@ -241,13 +192,9 @@ func fetchManifest(ctx context.Context, target oras.ReadOnlyTarget, tag string) 
 	return manifestDesc, manifest, nil
 }
 
-// newRepository builds an authenticated remote repository client for ref.
+// newRepository builds a registry client for ref.
+// It uses the docker config.json when one exists, otherwise requests are anonymous.
 func (r *Remote) newRepository(ref registry.Reference) (*orasremote.Repository, error) {
-	if !r.config.AllowAnonymous {
-		if err := requireDockerConfig(); err != nil {
-			return nil, err
-		}
-	}
 	credStore, err := credentials.NewStoreFromDocker(credentials.StoreOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("load docker config: %w", err)
@@ -262,80 +209,6 @@ func (r *Remote) newRepository(ref registry.Reference) (*orasremote.Repository, 
 	return repo, nil
 }
 
-// maxDecompressedLayerSize bounds how much a data layer may decompress to (1 GiB).
-// The real feeds are tens of MB; the cap only guards against a
-// decompression bomb served by a hostile registry.
-const maxDecompressedLayerSize = 1 << 30
-
-// fetchAndExtractLayer streams the tar.gz blob described by desc
-// and writes each regular file it contains into outDir under its base name.
-// It returns the written file paths.
-func fetchAndExtractLayer(ctx context.Context, fetcher content.Fetcher, desc ocispec.Descriptor, outDir string) ([]string, error) {
-	readCloser, err := fetcher.Fetch(ctx, desc)
-	if err != nil {
-		return nil, fmt.Errorf("fetch blob %s: %w", desc.Digest, err)
-	}
-	defer readCloser.Close()
-
-	gzipReader, err := gzip.NewReader(io.LimitReader(readCloser, desc.Size))
-	if err != nil {
-		return nil, fmt.Errorf("decompress blob %s: %w", desc.Digest, err)
-	}
-	tarReader := tar.NewReader(gzipReader)
-
-	var paths []string
-	remaining := int64(maxDecompressedLayerSize)
-	for {
-		header, err := tarReader.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("read tar in blob %s: %w", desc.Digest, err)
-		}
-		if header.Typeflag != tar.TypeReg {
-			continue
-		}
-
-		// Base strips any path components a hostile archive could smuggle in.
-		dst := filepath.Join(outDir, filepath.Base(header.Name))
-		written, err := writeFileCapped(dst, tarReader, remaining)
-		if err != nil {
-			return nil, fmt.Errorf("extract %s from blob %s: %w", header.Name, desc.Digest, err)
-		}
-		remaining -= written
-		paths = append(paths, dst)
-	}
-	if len(paths) == 0 {
-		return nil, fmt.Errorf("no files in layer %s", desc.Digest)
-	}
-	return paths, nil
-}
-
-// writeFileCapped writes at most limit bytes from reader into dst,
-// failing (and removing dst) if reader holds more.
-func writeFileCapped(dst string, reader io.Reader, limit int64) (int64, error) {
-	outFile, err := os.Create(dst)
-	if err != nil {
-		return 0, fmt.Errorf("create %s: %w", dst, err)
-	}
-	defer outFile.Close()
-
-	written, err := io.Copy(outFile, io.LimitReader(reader, limit+1))
-	if err != nil {
-		_ = os.Remove(dst)
-		return 0, fmt.Errorf("write %s: %w", dst, err)
-	}
-	if written > limit {
-		_ = os.Remove(dst)
-		return 0, fmt.Errorf("decompresses beyond %d bytes", maxDecompressedLayerSize)
-	}
-	if err := outFile.Close(); err != nil {
-		return 0, fmt.Errorf("close %s: %w", dst, err)
-	}
-	return written, nil
-}
-
 // parseTagReference parses ref and requires it to be a tag (not digest) reference.
 func parseTagReference(ref string) (registry.Reference, error) {
 	parsed, err := registry.ParseReference(ref)
@@ -346,29 +219,6 @@ func parseTagReference(ref string) (registry.Reference, error) {
 		return registry.Reference{}, fmt.Errorf("reference must be a tag (not a digest): %w", err)
 	}
 	return parsed, nil
-}
-
-// requireDockerConfig checks that a docker config.json exists
-// at either $DOCKER_CONFIG/config.json or ~/.docker/config.json.
-// We don't want the operation to proceed anonymously if the file is absent.
-func requireDockerConfig() error {
-	// Mirror the resolution NewStoreFromDocker does internally.
-	if dc := os.Getenv("DOCKER_CONFIG"); dc != "" {
-		p := filepath.Clean(filepath.Join(dc, "config.json"))
-		if _, err := os.Stat(p); err != nil {
-			return fmt.Errorf("docker config not found at %s: %w", p, err)
-		}
-		return nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("resolve home directory: %w", err)
-	}
-	p := filepath.Join(home, ".docker", "config.json")
-	if _, err := os.Stat(p); err != nil {
-		return fmt.Errorf("docker config not found at %s: %w", p, err)
-	}
-	return nil
 }
 
 // buildAuthClient wires the credentials store
