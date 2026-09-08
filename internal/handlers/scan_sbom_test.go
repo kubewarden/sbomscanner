@@ -171,7 +171,7 @@ func testScanSBOM(t *testing.T, cacheDir, platform, sourceSBOMJSON, expectedRepo
 	err = json.Unmarshal(reportData, expectedReport)
 	require.NoError(t, err, "failed to unmarshal expected report file %s", expectedReportJSON)
 
-	handler := NewScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, nil, slog.Default())
+	handler := NewScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, newTestSBOMScannerDB(cacheDir), slog.Default())
 
 	message, err := json.Marshal(&ScanSBOMMessage{
 		ScanJob: ObjectRef{
