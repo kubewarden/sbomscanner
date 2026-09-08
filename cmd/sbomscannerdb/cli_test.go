@@ -48,6 +48,35 @@ func TestCLI_ListRejectsArguments(t *testing.T) {
 	assert.Contains(t, err.Error(), "unexpected arguments")
 }
 
+func TestCLI_BuildFailsOnMissingDataFile(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	_, err := runCLI(t, "build", "--data-dir", t.TempDir(), "registry.example.com/db:latest")
+
+	var exitCoder cli.ExitCoder
+	require.ErrorAs(t, err, &exitCoder)
+	assert.Equal(t, 1, exitCoder.ExitCode())
+	assert.Contains(t, err.Error(), "missing known_exploited_vulnerabilities.json")
+}
+
+func TestCLI_ExportRequiresReference(t *testing.T) {
+	_, err := runCLI(t, "export", "-o", t.TempDir())
+
+	require.Error(t, err)
+}
+
+func TestCLI_ExportFailsForUnknownRef(t *testing.T) {
+	// An empty XDG cache dir means an empty local store.
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	_, err := runCLI(t, "export", "-o", t.TempDir(), "registry.example.com/nope:missing")
+
+	var exitCoder cli.ExitCoder
+	require.ErrorAs(t, err, &exitCoder)
+	assert.Equal(t, 1, exitCoder.ExitCode())
+	assert.Contains(t, err.Error(), "not found in local store")
+}
+
 func TestCLI_UnknownFlagIsPlainError(t *testing.T) {
 	_, err := runCLI(t, "--nonsense")
 
