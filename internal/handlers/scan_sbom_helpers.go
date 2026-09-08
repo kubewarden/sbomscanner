@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"path"
-	"strconv"
 
 	"go.yaml.in/yaml/v3"
 	_ "modernc.org/sqlite" // sqlite driver for RPM DB and Java DB
@@ -22,9 +21,9 @@ import (
 	trivyTypes "github.com/aquasecurity/trivy/pkg/types"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
-	"github.com/kubewarden/sbomscanner/internal/enrichment"
 	trivyreport "github.com/kubewarden/sbomscanner/internal/handlers/trivyreport"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb"
 )
 
 const (
@@ -39,7 +38,7 @@ type scanSBOMBase struct {
 	workDir               string
 	trivyDBRepository     string
 	trivyJavaDBRepository string
-	enrichmentStore       *enrichment.Store
+	sbomscannerDB         *sbomscannerdb.DB
 	logger                *slog.Logger
 }
 
@@ -150,34 +149,35 @@ func (b *scanSBOMBase) runTrivyScan(ctx context.Context, rawSPDX []byte, message
 		return nil, storagev1alpha1.Summary{}, fmt.Errorf("failed to convert from trivy results: %w", err)
 	}
 
-	b.enrichResults(ctx, results)
+	if err := b.enrichResults(ctx, results); err != nil {
+		return nil, storagev1alpha1.Summary{}, err
+	}
 
 	summary := storagev1alpha1.NewSummaryFromResults(results)
 
 	return results, summary, nil
 }
 
-// enrichResults augments each vulnerability with auxiliary context (KEV, EPSS) from
-// the local enrichment database. Enrichment is best-effort and optional: a nil store
-// or a stale/absent cache simply leaves the extra fields empty and never fails a scan.
-func (b *scanSBOMBase) enrichResults(ctx context.Context, results []storagev1alpha1.Result) {
-	if b.enrichmentStore == nil {
-		return
+// enrichResults adds the KEV and EPSS data of the sbomscanner database to each vulnerability.
+// It fails when the database cannot be updated. A nil DB disables the enrichment.
+func (b *scanSBOMBase) enrichResults(ctx context.Context, results []storagev1alpha1.Result) error {
+	if b.sbomscannerDB == nil {
+		return nil
 	}
-	b.enrichmentStore.Update(ctx)
+	if err := b.sbomscannerDB.Update(ctx); err != nil {
+		return fmt.Errorf("failed to update sbomscanner DB: %w", err)
+	}
 
 	for i := range results {
 		vulns := results[i].Vulnerabilities
 		for j := range vulns {
 			vuln := &vulns[j]
-			data := b.enrichmentStore.Lookup(vuln.CVE)
-			vuln.KnownExploited = data.KnownExploited
-			if data.EPSSFound {
-				vuln.EPSSScore = strconv.FormatFloat(data.EPSSScore, 'f', -1, 64)
-				vuln.EPSSPercentile = strconv.FormatFloat(data.EPSSPercentile, 'f', -1, 64)
-			}
+			record := b.sbomscannerDB.Lookup(vuln.CVE)
+			vuln.KEV = record.KEV
+			vuln.EPSS = record.EPSS
 		}
 	}
+	return nil
 }
 
 // setupVEXHubRepositories creates the VEX repository configuration file for trivy based on the provided VEXHubList.
