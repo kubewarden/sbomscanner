@@ -51,6 +51,9 @@ spec:
             {{- if .Values.worker.trivyJavaDBRepository }}
             - -trivy-java-db-repository={{ .Values.worker.trivyJavaDBRepository | quote }}
             {{- end }}
+            {{- if .Values.worker.sbomscannerDBRepository }}
+            - -sbomscanner-db-repository={{ .Values.worker.sbomscannerDBRepository | quote }}
+            {{- end }}
             - -installation-namespace={{ .Release.Namespace }}
             {{- if .Values.worker.logLevel }}
             - -log-level={{ .Values.worker.logLevel }}
