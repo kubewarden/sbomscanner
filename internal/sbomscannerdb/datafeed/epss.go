@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // EPSSFileName is the file name of the EPSS scores in the destination directory.
@@ -28,8 +29,8 @@ var epssHeader = []string{"cve", "epss", "percentile"}
 type EPSSScores struct {
 	// ModelVersion comes from the leading "#model_version:..." metadata line (e.g. v2026.06.15).
 	ModelVersion string
-	// ScoreDate comes from the same metadata line (RFC3339).
-	ScoreDate string
+	// ScoreDate is when the scores were computed, from the same metadata line.
+	ScoreDate time.Time
 	Scores    []EPSSScore
 }
 
@@ -41,20 +42,24 @@ type EPSSScore struct {
 }
 
 // ParseEPSSScores parses and sanity-checks an EPSS bulk feed CSV:
-// it must carry the cve,epss,percentile header and at least one row,
-// each with a CVE ID and numeric scores.
+// it must open with a "#model_version:...,score_date:..." line carrying an RFC3339 score_date,
+// then the cve,epss,percentile header and at least one row with a CVE ID and numeric scores.
 func ParseEPSSScores(reader io.Reader) (*EPSSScores, error) {
 	buffered := bufio.NewReader(reader)
 	scores := &EPSSScores{}
 
-	// The feed opens with a "#model_version:...,score_date:..." comment line.
-	// It is informational: capture it when present, without requiring it.
-	if peeked, err := buffered.Peek(1); err == nil && peeked[0] == '#' {
-		line, err := buffered.ReadString('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("read EPSS metadata line: %w", err)
-		}
-		scores.ModelVersion, scores.ScoreDate = parseEPSSMetadata(line)
+	line, err := buffered.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("read EPSS metadata line: %w", err)
+	}
+	if !strings.HasPrefix(line, "#") {
+		return nil, errors.New("EPSS feed has no metadata line")
+	}
+	var scoreDate string
+	scores.ModelVersion, scoreDate = parseEPSSMetadata(line)
+	scores.ScoreDate, err = time.Parse(time.RFC3339, scoreDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid EPSS score_date %q: %w", scoreDate, err)
 	}
 
 	csvReader := csv.NewReader(buffered)

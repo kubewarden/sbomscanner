@@ -181,16 +181,12 @@ func loadEPSS(path string) (map[string]storagev1alpha1.EPSS, error) {
 	if err != nil {
 		return map[string]storagev1alpha1.EPSS{}, fmt.Errorf("parse EPSS scores %s: %w", path, err)
 	}
-	scoreDate, err := time.Parse(time.RFC3339, scores.ScoreDate)
-	if err != nil {
-		return map[string]storagev1alpha1.EPSS{}, fmt.Errorf("parse EPSS score_date %q in %s: %w", scores.ScoreDate, path, err)
-	}
 	index := make(map[string]storagev1alpha1.EPSS, len(scores.Scores))
 	for _, score := range scores.Scores {
 		index[score.CVE] = storagev1alpha1.EPSS{
 			Score:      strconv.FormatFloat(score.EPSS, 'f', -1, 64),
 			Percentile: strconv.FormatFloat(score.Percentile, 'f', -1, 64),
-			Date:       metav1.NewTime(scoreDate),
+			Date:       metav1.NewTime(scores.ScoreDate),
 		}
 	}
 	return index, nil
