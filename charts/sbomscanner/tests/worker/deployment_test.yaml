@@ -38,13 +38,13 @@ tests:
           content: "-log-level=debug"
       - contains:
           path: "spec.template.spec.containers[0].args"
-          content: "-trivy-db-repository=\"public.ecr.aws/aquasecurity/trivy-db\""
+          content: "-trivy-db-repository=public.ecr.aws/aquasecurity/trivy-db"
       - contains:
           path: "spec.template.spec.containers[0].args"
-          content: "-trivy-java-db-repository=\"public.ecr.aws/aquasecurity/trivy-java-db\""
+          content: "-trivy-java-db-repository=public.ecr.aws/aquasecurity/trivy-java-db"
       - notContains:
           path: "spec.template.spec.containers[0].args"
-          content: "-sbomscanner-db-repository=\"\""
+          content: "-sbomscanner-db-repository="
       - equal:
           path: "spec.template.spec.containers[0].resources.limits.cpu"
           value: "500m"
@@ -65,4 +65,4 @@ tests:
     asserts:
       - contains:
           path: "spec.template.spec.containers[0].args"
-          content: "-sbomscanner-db-repository=\"ghcr.io/example/sbomscannerdb:1\""
+          content: "-sbomscanner-db-repository=ghcr.io/example/sbomscannerdb:1"
