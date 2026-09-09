@@ -2,7 +2,6 @@ package sbomscannerdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -46,8 +45,6 @@ type DB struct {
 	epss map[string]storagev1alpha1.EPSS
 	// digest is the manifest digest of the loaded artifact, empty until the first load.
 	digest string
-	// horizon is the nextUpdate of the loaded artifact. Before it, Update skips the registry.
-	horizon time.Time
 }
 
 // New returns a DB for the artifact at ref, stored under runDir/sbomscannerdb.
@@ -65,45 +62,35 @@ func New(ref, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
 	}
 }
 
-// Update pulls a newer artifact when the loaded one is past its nextUpdate.
+// Update pulls the artifact when the local copy is missing or past its nextUpdate,
+// then loads it when it differs from the loaded one.
 // It returns an error when the database cannot be updated.
 func (db *DB) Update(ctx context.Context) error {
 	if db == nil {
 		return nil
 	}
 
-	// On the first call, load what a previous run left in the local store.
-	if db.loadedDigest() == "" {
-		if view, err := db.local.Inspect(ctx, db.ref); err == nil {
-			if err := db.reload(ctx, view); err != nil {
-				return fmt.Errorf("load sbomscanner DB from local store: %w", err)
-			}
-			db.logger.InfoContext(ctx, "loaded sbomscanner DB from local store", "ref", db.ref, "digest", view.Digest, "kev", len(db.kev), "epss", len(db.epss))
+	view, err := db.local.Inspect(ctx, db.ref)
+	if err != nil {
+		db.logger.WarnContext(ctx, "cannot read the local sbomscanner DB, pulling", "ref", db.ref, "error", err)
+	}
+	stale := err != nil || !time.Now().Before(nextHorizon(view))
+	if stale {
+		if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
+			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
+		}
+		if view, err = db.local.Inspect(ctx, db.ref); err != nil {
+			return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
 		}
 	}
 
-	if time.Now().Before(db.freshUntil()) {
+	if view.Digest == db.loadedDigest() {
 		return nil
 	}
-
-	pulled, err := db.remote.Pull(ctx, db.local, db.ref)
-	if err != nil {
-		return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
-	}
-	view, err := db.local.Inspect(ctx, db.ref)
-	if err != nil {
-		return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
-	}
-
-	if pulled.Digest == db.loadedDigest() {
-		db.setHorizon(nextHorizon(view))
-		return nil
-	}
-
 	if err := db.reload(ctx, view); err != nil {
 		return fmt.Errorf("load sbomscanner DB: %w", err)
 	}
-	db.logger.InfoContext(ctx, "sbomscanner DB refreshed", "ref", db.ref, "digest", view.Digest, "kev", len(db.kev), "epss", len(db.epss), "nextUpdate", view.Annotations[oci.AnnotationNextUpdate])
+	db.logger.InfoContext(ctx, "sbomscanner DB loaded", "ref", db.ref, "digest", view.Digest, "kev", len(db.kev), "epss", len(db.epss), "nextUpdate", view.Annotations[oci.AnnotationNextUpdate])
 	return nil
 }
 
@@ -130,29 +117,25 @@ func (db *DB) reload(ctx context.Context, view oci.ManifestView) error {
 	if _, err := db.local.Export(ctx, db.ref, db.cacheDir); err != nil {
 		return fmt.Errorf("export sbomscanner DB: %w", err)
 	}
-	if err := db.load(ctx); err != nil {
+	if err := db.load(); err != nil {
 		return err
 	}
 	db.mu.Lock()
 	db.digest = view.Digest
-	db.horizon = nextHorizon(view)
 	db.mu.Unlock()
 	return nil
 }
 
 // load parses the KEV and EPSS files from the cache dir.
-// It fails only when neither feed can be read.
-func (db *DB) load(ctx context.Context) error {
-	kev, kevErr := loadKEV(filepath.Join(db.cacheDir, datafeed.KEVFileName))
-	if kevErr != nil {
-		db.logger.DebugContext(ctx, "KEV feed unavailable", "error", kevErr)
+// Both feeds are part of the database, so it fails when either cannot be read.
+func (db *DB) load() error {
+	kev, err := loadKEV(filepath.Join(db.cacheDir, datafeed.KEVFileName))
+	if err != nil {
+		return err
 	}
-	epss, epssErr := loadEPSS(filepath.Join(db.cacheDir, datafeed.EPSSFileName))
-	if epssErr != nil {
-		db.logger.DebugContext(ctx, "EPSS feed unavailable", "error", epssErr)
-	}
-	if kevErr != nil && epssErr != nil {
-		return errors.New("no feeds could be loaded")
+	epss, err := loadEPSS(filepath.Join(db.cacheDir, datafeed.EPSSFileName))
+	if err != nil {
+		return err
 	}
 
 	db.mu.Lock()
@@ -168,19 +151,8 @@ func (db *DB) loadedDigest() string {
 	return db.digest
 }
 
-func (db *DB) freshUntil() time.Time {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	return db.horizon
-}
-
-func (db *DB) setHorizon(t time.Time) {
-	db.mu.Lock()
-	db.horizon = t
-	db.mu.Unlock()
-}
-
-// nextHorizon reads the nextUpdate annotation of view. A bad value yields the zero time.
+// nextHorizon reads the nextUpdate annotation of view. A bad value yields the zero time,
+// so the artifact counts as stale.
 func nextHorizon(view oci.ManifestView) time.Time {
 	next, err := time.Parse(time.RFC3339, view.Annotations[oci.AnnotationNextUpdate])
 	if err != nil {

@@ -142,21 +142,33 @@ func TestUpdate_LoadsFromLocalStoreWhileFresh(t *testing.T) {
 	assert.Equal(t, log4jKEV(), db.Lookup("CVE-2021-44228").KEV)
 	assert.FileExists(t, filepath.Join(dir, cacheDirName, datafeed.KEVFileName))
 	assert.FileExists(t, filepath.Join(dir, cacheDirName, datafeed.EPSSFileName))
-	assert.WithinDuration(t, time.Now().Add(24*time.Hour), db.freshUntil(), time.Minute)
 }
 
-func TestUpdate_StaleLocalStoreFailsWhenRegistryUnreachable(t *testing.T) {
+func TestUpdate_StaleLocalStoreIsNotUsedWhenRegistryUnreachable(t *testing.T) {
 	dir := t.TempDir()
-	built := buildArtifact(t, dir, time.Nanosecond)
+	buildArtifact(t, dir, time.Nanosecond)
 
-	// The artifact is stale, so Update contacts the registry and fails.
-	// The stale data stays loaded, and the horizon stays in the past.
+	// The artifact is stale, so Update contacts the registry and fails
+	// before it loads anything from the stale copy.
 	db := newTestDB(dir)
 	require.Error(t, db.Update(context.Background()))
 
-	assert.Equal(t, built.Digest, db.loadedDigest())
-	assert.Equal(t, log4jKEV(), db.Lookup("CVE-2021-44228").KEV)
-	assert.True(t, db.freshUntil().Before(time.Now()))
+	assert.Empty(t, db.loadedDigest())
+	assert.Equal(t, Record{}, db.Lookup("CVE-2021-44228"))
+}
+
+func TestUpdate_StaleBrokenLocalCopyIsPulledAgain(t *testing.T) {
+	dir := t.TempDir()
+	buildArtifact(t, dir, time.Nanosecond)
+	cacheDir := filepath.Join(dir, cacheDirName)
+	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, datafeed.KEVFileName), []byte("not json"), 0o600))
+
+	// The local copy is stale and broken. Update must reach the pull
+	// instead of failing on the local parse.
+	db := newTestDB(dir)
+	err := db.Update(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pull sbomscanner DB")
 }
 
 func TestUpdate_FailsWithoutLocalStore(t *testing.T) {
@@ -170,22 +182,21 @@ func TestUpdate_FailsWithoutLocalStore(t *testing.T) {
 	assert.Equal(t, Record{}, db.Lookup("CVE-2021-44228"))
 }
 
-func TestLoad_ToleratesSingleMissingFeed(t *testing.T) {
+func TestLoad_FailsWhenOneFeedIsMissing(t *testing.T) {
 	dir := t.TempDir()
 	cacheDir := filepath.Join(dir, cacheDirName)
 	require.NoError(t, os.MkdirAll(cacheDir, 0o700))
 	seedFeeds(t, cacheDir)
 	require.NoError(t, os.Remove(filepath.Join(cacheDir, datafeed.EPSSFileName)))
 	db := newTestDB(dir)
-	require.NoError(t, db.load(context.Background()))
 
-	assert.Equal(t, log4jKEV(), db.Lookup("CVE-2021-44228").KEV)
-	assert.Nil(t, db.Lookup("CVE-2021-44228").EPSS)
+	require.Error(t, db.load())
+	assert.Equal(t, Record{}, db.Lookup("CVE-2021-44228"))
 }
 
 func TestLoad_FailsWhenNoFeeds(t *testing.T) {
 	db := newTestDB(t.TempDir())
-	require.Error(t, db.load(context.Background()))
+	require.Error(t, db.load())
 }
 
 func TestNextHorizon(t *testing.T) {
