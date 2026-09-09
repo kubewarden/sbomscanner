@@ -138,7 +138,7 @@ func TestUpdate_LoadsFromLocalStoreWhileFresh(t *testing.T) {
 	db := newTestDB(dir)
 	require.NoError(t, db.Update(context.Background()))
 
-	assert.Equal(t, built.Digest, db.loadedDigest())
+	assert.Equal(t, built.Digest, db.digest)
 	assert.Equal(t, log4jKEV(), db.Lookup("CVE-2021-44228").KEV)
 	assert.FileExists(t, filepath.Join(dir, cacheDirName, datafeed.KEVFileName))
 	assert.FileExists(t, filepath.Join(dir, cacheDirName, datafeed.EPSSFileName))
@@ -153,7 +153,7 @@ func TestUpdate_StaleLocalStoreIsNotUsedWhenRegistryUnreachable(t *testing.T) {
 	db := newTestDB(dir)
 	require.Error(t, db.Update(context.Background()))
 
-	assert.Empty(t, db.loadedDigest())
+	assert.Empty(t, db.digest)
 	assert.Equal(t, Record{}, db.Lookup("CVE-2021-44228"))
 }
 
@@ -178,7 +178,7 @@ func TestUpdate_FailsWithoutLocalStore(t *testing.T) {
 	// Nothing is loaded, so Update contacts the registry and fails.
 	require.Error(t, db.Update(context.Background()))
 
-	assert.Empty(t, db.loadedDigest())
+	assert.Empty(t, db.digest)
 	assert.Equal(t, Record{}, db.Lookup("CVE-2021-44228"))
 }
 

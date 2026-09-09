@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +32,7 @@ type Record struct {
 
 // DB is the local copy of the sbomscanner database, indexed in memory by CVE.
 // A nil *DB is disabled: Update does nothing and Lookup returns empty records.
+// DB is not safe for concurrent use. The worker handles one scan at a time.
 type DB struct {
 	ref      string
 	cacheDir string
@@ -40,7 +40,6 @@ type DB struct {
 	remote   *oci.Remote
 	logger   *slog.Logger
 
-	mu   sync.RWMutex
 	kev  map[string]storagev1alpha1.KEV
 	epss map[string]storagev1alpha1.EPSS
 	// digest is the manifest digest of the loaded artifact, empty until the first load.
@@ -84,7 +83,7 @@ func (db *DB) Update(ctx context.Context) error {
 		}
 	}
 
-	if view.Digest == db.loadedDigest() {
+	if view.Digest == db.digest {
 		return nil
 	}
 	if err := db.reload(ctx, view); err != nil {
@@ -99,8 +98,6 @@ func (db *DB) Lookup(cve string) Record {
 	if db == nil {
 		return Record{}
 	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 
 	var record Record
 	if kev, ok := db.kev[cve]; ok {
@@ -120,9 +117,7 @@ func (db *DB) reload(ctx context.Context, view oci.ManifestView) error {
 	if err := db.load(); err != nil {
 		return err
 	}
-	db.mu.Lock()
 	db.digest = view.Digest
-	db.mu.Unlock()
 	return nil
 }
 
@@ -138,17 +133,9 @@ func (db *DB) load() error {
 		return err
 	}
 
-	db.mu.Lock()
 	db.kev = kev
 	db.epss = epss
-	db.mu.Unlock()
 	return nil
-}
-
-func (db *DB) loadedDigest() string {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	return db.digest
 }
 
 // nextHorizon reads the nextUpdate annotation of view. A bad value yields the zero time,
