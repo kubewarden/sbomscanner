@@ -169,6 +169,14 @@ func (d *EPSSDownloader) Download(ctx context.Context, dir string) error {
 	return nil
 }
 
+// Validate parses dir/EPSSFileName as an EPSS feed.
+func (d *EPSSDownloader) Validate(dir string) error {
+	if _, err := parseEPSSFile(filepath.Join(dir, EPSSFileName)); err != nil {
+		return fmt.Errorf("validate EPSS: %w", err)
+	}
+	return nil
+}
+
 // parseEPSSFile opens the file at path and parses it as an EPSS feed.
 func parseEPSSFile(path string) (*EPSSScores, error) {
 	file, err := os.Open(path)

@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
+
+	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/datafeed"
 )
 
 // runCLI runs the root command with the given args,
@@ -56,7 +60,21 @@ func TestCLI_BuildFailsOnMissingDataFile(t *testing.T) {
 	var exitCoder cli.ExitCoder
 	require.ErrorAs(t, err, &exitCoder)
 	assert.Equal(t, 1, exitCoder.ExitCode())
-	assert.Contains(t, err.Error(), "missing known_exploited_vulnerabilities.json")
+	assert.Contains(t, err.Error(), "validate KEV")
+}
+
+func TestCLI_BuildFailsOnMalformedDataFile(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	dataDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, datafeed.KEVFileName), []byte("not json"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, datafeed.EPSSFileName), []byte("not csv"), 0o600))
+
+	_, err := runCLI(t, "build", "--data-dir", dataDir, "registry.example.com/db:latest")
+
+	var exitCoder cli.ExitCoder
+	require.ErrorAs(t, err, &exitCoder)
+	assert.Equal(t, 1, exitCoder.ExitCode())
+	assert.Contains(t, err.Error(), "validate KEV")
 }
 
 func TestCLI_ExportRequiresReference(t *testing.T) {

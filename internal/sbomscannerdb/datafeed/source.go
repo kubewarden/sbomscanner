@@ -18,6 +18,8 @@ type Source interface {
 	Format() string
 	// Download fetches and validates the feed into dir/FileName().
 	Download(ctx context.Context, dir string) error
+	// Validate checks that dir/FileName() is a usable feed.
+	Validate(dir string) error
 }
 
 // AllSources returns every data feed packed into the DB artifact.

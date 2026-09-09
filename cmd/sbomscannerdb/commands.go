@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"text/tabwriter"
 	"time"
 
@@ -35,8 +34,8 @@ func runBuild(ctx context.Context, ref, dataDir string, nextUpdateInterval time.
 			if err := source.Download(ctx, dataDir); err != nil {
 				return fmt.Errorf("download %s: %w", source.Name(), err)
 			}
-		} else if _, err := os.Stat(filepath.Join(dataDir, source.FileName())); err != nil {
-			return fmt.Errorf("missing %s in %s: %w", source.FileName(), dataDir, err)
+		} else if err := source.Validate(dataDir); err != nil {
+			return fmt.Errorf("%s in %s: %w", source.Name(), dataDir, err)
 		}
 		layers = append(layers, oci.Layer{
 			Name:      source.Name(),
