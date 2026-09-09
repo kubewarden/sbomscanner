@@ -140,10 +140,10 @@ func resolveLocal(ctx context.Context, layout *orasoci.Store, ref string) error 
 	return nil
 }
 
-// maxDecompressedLayerSize bounds how much a data layer may decompress to (1 GiB).
-// The real feeds are tens of MB; the cap only guards against a
+// maxDecompressedLayerSize bounds how much a data layer may decompress to (256 MiB).
+// The real feeds are about 10 MiB; the cap only guards against a
 // decompression bomb served by a hostile registry.
-const maxDecompressedLayerSize = 1 << 30
+const maxDecompressedLayerSize = 256 << 20
 
 // fetchAndExtractLayer streams the tar.gz blob described by desc
 // and writes each regular file it contains into outDir under its base name.
