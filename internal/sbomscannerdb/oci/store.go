@@ -190,26 +190,30 @@ func fetchAndExtractLayer(ctx context.Context, fetcher content.Fetcher, desc oci
 	return paths, nil
 }
 
-// writeFileCapped writes at most limit bytes from reader into dst,
-// failing (and removing dst) if reader holds more.
+// writeFileCapped writes at most limit bytes from reader into dst through a temp file
+// in the same directory, so an existing dst is replaced and never followed.
+// It fails if reader holds more than limit bytes.
 func writeFileCapped(dst string, reader io.Reader, limit int64) (int64, error) {
-	outFile, err := os.Create(dst)
+	tmpFile, err := os.CreateTemp(filepath.Dir(dst), filepath.Base(dst)+".*")
 	if err != nil {
 		return 0, fmt.Errorf("create %s: %w", dst, err)
 	}
-	defer outFile.Close()
+	tmp := tmpFile.Name()
+	defer os.Remove(tmp)
+	defer tmpFile.Close()
 
-	written, err := io.Copy(outFile, io.LimitReader(reader, limit+1))
+	written, err := io.Copy(tmpFile, io.LimitReader(reader, limit+1))
 	if err != nil {
-		_ = os.Remove(dst)
 		return 0, fmt.Errorf("write %s: %w", dst, err)
 	}
 	if written > limit {
-		_ = os.Remove(dst)
 		return 0, fmt.Errorf("decompresses beyond %d bytes", maxDecompressedLayerSize)
 	}
-	if err := outFile.Close(); err != nil {
+	if err := tmpFile.Close(); err != nil {
 		return 0, fmt.Errorf("close %s: %w", dst, err)
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		return 0, fmt.Errorf("rename %s: %w", dst, err)
 	}
 	return written, nil
 }

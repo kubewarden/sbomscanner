@@ -205,6 +205,33 @@ func TestStoreExport_WritesDataFiles(t *testing.T) {
 	assert.Len(t, entries, len(layers))
 }
 
+func TestStoreExport_ReplacesSymlink(t *testing.T) {
+	dataDir, layers := writeTestData(t)
+	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
+	_, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").
+		build(context.Background(), testRef, dataDir, layers, testWindow())
+	require.NoError(t, err)
+
+	// A symlink in outDir must be replaced, not followed.
+	target := filepath.Join(t.TempDir(), "target")
+	require.NoError(t, os.WriteFile(target, []byte("untouched"), 0o600))
+	outDir := t.TempDir()
+	require.NoError(t, os.Symlink(target, filepath.Join(outDir, layers[0].FileName)))
+
+	_, err = store.Export(context.Background(), testRef, outDir)
+	require.NoError(t, err)
+
+	info, err := os.Lstat(filepath.Join(outDir, layers[0].FileName))
+	require.NoError(t, err)
+	assert.True(t, info.Mode().IsRegular())
+	data, err := os.ReadFile(filepath.Join(outDir, layers[0].FileName))
+	require.NoError(t, err)
+	assert.Equal(t, "data for "+layers[0].FileName, string(data))
+	untouched, err := os.ReadFile(target)
+	require.NoError(t, err)
+	assert.Equal(t, "untouched", string(untouched))
+}
+
 func TestStoreExport_FailsForUnknownRef(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
 
