@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -59,39 +60,35 @@ func NewHTTPDownloader() *HTTPDownloader {
 //
 // It returns the final on-disk size (post-decompression for gzipped payloads).
 func (d *HTTPDownloader) Download(ctx context.Context, url, dst string) (int64, error) {
-	tmp := tmpPath(dst)
-
-	// Best-effort cleanup: if we return without a successful rename, drop the partial.
-	// This also fires on Ctrl+C via the ctx path below.
-	renamed := false
-	defer func() {
-		if !renamed {
-			_ = os.Remove(tmp)
-		}
-	}()
-
 	resp, err := d.doRequest(ctx, url)
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
 
+	tmp := tmpPath(dst)
 	written, err := writeStream(resp.Body, tmp)
-	if err != nil {
-		return 0, err
+	if err := errors.Join(err, resp.Body.Close()); err != nil {
+		return 0, discardPartial(tmp, err)
 	}
 
 	// Ensure exact 0600 regardless of umask.
 	if err := os.Chmod(tmp, fileMode); err != nil {
-		return 0, fmt.Errorf("chmod %s: %w", tmp, err)
+		return 0, discardPartial(tmp, fmt.Errorf("chmod %s: %w", tmp, err))
 	}
 
 	// Atomic rename lands the file in its final place.
 	if err := os.Rename(tmp, dst); err != nil {
-		return 0, fmt.Errorf("rename %s -> %s: %w", tmp, dst, err)
+		return 0, discardPartial(tmp, fmt.Errorf("rename %s -> %s: %w", tmp, dst, err))
 	}
-	renamed = true
 	return written, nil
+}
+
+// discardPartial removes the partial download at tmp and returns err joined with any removal error.
+func discardPartial(tmp string, err error) error {
+	if removeErr := os.Remove(tmp); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+		return errors.Join(err, fmt.Errorf("remove %s: %w", tmp, removeErr))
+	}
+	return err
 }
 
 // doRequest issues the GET and validates the response status.
@@ -108,9 +105,8 @@ func (d *HTTPDownloader) doRequest(ctx context.Context, url string) (*http.Respo
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Include a snippet of the body to make CDN errors debuggable.
-		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		_ = resp.Body.Close()
-		return nil, fmt.Errorf("unexpected status %s: %s", resp.Status, string(snippet))
+		snippet, readErr := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, errors.Join(fmt.Errorf("unexpected status %s: %s", resp.Status, string(snippet)), readErr, resp.Body.Close())
 	}
 	return resp, nil
 }
@@ -126,19 +122,16 @@ func writeStream(src io.Reader, tmp string) (int64, error) {
 
 	reader, gzipReader, err := maybeGunzip(src)
 	if err != nil {
-		_ = tmpFile.Close()
-		return 0, err
+		return 0, errors.Join(err, tmpFile.Close())
 	}
 
-	written, copyErr := io.Copy(tmpFile, reader)
+	written, err := io.Copy(tmpFile, reader)
+	var gzipErr error
 	if gzipReader != nil {
-		_ = gzipReader.Close()
+		gzipErr = gzipReader.Close()
 	}
-	if closeErr := tmpFile.Close(); closeErr != nil && copyErr == nil {
-		copyErr = closeErr
-	}
-	if copyErr != nil {
-		return 0, fmt.Errorf("write %s: %w", tmp, copyErr)
+	if err := errors.Join(err, gzipErr, tmpFile.Close()); err != nil {
+		return 0, fmt.Errorf("write %s: %w", tmp, err)
 	}
 	return written, nil
 }
