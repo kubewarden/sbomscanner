@@ -105,7 +105,7 @@ questions:
     default: ""
     group: Worker
     description: |
-      OCI reference (tag) of the sbomscanner vulnerability database (KEV, EPSS, …). Empty disables the enrichment of vulnerability reports.
+      OCI repository of the sbomscanner vulnerability database (KEV, EPSS, …). Empty disables the enrichment of vulnerability reports.
 
   ###############################################################################
   # Storage

@@ -51,7 +51,7 @@ func rootCommand() *cli.Command {
 func buildCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "build",
-		Usage: "Download KEV/EPSS and build the DB artifact into the local store",
+		Usage: "Download KEV/EPSS, build a SQLite database per feed, and pack them as the DB artifact in the local store",
 		Description: "The build time defaults to the current wall-clock time. Set the\n" +
 			"SOURCE_DATE_EPOCH environment variable (Unix seconds) to pin it,\n" +
 			"making the artifact reproducible; it drives the created and\n" +
@@ -68,7 +68,7 @@ func buildCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:  "data-dir",
-				Usage: "directory with the feed files to pack; skips the download",
+				Usage: "directory with the upstream feed files (known_exploited_vulnerabilities.json, epss_scores.csv); skips the download",
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {

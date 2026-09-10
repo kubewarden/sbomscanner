@@ -13,34 +13,36 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 )
 
-// runBuild packs the data feeds as an OCI artifact and tags it in the local store.
-// The feeds are downloaded into a temp dir, or read from dataDir when it is set.
-// nextUpdateInterval is the shortest cadence among the bundled feeds; it sets
-// how far ahead the artifact's nextUpdate annotation points from build time.
+// runBuild builds a SQLite database per feed, packs them as an OCI artifact, and tags it in the local store.
+// The upstream feed files are downloaded, or read from dataDir when it is set.
+// nextUpdateInterval is the shortest cadence among the feeds. It sets how far ahead nextUpdate points.
 func runBuild(ctx context.Context, ref, dataDir string, nextUpdateInterval time.Duration, logger *slog.Logger) error {
-	download := dataDir == ""
-	if download {
-		tempDir, err := os.MkdirTemp("", "sbomscannerdb-data-*")
-		if err != nil {
-			return fmt.Errorf("create temp data dir: %w", err)
-		}
-		defer os.RemoveAll(tempDir)
-		dataDir = tempDir
+	workDir, err := os.MkdirTemp("", "sbomscannerdb-build-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
+	srcDir := dataDir
+	if srcDir == "" {
+		srcDir = workDir
 	}
 
 	var layers []oci.Layer
 	for _, source := range datafeed.AllSources(datafeed.NewHTTPDownloader(), logger) {
-		if download {
-			if err := source.Download(ctx, dataDir); err != nil {
+		if dataDir == "" {
+			if err := source.Download(ctx, srcDir); err != nil {
 				return fmt.Errorf("download %s: %w", source.Name(), err)
 			}
-		} else if err := source.Validate(dataDir); err != nil {
-			return fmt.Errorf("%s in %s: %w", source.Name(), dataDir, err)
+		}
+		fileName, err := source.BuildSQLite(ctx, srcDir, workDir)
+		if err != nil {
+			return fmt.Errorf("%s: %w", source.Name(), err)
 		}
 		layers = append(layers, oci.Layer{
 			Name:      source.Name(),
-			FileName:  source.FileName(),
-			MediaType: oci.DataLayerMediaType(source.Name(), source.Format()),
+			FileName:  fileName,
+			MediaType: oci.DataLayerMediaType(source.Name()),
 		})
 	}
 
@@ -49,7 +51,7 @@ func runBuild(ctx context.Context, ref, dataDir string, nextUpdateInterval time.
 		return fmt.Errorf("open local store: %w", err)
 	}
 	artifact, err := oci.NewBuilder(store, logger, os.Getenv(oci.SourceDateEpochEnv)).
-		Build(ctx, ref, dataDir, layers, nextUpdateInterval)
+		Build(ctx, ref, workDir, layers, nextUpdateInterval)
 	if err != nil {
 		return fmt.Errorf("build artifact: %w", err)
 	}

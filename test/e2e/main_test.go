@@ -24,7 +24,7 @@ var (
 	controllerImage = "ghcr.io/kubewarden/sbomscanner/controller:latest"
 	storageImage    = "ghcr.io/kubewarden/sbomscanner/storage:latest"
 	// sbomscannerDBRepository is a fixed test asset whose KEV and EPSS entries cover the scanned test images.
-	sbomscannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb:1"
+	sbomscannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb"
 	certManagerNamespace    = "cert-manager"
 	certManagerVersion      = "v1.18.2"
 	cnpgNamespace           = "cnpg-system"

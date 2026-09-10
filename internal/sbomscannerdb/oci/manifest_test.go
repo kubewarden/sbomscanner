@@ -7,14 +7,14 @@ import (
 )
 
 func TestDataLayerMediaType(t *testing.T) {
-	assert.Equal(t, "application/vnd.sbomscanner.db.kev.v1.json+gzip", DataLayerMediaType("kev", "json"))
-	assert.Equal(t, "application/vnd.sbomscanner.db.epss.v1.csv+gzip", DataLayerMediaType("epss", "csv"))
+	assert.Equal(t, "application/vnd.sbomscanner.db.kev.v1.sqlite+tar+gzip", DataLayerMediaType("kev"))
+	assert.Equal(t, "application/vnd.sbomscanner.db.epss.v1.sqlite+tar+gzip", DataLayerMediaType("epss"))
 }
 
 func TestIsDataLayerMediaType(t *testing.T) {
-	assert.True(t, isDataLayerMediaType(DataLayerMediaType("gtfobins", "json")))
-	assert.True(t, isDataLayerMediaType(DataLayerMediaType("kev", "json")))
-	assert.True(t, isDataLayerMediaType(DataLayerMediaType("epss", "csv")))
+	assert.True(t, isDataLayerMediaType(DataLayerMediaType("gtfobins")))
+	assert.True(t, isDataLayerMediaType(DataLayerMediaType("kev")))
+	assert.True(t, isDataLayerMediaType(DataLayerMediaType("epss")))
 
 	assert.False(t, isDataLayerMediaType(ArtifactType))
 	assert.False(t, isDataLayerMediaType("application/vnd.oci.image.layer.v1.tar+gzip"))
