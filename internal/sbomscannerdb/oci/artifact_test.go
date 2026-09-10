@@ -77,17 +77,16 @@ func TestBuild_DerivesCreatedFromLastUpdate(t *testing.T) {
 	assert.Equal(t, manifest.Annotations[AnnotationLastUpdate], manifest.Annotations[ocispec.AnnotationCreated])
 }
 
-func TestBuild_MirrorsUpdateWindowAnnotationsOnEveryLayer(t *testing.T) {
+func TestBuild_LayersCarryOnlyTitle(t *testing.T) {
 	last := time.Date(2026, time.July, 16, 0, 0, 0, 0, time.UTC)
 	window := UpdateWindow{LastUpdate: last, NextUpdate: last.Add(24 * time.Hour)}
 
 	manifest := buildWithWindow(t, window)
 
+	// The update window lives on the manifest only. Layers carry their archive name.
 	require.NotEmpty(t, manifest.Layers)
 	for _, layer := range manifest.Layers {
-		assert.Equal(t, manifest.Annotations[AnnotationLastUpdate], layer.Annotations[AnnotationLastUpdate])
-		assert.Equal(t, manifest.Annotations[AnnotationNextUpdate], layer.Annotations[AnnotationNextUpdate])
-		// The title annotation must still be present alongside the window annotations.
+		assert.Len(t, layer.Annotations, 1)
 		assert.NotEmpty(t, layer.Annotations[ocispec.AnnotationTitle])
 	}
 }

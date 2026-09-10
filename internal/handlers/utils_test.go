@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -13,15 +14,24 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb"
+	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/registry"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 const (
-	testTrivyDBRepository     = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-db:2"
-	testTrivyJavaDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-java-db:1"
+	testTrivyDBRepository       = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-db:2"
+	testTrivyJavaDBRepository   = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-java-db:1"
+	testSBOMScannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb:1"
 )
+
+// newTestSBOMScannerDB returns a DB that pulls the test asset into runDir.
+// It does not use slog.Default, which trivy replaces with a handler that is not thread safe.
+func newTestSBOMScannerDB(runDir string) *sbomscannerdb.DB {
+	return sbomscannerdb.New(testSBOMScannerDBRepository, runDir, oci.Config{}, slog.New(slog.DiscardHandler))
+}
 
 const (
 	authUser = "user"

@@ -21,12 +21,10 @@ func startRegistry(t *testing.T) string {
 	ctx := context.Background()
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "registry:2",
-			ExposedPorts: []string{"5000/tcp"},
-			WaitingFor:   wait.ForHTTP("/v2/").WithPort("5000/tcp"),
-		},
-		Started: true,
+		Image:        "registry:2",
+		ExposedPorts: []string{"5000/tcp"},
+		WaitingFor:   wait.ForHTTP("/v2/").WithPort("5000/tcp"),
+		Started:      true,
 	})
 	if err != nil {
 		t.Skipf("cannot start registry container (docker not available?): %v", err)
@@ -42,8 +40,8 @@ func startRegistry(t *testing.T) string {
 	return fmt.Sprintf("%s:%s", host, port.Port())
 }
 
-// useTempDockerConfig points DOCKER_CONFIG at a temp dir with an empty
-// config.json so push/pull pass the docker-config pre-flight check.
+// useTempDockerConfig points DOCKER_CONFIG at an empty config.json,
+// so the tests never read the developer's real credentials.
 func useTempDockerConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
@@ -67,12 +65,17 @@ func TestPushPull_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, built.Digest, pushed.Digest)
 
+	// Pull into a second, empty store. The digest round-trips.
+	pulledStore := NewStore(filepath.Join(t.TempDir(), "pulled"), slog.New(slog.DiscardHandler))
+	pulled, err := remote.Pull(ctx, pulledStore, ref)
+	require.NoError(t, err)
+	assert.Equal(t, built.Digest, pulled.Digest)
+
+	// Each feed exports as its own decompressed file, named by its layer title.
 	outDir := t.TempDir()
-	paths, err := remote.Pull(ctx, ref, outDir)
+	paths, err := pulledStore.Export(ctx, ref, outDir)
 	require.NoError(t, err)
 	require.Len(t, paths, len(layers))
-
-	// Each feed comes back as its own decompressed file, named by its layer title.
 	for i, layer := range layers {
 		assert.Equal(t, layer.FileName, filepath.Base(paths[i]))
 		data, err := os.ReadFile(paths[i])
@@ -80,12 +83,10 @@ func TestPushPull_RoundTrip(t *testing.T) {
 		assert.Equal(t, "data for "+layer.FileName, string(data))
 	}
 
-	// The pull leaves a persistent content-addressable cache behind; a second
-	// pull reuses it and still returns the same feed files.
-	assert.DirExists(t, filepath.Join(outDir, pullCacheDir))
-	paths2, err := remote.Pull(ctx, ref, outDir)
+	// A second pull finds everything in the store and returns the same artifact.
+	pulled2, err := remote.Pull(ctx, pulledStore, ref)
 	require.NoError(t, err)
-	assert.Equal(t, paths, paths2)
+	assert.Equal(t, pulled, pulled2)
 
 	// Re-push is idempotent: all content is already present remotely.
 	_, err = remote.Push(ctx, store, ref)
@@ -98,22 +99,7 @@ func TestPush_FailsForUnbuiltRef(t *testing.T) {
 
 	_, err := NewRemote(Config{PlainHTTP: true}, slog.New(slog.DiscardHandler)).Push(context.Background(), store, "registry.example.com/nope:missing")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "run `build` first")
-}
-
-func TestPush_FailsWithoutDockerConfig(t *testing.T) {
-	t.Setenv("DOCKER_CONFIG", filepath.Join(t.TempDir(), "does-not-exist"))
-
-	dataDir, layers := writeTestData(t)
-	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
-	ctx := context.Background()
-
-	_, err := NewBuilder(store, slog.New(slog.DiscardHandler), "").build(ctx, testRef, dataDir, layers, testWindow())
-	require.NoError(t, err)
-
-	_, err = NewRemote(Config{PlainHTTP: true}, slog.New(slog.DiscardHandler)).Push(ctx, store, testRef)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "docker config not found")
+	assert.Contains(t, err.Error(), "run `build` or `pull` first")
 }
 
 func TestPush_RejectsDigestReference(t *testing.T) {

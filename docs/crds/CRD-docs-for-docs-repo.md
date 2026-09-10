@@ -619,6 +619,24 @@ _Appears in:_
 | `scanStatus` _[ScanStatus](#scanstatus)_ | ScanStatus indicates the scan status for this container. |  |  |
 
 
+#### EPSS
+
+
+
+EPSS holds the Exploit Prediction Scoring System data for a vulnerability
+
+
+
+_Appears in:_
+- [Vulnerability](#vulnerability)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `score` _string_ | Score is the probability (0..1) that the CVE will be exploited<br />in the next 30 days |  |  |
+| `percentile` _string_ | Percentile is the rank of the score among all scored CVEs (0..1) |  |  |
+| `date` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta)_ | Date is the score_date of the EPSS feed, when the scores were computed |  |  |
+
+
 #### Image
 
 
@@ -737,6 +755,25 @@ _Appears in:_
 | `namespace` _string_ | Namespace of the WorkloadScanReport |  |  |
 
 
+#### KEV
+
+
+
+KEV holds the CISA Known Exploited Vulnerabilities catalog entry
+for a vulnerability
+
+
+
+_Appears in:_
+- [Vulnerability](#vulnerability)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `dateAdded` _string_ | DateAdded is the date CISA added the CVE to the catalog, as published (YYYY-MM-DD) |  |  |
+| `dueDate` _string_ | DueDate is the remediation due date set by CISA, as published (YYYY-MM-DD) |  |  |
+| `knownRansomwareCampaignUse` _[RansomwareCampaignUse](#ransomwarecampaignuse)_ | KnownRansomwareCampaignUse is the CISA assessment of use in ransomware campaigns |  |  |
+
+
 #### NodeMetadata
 
 
@@ -795,6 +832,23 @@ _Appears in:_
 | `report` _[Report](#report)_ | Report is the actual vulnerability scan report |  |  |
 
 
+
+
+#### RansomwareCampaignUse
+
+_Underlying type:_ _string_
+
+RansomwareCampaignUse is the value CISA publishes for knownRansomwareCampaignUse
+
+
+
+_Appears in:_
+- [KEV](#kev)
+
+| Field | Description |
+| --- | --- |
+| `Known` | RansomwareCampaignUseKnown means CISA has evidence of use in ransomware campaigns<br /> |
+| `Unknown` | RansomwareCampaignUseUnknown means CISA has no such evidence<br /> |
 
 
 #### Report
@@ -944,9 +998,8 @@ _Appears in:_
 | `cwes` _string array_ | CWEs with which the CVE is classified |  |  |
 | `suppressed` _boolean_ | Suppressed identify when vulnerability has<br />been suppressed by VEX documents |  |  |
 | `vexStatus` _[VEXStatus](#vexstatus)_ | VEXStatus information |  |  |
-| `knownExploited` _boolean_ | KnownExploited is true when the CVE appears in the CISA Known Exploited<br />Vulnerabilities (KEV) catalog, i.e. it is being actively exploited in the wild. |  |  |
-| `epssScore` _string_ | EPSSScore is the Exploit Prediction Scoring System probability that the CVE<br />will be exploited (0..1), as a string. Empty when no EPSS data is available. |  |  |
-| `epssPercentile` _string_ | EPSSPercentile is the EPSS score's percentile rank (0..1), as a string.<br />Empty when no EPSS data is available. |  |  |
+| `kev` _[KEV](#kev)_ | KEV is the CISA Known Exploited Vulnerabilities catalog entry for the CVE.<br />Nil when the CVE is not in the catalog or no KEV data is available. |  |  |
+| `epss` _[EPSS](#epss)_ | EPSS is the Exploit Prediction Scoring System data for the CVE.<br />Nil when no EPSS data is available. |  |  |
 
 
 #### VulnerabilityReport

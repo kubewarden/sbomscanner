@@ -61,10 +61,13 @@ spec:
             - -nats-url
             - {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local:4222
             {{- if .Values.worker.trivyDBRepository }}
-            - -trivy-db-repository={{ .Values.worker.trivyDBRepository | quote }}
+            - -trivy-db-repository={{ .Values.worker.trivyDBRepository }}
             {{- end }}
             {{- if .Values.worker.trivyJavaDBRepository }}
-            - -trivy-java-db-repository={{ .Values.worker.trivyJavaDBRepository | quote }}
+            - -trivy-java-db-repository={{ .Values.worker.trivyJavaDBRepository }}
+            {{- end }}
+            {{- if .Values.worker.sbomscannerDBRepository }}
+            - -sbomscanner-db-repository={{ .Values.worker.sbomscannerDBRepository }}
             {{- end }}
             - -installation-namespace={{ .Release.Namespace }}
             {{- if .Values.worker.logLevel }}

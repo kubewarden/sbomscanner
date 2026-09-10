@@ -12,7 +12,7 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 )
 
-// refArgsUsage documents the reference argument shared by build/push/pull.
+// refArgsUsage documents the reference argument shared by build/push/pull/export/inspect.
 const refArgsUsage = "<registry>/<repo>:<tag>"
 
 // rootCommand builds the CLI command tree.
@@ -31,6 +31,7 @@ func rootCommand() *cli.Command {
 			listCommand(),
 			pushCommand(),
 			pullCommand(),
+			exportCommand(),
 			inspectCommand(),
 		},
 		// Reached for a bare invocation (help, exit 0)
@@ -65,10 +66,14 @@ func buildCommand() *cli.Command {
 				Usage: "how long the built artifact stays fresh; sets the nextUpdate annotation to build time plus this interval",
 				Value: 24 * time.Hour,
 			},
+			&cli.StringFlag{
+				Name:  "data-dir",
+				Usage: "directory with the feed files to pack; skips the download",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			ref := cmd.StringArgs("reference")[0]
-			if err := runBuild(ctx, ref, cmd.Duration("next-update-interval"), newLogger(cmd)); err != nil {
+			if err := runBuild(ctx, ref, cmd.String("data-dir"), cmd.Duration("next-update-interval"), newLogger(cmd)); err != nil {
 				return cli.Exit("error: "+err.Error(), 1)
 			}
 			return nil
@@ -112,20 +117,37 @@ func pushCommand() *cli.Command {
 func pullCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "pull",
-		Usage:     "Pull the artifact from a registry and write the KEV/EPSS data files to a directory",
+		Usage:     "Pull a DB artifact from a registry into the local store",
 		ArgsUsage: refArgsUsage,
 		Arguments: referenceArguments(),
-		Flags: append(registryFlags(),
+		Flags:     registryFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			ref := cmd.StringArgs("reference")[0]
+			if err := runPull(ctx, ref, registryConfig(cmd), newLogger(cmd)); err != nil {
+				return cli.Exit("error: "+err.Error(), 1)
+			}
+			return nil
+		},
+	}
+}
+
+func exportCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "export",
+		Usage:     "Write the KEV/EPSS data files of a DB artifact from the local store to a directory",
+		ArgsUsage: refArgsUsage,
+		Arguments: referenceArguments(),
+		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "output-dir",
 				Aliases: []string{"o"},
 				Usage:   "directory to write the KEV/EPSS data files into",
 				Value:   ".",
 			},
-		),
+		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			ref := cmd.StringArgs("reference")[0]
-			if err := runPull(ctx, ref, cmd.String("output-dir"), registryConfig(cmd), newLogger(cmd)); err != nil {
+			if err := runExport(ctx, ref, cmd.String("output-dir"), newLogger(cmd)); err != nil {
 				return cli.Exit("error: "+err.Error(), 1)
 			}
 			return nil
@@ -161,7 +183,7 @@ func newLogger(cmd *cli.Command) *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 }
 
-// registryFlags returns the flags shared by pull and push.
+// registryFlags returns the flags shared by push, pull, and inspect.
 func registryFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.BoolFlag{Name: "skip-tls-verify", Usage: "skip TLS certificate verification"},
@@ -177,7 +199,7 @@ func registryConfig(cmd *cli.Command) oci.Config {
 	}
 }
 
-// referenceArguments declares the single required reference argument shared by build/push/pull.
+// referenceArguments declares the single required reference argument shared by build/push/pull/export/inspect.
 // Presence is enforced by the framework (Min: 1).
 func referenceArguments() []cli.Argument {
 	return []cli.Argument{

@@ -38,10 +38,13 @@ tests:
           content: "-log-level=debug"
       - contains:
           path: "spec.template.spec.containers[0].args"
-          content: "-trivy-db-repository=\"public.ecr.aws/aquasecurity/trivy-db\""
+          content: "-trivy-db-repository=public.ecr.aws/aquasecurity/trivy-db"
       - contains:
           path: "spec.template.spec.containers[0].args"
-          content: "-trivy-java-db-repository=\"public.ecr.aws/aquasecurity/trivy-java-db\""
+          content: "-trivy-java-db-repository=public.ecr.aws/aquasecurity/trivy-java-db"
+      - notContains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-sbomscanner-db-repository="
       - equal:
           path: "spec.template.spec.containers[0].resources.limits.cpu"
           value: "500m"
@@ -54,3 +57,12 @@ tests:
       - equal:
           path: "spec.template.spec.containers[0].resources.requests.memory"
           value: "200Mi"
+
+  - it: "should pass the sbomscanner DB repository to the worker when set"
+    set:
+      worker:
+        sbomscannerDBRepository: ghcr.io/example/sbomscannerdb:1
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-sbomscanner-db-repository=ghcr.io/example/sbomscannerdb:1"

@@ -159,7 +159,12 @@
           "cwes": [
             "CWE-416"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "epss": {
+            "score": "0.00189",
+            "percentile": "0.56344",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2021-42379",
@@ -571,7 +576,17 @@
           "cwes": [
             "CWE-120"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "kev": {
+            "dateAdded": "2026-08-15",
+            "dueDate": "2026-09-05",
+            "knownRansomwareCampaignUse": "Known"
+          },
+          "epss": {
+            "score": "0.91234",
+            "percentile": "0.99712",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2020-1967",
@@ -723,7 +738,12 @@
           "cwes": [
             "CWE-190"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "epss": {
+            "score": "0.00412",
+            "percentile": "0.73951",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2021-3450",
@@ -868,7 +888,12 @@
           "cwes": [
             "CWE-125"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "epss": {
+            "score": "0.00845",
+            "percentile": "0.81627",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2020-1971",
@@ -1194,7 +1219,17 @@
           "cwes": [
             "CWE-120"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "kev": {
+            "dateAdded": "2026-08-15",
+            "dueDate": "2026-09-05",
+            "knownRansomwareCampaignUse": "Known"
+          },
+          "epss": {
+            "score": "0.91234",
+            "percentile": "0.99712",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2020-1967",
@@ -1346,7 +1381,12 @@
           "cwes": [
             "CWE-190"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "epss": {
+            "score": "0.00412",
+            "percentile": "0.73951",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2021-3450",
@@ -1491,7 +1531,12 @@
           "cwes": [
             "CWE-125"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "epss": {
+            "score": "0.00845",
+            "percentile": "0.81627",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2020-1971",
@@ -1915,7 +1960,12 @@
           "cwes": [
             "CWE-416"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "epss": {
+            "score": "0.00189",
+            "percentile": "0.56344",
+            "date": "2026-09-01T12:00:00Z"
+          }
         },
         {
           "cve": "CVE-2021-42379",
@@ -2340,7 +2390,17 @@
             "CWE-787",
             "CWE-120"
           ],
-          "suppressed": false
+          "suppressed": false,
+          "kev": {
+            "dateAdded": "2026-08-20",
+            "dueDate": "2026-09-10",
+            "knownRansomwareCampaignUse": "Unknown"
+          },
+          "epss": {
+            "score": "0.42105",
+            "percentile": "0.97388",
+            "date": "2026-09-01T12:00:00Z"
+          }
         }
       ]
     }

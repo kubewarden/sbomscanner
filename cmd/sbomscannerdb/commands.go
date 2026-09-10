@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"text/tabwriter"
 	"time"
 
@@ -15,22 +13,29 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 )
 
-// runBuild downloads the data feeds into a temp dir,
-// packs them as an OCI artifact, and tags it in the local store.
+// runBuild packs the data feeds as an OCI artifact and tags it in the local store.
+// The feeds are downloaded into a temp dir, or read from dataDir when it is set.
 // nextUpdateInterval is the shortest cadence among the bundled feeds; it sets
 // how far ahead the artifact's nextUpdate annotation points from build time.
-func runBuild(ctx context.Context, ref string, nextUpdateInterval time.Duration, logger *slog.Logger) error {
-	dataDir, err := os.MkdirTemp("", "sbomscannerdb-data-*")
-	if err != nil {
-		return fmt.Errorf("create temp data dir: %w", err)
+func runBuild(ctx context.Context, ref, dataDir string, nextUpdateInterval time.Duration, logger *slog.Logger) error {
+	download := dataDir == ""
+	if download {
+		tempDir, err := os.MkdirTemp("", "sbomscannerdb-data-*")
+		if err != nil {
+			return fmt.Errorf("create temp data dir: %w", err)
+		}
+		defer os.RemoveAll(tempDir)
+		dataDir = tempDir
 	}
-	defer os.RemoveAll(dataDir)
 
-	httpDownloader := datafeed.NewHTTPDownloader()
 	var layers []oci.Layer
-	for _, source := range datafeed.AllSources(httpDownloader, logger) {
-		if err := source.Download(ctx, dataDir); err != nil {
-			return fmt.Errorf("download %s: %w", source.Name(), err)
+	for _, source := range datafeed.AllSources(datafeed.NewHTTPDownloader(), logger) {
+		if download {
+			if err := source.Download(ctx, dataDir); err != nil {
+				return fmt.Errorf("download %s: %w", source.Name(), err)
+			}
+		} else if err := source.Validate(dataDir); err != nil {
+			return fmt.Errorf("%s in %s: %w", source.Name(), dataDir, err)
 		}
 		layers = append(layers, oci.Layer{
 			Name:      source.Name(),
@@ -88,53 +93,35 @@ func runPush(ctx context.Context, ref string, config oci.Config, logger *slog.Lo
 	return nil
 }
 
-// runPull fetches the artifact into a temporary directory (so its internal
-// content-addressable cache is discarded) and copies the data files into outputDir.
-func runPull(ctx context.Context, ref, outputDir string, config oci.Config, logger *slog.Logger) error {
-	if err := os.MkdirAll(outputDir, 0o750); err != nil {
-		return fmt.Errorf("create output dir %s: %w", outputDir, err)
-	}
-
-	tempDir, err := os.MkdirTemp("", "sbomscannerdb-pull-*")
+// runPull copies the artifact from the registry into the local store.
+func runPull(ctx context.Context, ref string, config oci.Config, logger *slog.Logger) error {
+	store, err := oci.NewDefaultStore(logger)
 	if err != nil {
-		return fmt.Errorf("create temp pull dir: %w", err)
+		return fmt.Errorf("open local store: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
-
-	paths, err := oci.NewRemote(config, logger).Pull(ctx, ref, tempDir)
+	artifact, err := oci.NewRemote(config, logger).Pull(ctx, store, ref)
 	if err != nil {
 		return fmt.Errorf("pull artifact: %w", err)
 	}
-
-	for _, src := range paths {
-		dst := filepath.Join(outputDir, filepath.Base(src))
-		if err := copyFile(src, dst); err != nil {
-			return fmt.Errorf("write %s: %w", dst, err)
-		}
-		fmt.Fprintf(os.Stdout, "pulled %s from %s\n", dst, ref)
-	}
+	fmt.Fprintf(os.Stdout, "pulled %s (%s)\n", artifact.Ref, artifact.Digest)
 	return nil
 }
 
-// copyFile copies the regular file at src to dst, truncating dst if it exists.
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+// runExport writes the data files of an artifact in the local store into outputDir.
+func runExport(ctx context.Context, ref, outputDir string, logger *slog.Logger) error {
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		return fmt.Errorf("create output dir %s: %w", outputDir, err)
+	}
+	store, err := oci.NewDefaultStore(logger)
 	if err != nil {
-		return fmt.Errorf("open %s: %w", src, err)
+		return fmt.Errorf("open local store: %w", err)
 	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
+	paths, err := store.Export(ctx, ref, outputDir)
 	if err != nil {
-		return fmt.Errorf("create %s: %w", dst, err)
+		return fmt.Errorf("export artifact: %w", err)
 	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		return fmt.Errorf("copy %s to %s: %w", src, dst, err)
-	}
-	if err := out.Close(); err != nil {
-		return fmt.Errorf("close %s: %w", dst, err)
+	for _, path := range paths {
+		fmt.Fprintf(os.Stdout, "exported %s\n", path)
 	}
 	return nil
 }

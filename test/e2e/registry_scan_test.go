@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
@@ -115,6 +116,24 @@ func TestRegistryScan(t *testing.T) {
 				resources.WithLabelSelector(labelSelector)),
 			)
 			require.NoError(t, err)
+
+			// The sbomscanner database test asset lists CVE-2021-3711 in KEV
+			// and carries EPSS scores for the CVEs of the test images.
+			sawKEV, sawEPSS := false, false
+			for _, report := range vulnReports.Items {
+				for _, result := range report.Report.Results {
+					for _, vuln := range result.Vulnerabilities {
+						sawEPSS = sawEPSS || vuln.EPSS != nil
+						if vuln.CVE == "CVE-2021-3711" {
+							require.NotNil(t, vuln.KEV, "CVE-2021-3711 should carry KEV data")
+							assert.Equal(t, storagev1alpha1.RansomwareCampaignUseKnown, vuln.KEV.KnownRansomwareCampaignUse)
+							sawKEV = true
+						}
+					}
+				}
+			}
+			assert.True(t, sawKEV, "expected CVE-2021-3711 with KEV data in the vulnerability reports")
+			assert.True(t, sawEPSS, "expected at least one vulnerability with EPSS data")
 
 			return ctx
 		}).

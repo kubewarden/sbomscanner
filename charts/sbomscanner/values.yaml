@@ -108,6 +108,9 @@ worker:
       memory: 300Mi
   trivyDBRepository: public.ecr.aws/aquasecurity/trivy-db
   trivyJavaDBRepository: public.ecr.aws/aquasecurity/trivy-java-db
+  # OCI reference (tag) of the sbomscanner vulnerability database (KEV, EPSS, …).
+  # Empty disables the enrichment of vulnerability reports.
+  sbomscannerDBRepository: ""
 
 mcp:
   enabled: false

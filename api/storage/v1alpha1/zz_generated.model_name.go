@@ -26,6 +26,11 @@ func (in ContainerStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EPSS) OpenAPIModelName() string {
+	return "storage.sbomscanner.kubewarden.io.v1alpha1.EPSS"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Image) OpenAPIModelName() string {
 	return "storage.sbomscanner.kubewarden.io.v1alpha1.Image"
 }
@@ -58,6 +63,11 @@ func (in ImageStatus) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ImageWorkloadScanReports) OpenAPIModelName() string {
 	return "storage.sbomscanner.kubewarden.io.v1alpha1.ImageWorkloadScanReports"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in KEV) OpenAPIModelName() string {
+	return "storage.sbomscanner.kubewarden.io.v1alpha1.KEV"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

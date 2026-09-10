@@ -105,6 +105,14 @@ func (d *KEVDownloader) Download(ctx context.Context, dir string) error {
 	return nil
 }
 
+// Validate parses dir/KEVFileName as a KEV catalog.
+func (d *KEVDownloader) Validate(dir string) error {
+	if _, err := parseKEVFile(filepath.Join(dir, KEVFileName)); err != nil {
+		return fmt.Errorf("validate KEV: %w", err)
+	}
+	return nil
+}
+
 // parseKEVFile opens the file at path and parses it as a KEV catalog.
 func parseKEVFile(path string) (*KEVCatalog, error) {
 	file, err := os.Open(path)

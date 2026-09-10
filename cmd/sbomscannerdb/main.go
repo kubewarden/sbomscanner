@@ -28,8 +28,7 @@ func run() int {
 		return 0
 	}
 
-	var exitCoder cli.ExitCoder
-	if errors.As(err, &exitCoder) {
+	if exitCoder, ok := errors.AsType[cli.ExitCoder](err); ok {
 		if msg := err.Error(); msg != "" {
 			fmt.Fprintln(os.Stderr, msg)
 		}

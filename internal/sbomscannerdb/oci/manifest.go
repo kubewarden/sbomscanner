@@ -32,7 +32,7 @@ type LayerView struct {
 	MediaType string `json:"mediaType"`
 	// Size is the layer blob size in bytes.
 	Size int64 `json:"size"`
-	// Annotations are the layer annotations (title, lastUpdate, nextUpdate, …).
+	// Annotations are the layer annotations (title, …).
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 

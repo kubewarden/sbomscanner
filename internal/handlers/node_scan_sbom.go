@@ -16,8 +16,8 @@ import (
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
-	"github.com/kubewarden/sbomscanner/internal/enrichment"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb"
 )
 
 // NodeScanSBOMHandler handles SBOM scan requests for nodes.
@@ -32,7 +32,7 @@ func NewNodeScanSBOMHandler(
 	workDir string,
 	trivyDBRepository string,
 	trivyJavaDBRepository string,
-	enrichmentStore *enrichment.Store,
+	sbomscannerDB *sbomscannerdb.DB,
 	logger *slog.Logger,
 ) *NodeScanSBOMHandler {
 	return &NodeScanSBOMHandler{
@@ -41,7 +41,7 @@ func NewNodeScanSBOMHandler(
 		workDir:               workDir,
 		trivyDBRepository:     trivyDBRepository,
 		trivyJavaDBRepository: trivyJavaDBRepository,
-		enrichmentStore:       enrichmentStore,
+		sbomscannerDB:         sbomscannerDB,
 		logger:                logger.With("handler", "scan_node_sbom_handler"),
 	}
 }
