@@ -154,7 +154,7 @@ func main() {
 
 	var sbomscannerDB *sbomscannerdb.DB
 	if sbomscannerDBRepository != "" {
-		sbomscannerDB = sbomscannerdb.New(sbomscannerDBRepository, runDir, oci.Config{}, logger)
+		sbomscannerDB = sbomscannerdb.Open(sbomscannerDBRepository, runDir, oci.Config{}, logger)
 	}
 
 	var scanMode messaging.HandlerRegistry
@@ -207,6 +207,10 @@ func main() {
 	logger.Debug("Shutting down health server")
 	if err := healthServer.Close(); err != nil {
 		logger.Error("Error shutting down health check server", "error", err)
+		os.Exit(1)
+	}
+	if err := sbomscannerDB.Close(); err != nil {
+		logger.Error("Error closing the sbomscanner database", "error", err)
 		os.Exit(1)
 	}
 }

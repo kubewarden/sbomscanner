@@ -22,7 +22,8 @@ import (
 // testDBRef uses a reserved host, so every registry contact fails fast.
 const testDBRef = "registry.invalid/kubewarden/sbomscannerdb:latest"
 
-// seedFeeds writes a KEV catalog and an EPSS feed with CVE-2021-44228 into dir.
+// seedFeeds writes the KEV and EPSS databases with CVE-2021-44228 into dir,
+// converted from upstream feeds the same way build does.
 func seedFeeds(t *testing.T, dir string) {
 	t.Helper()
 	kev, err := json.Marshal(datafeed.KEVCatalog{
@@ -33,13 +34,19 @@ func seedFeeds(t *testing.T, dir string) {
 		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.KEVFileName), kev, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.KEVSourceFileName), kev, 0o600))
 
 	score := datafeed.EPSSScore{CVE: "CVE-2021-44228", EPSS: 0.97, Percentile: 0.999}
 	epss := "#model_version:v1,score_date:" + scoreDate().Format(time.RFC3339) + "\n" +
 		"cve,epss,percentile\n" +
 		fmt.Sprintf("%s,%g,%g\n", score.CVE, score.EPSS, score.Percentile)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.EPSSFileName), []byte(epss), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.EPSSSourceFileName), []byte(epss), 0o600))
+
+	logger := slog.New(slog.DiscardHandler)
+	for _, source := range datafeed.AllSources(datafeed.NewHTTPDownloader(), logger) {
+		_, err := source.BuildSQLite(context.Background(), dir, dir)
+		require.NoError(t, err)
+	}
 }
 
 // scoreDate is the score_date of the seeded EPSS feed.
@@ -55,15 +62,15 @@ func seededDB(t *testing.T) *sbomscannerdb.DB {
 	dataDir := t.TempDir()
 	seedFeeds(t, dataDir)
 	layers := []oci.Layer{
-		{Name: "kev", FileName: datafeed.KEVFileName, MediaType: oci.DataLayerMediaType("kev", "json")},
-		{Name: "epss", FileName: datafeed.EPSSFileName, MediaType: oci.DataLayerMediaType("epss", "csv")},
+		{Name: "kev", FileName: datafeed.KEVDBFileName, MediaType: oci.DataLayerMediaType("kev")},
+		{Name: "epss", FileName: datafeed.EPSSDBFileName, MediaType: oci.DataLayerMediaType("epss")},
 	}
 
 	runDir := t.TempDir()
 	localStore := oci.NewStore(filepath.Join(runDir, "sbomscannerdb", "oci"), logger)
 	_, err := oci.NewBuilder(localStore, logger, "").Build(context.Background(), testDBRef, dataDir, layers, 24*time.Hour)
 	require.NoError(t, err)
-	return sbomscannerdb.New(testDBRef, runDir, oci.Config{}, logger)
+	return sbomscannerdb.Open(testDBRef, runDir, oci.Config{}, logger)
 }
 
 func TestEnrichResults_PopulatesKEVAndEPSS(t *testing.T) {
@@ -104,7 +111,7 @@ func TestEnrichResults_NilStoreLeavesResultsUnchanged(t *testing.T) {
 func TestEnrichResults_FailsWhenDBCannotUpdate(t *testing.T) {
 	// An empty run dir and an unreachable registry, so the DB cannot be updated.
 	base := &scanSBOMBase{
-		sbomscannerDB: sbomscannerdb.New(testDBRef, t.TempDir(), oci.Config{}, slog.New(slog.DiscardHandler)),
+		sbomscannerDB: sbomscannerdb.Open(testDBRef, t.TempDir(), oci.Config{}, slog.New(slog.DiscardHandler)),
 		logger:        slog.New(slog.DiscardHandler),
 	}
 	results := []storagev1alpha1.Result{

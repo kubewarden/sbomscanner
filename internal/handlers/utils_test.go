@@ -30,7 +30,7 @@ const (
 // newTestSBOMScannerDB returns a DB that pulls the test asset into runDir.
 // It does not use slog.Default, which trivy replaces with a handler that is not thread safe.
 func newTestSBOMScannerDB(runDir string) *sbomscannerdb.DB {
-	return sbomscannerdb.New(testSBOMScannerDBRepository, runDir, oci.Config{}, slog.New(slog.DiscardHandler))
+	return sbomscannerdb.Open(testSBOMScannerDBRepository, runDir, oci.Config{}, slog.New(slog.DiscardHandler))
 }
 
 const (
