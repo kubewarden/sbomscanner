@@ -23,15 +23,16 @@ func TestKEVDownloader_Download(t *testing.T) {
 	d.url = srv.URL + "/known_exploited_vulnerabilities.json"
 	require.NoError(t, d.Download(context.Background(), dir))
 
-	file, err := os.Open(filepath.Join(dir, KEVFileName))
+	// Download fetches the JSON; BuildSQLite turns it into the database,
+	// storing each entry as CISA published it.
+	dbDir := t.TempDir()
+	_, err := d.BuildSQLite(context.Background(), dir, dbDir)
 	require.NoError(t, err)
-	defer file.Close()
 
-	catalog, err := ParseKEVCatalog(file)
-	require.NoError(t, err)
-	assert.Equal(t, 1, catalog.Count)
-	require.Len(t, catalog.Vulnerabilities, 1)
-	assert.Equal(t, "CVE-2021-44228", catalog.Vulnerabilities[0].CVEID)
+	var entry KEVVulnerability
+	lookupJSON(t, filepath.Join(dbDir, KEVDBFileName), "CVE-2021-44228", &entry)
+	assert.Equal(t, "Apache", entry.VendorProject)
+	assert.Equal(t, "Known", entry.KnownRansomwareCampaignUse)
 }
 
 func TestKEVDownloader_DownloadFailsOnHTTPError(t *testing.T) {
@@ -43,15 +44,12 @@ func TestKEVDownloader_DownloadFailsOnHTTPError(t *testing.T) {
 	require.Error(t, d.Download(context.Background(), t.TempDir()))
 }
 
-func TestKEVDownloader_DownloadFailsOnInvalidPayload(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("<html><body>Service temporarily unavailable</body></html>"))
-	}))
-	t.Cleanup(srv.Close)
+func TestKEVDownloader_BuildSQLiteFailsOnInvalidPayload(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, KEVSourceFileName), []byte("<html>error</html>"), 0o600))
 
 	d := NewKEVDownloader(NewHTTPDownloader(), slog.New(slog.DiscardHandler))
-	d.url = srv.URL + "/known_exploited_vulnerabilities.json"
-	err := d.Download(context.Background(), t.TempDir())
+	_, err := d.BuildSQLite(context.Background(), dir, t.TempDir())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "validate KEV")
 }
