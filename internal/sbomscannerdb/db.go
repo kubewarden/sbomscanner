@@ -17,6 +17,10 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 )
 
+// schemaVersion is the tag of the artifact that this worker reads.
+// It changes only when an older worker cannot read the new layout.
+const schemaVersion = 1
+
 // cacheDirName is the database directory under the worker run dir.
 const cacheDirName = "sbomscannerdb"
 
@@ -47,13 +51,14 @@ type DB struct {
 	digest string
 }
 
-// Open returns a DB for the artifact at ref, stored under runDir/sbomscannerdb.
+// Open returns a DB for the artifact at repository, tagged with the schema version.
+// The local copy lives under runDir/sbomscannerdb.
 // It does not contact the registry or open any file. The first Update does both,
 // and the databases stay open until Close.
-func Open(ref, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
+func Open(repository, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
 	cacheDir := filepath.Join(runDir, cacheDirName)
 	return &DB{
-		ref:      ref,
+		ref:      repository + ":" + strconv.Itoa(schemaVersion),
 		cacheDir: cacheDir,
 		local:    oci.NewStore(filepath.Join(cacheDir, ociDirName), logger),
 		remote:   oci.NewRemote(cfg, logger),

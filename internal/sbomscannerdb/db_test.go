@@ -20,8 +20,11 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/sbomscannerdb/oci"
 )
 
-// testRef uses a reserved host, so every registry contact fails fast.
-const testRef = "registry.invalid/kubewarden/sbomscannerdb:latest"
+// testRepository uses a reserved host, so every registry contact fails fast.
+const testRepository = "registry.invalid/kubewarden/sbomscannerdb"
+
+// testRef is the reference that Open builds from testRepository.
+const testRef = testRepository + ":1"
 
 // seedFeeds writes the KEV and EPSS databases into dir, converted from upstream
 // feeds the same way build does.
@@ -94,7 +97,7 @@ func lookupRecord(t *testing.T, db *DB, cve string) Record {
 }
 
 func newTestDB(runDir string) *DB {
-	return Open(testRef, runDir, oci.Config{}, slog.New(slog.DiscardHandler))
+	return Open(testRepository, runDir, oci.Config{}, slog.New(slog.DiscardHandler))
 }
 
 func TestLookup(t *testing.T) {

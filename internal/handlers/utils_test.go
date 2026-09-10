@@ -24,7 +24,7 @@ import (
 const (
 	testTrivyDBRepository       = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-db:2"
 	testTrivyJavaDBRepository   = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-java-db:1"
-	testSBOMScannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb:1"
+	testSBOMScannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb"
 )
 
 // newTestSBOMScannerDB returns a DB that pulls the test asset into runDir.

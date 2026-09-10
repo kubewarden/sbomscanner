@@ -19,8 +19,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// testDBRef uses a reserved host, so every registry contact fails fast.
-const testDBRef = "registry.invalid/kubewarden/sbomscannerdb:latest"
+// testDBRepository uses a reserved host, so every registry contact fails fast.
+const testDBRepository = "registry.invalid/kubewarden/sbomscannerdb"
+
+// testDBRef is the reference that sbomscannerdb.Open builds from testDBRepository.
+const testDBRef = testDBRepository + ":1"
 
 // seedFeeds writes the KEV and EPSS databases with CVE-2021-44228 into dir,
 // converted from upstream feeds the same way build does.
@@ -70,7 +73,7 @@ func seededDB(t *testing.T) *sbomscannerdb.DB {
 	localStore := oci.NewStore(filepath.Join(runDir, "sbomscannerdb", "oci"), logger)
 	_, err := oci.NewBuilder(localStore, logger, "").Build(context.Background(), testDBRef, dataDir, layers, 24*time.Hour)
 	require.NoError(t, err)
-	return sbomscannerdb.Open(testDBRef, runDir, oci.Config{}, logger)
+	return sbomscannerdb.Open(testDBRepository, runDir, oci.Config{}, logger)
 }
 
 func TestEnrichResults_PopulatesKEVAndEPSS(t *testing.T) {
@@ -111,7 +114,7 @@ func TestEnrichResults_NilStoreLeavesResultsUnchanged(t *testing.T) {
 func TestEnrichResults_FailsWhenDBCannotUpdate(t *testing.T) {
 	// An empty run dir and an unreachable registry, so the DB cannot be updated.
 	base := &scanSBOMBase{
-		sbomscannerDB: sbomscannerdb.Open(testDBRef, t.TempDir(), oci.Config{}, slog.New(slog.DiscardHandler)),
+		sbomscannerDB: sbomscannerdb.Open(testDBRepository, t.TempDir(), oci.Config{}, slog.New(slog.DiscardHandler)),
 		logger:        slog.New(slog.DiscardHandler),
 	}
 	results := []storagev1alpha1.Result{

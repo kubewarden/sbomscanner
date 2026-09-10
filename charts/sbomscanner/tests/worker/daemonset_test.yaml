@@ -19,8 +19,8 @@ tests:
   - it: "should pass the sbomscanner DB repository to the worker when set"
     set:
       worker:
-        sbomscannerDBRepository: ghcr.io/example/sbomscannerdb:1
+        sbomscannerDBRepository: ghcr.io/example/sbomscannerdb
     asserts:
       - contains:
           path: "spec.template.spec.containers[0].args"
-          content: "-sbomscanner-db-repository=ghcr.io/example/sbomscannerdb:1"
+          content: "-sbomscanner-db-repository=ghcr.io/example/sbomscannerdb"
