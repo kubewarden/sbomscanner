@@ -48,11 +48,11 @@ func (workloadScanReportStrategy) WarningsOnCreate(_ context.Context, _ runtime.
 	return nil
 }
 
-func (workloadScanReportStrategy) AllowCreateOnUpdate() bool {
+func (workloadScanReportStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (workloadScanReportStrategy) AllowUnconditionalUpdate() bool {
+func (workloadScanReportStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

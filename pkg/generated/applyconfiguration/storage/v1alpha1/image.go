@@ -13,7 +13,7 @@ import (
 //
 // Image is the Schema for the images API
 type ImageApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// Metadata of the image
 	*ImageMetadataApplyConfiguration `json:"imageMetadata,omitempty"`

@@ -36,11 +36,11 @@ func (imageStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []str
 	return nil
 }
 
-func (imageStrategy) AllowCreateOnUpdate() bool {
+func (imageStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (imageStrategy) AllowUnconditionalUpdate() bool {
+func (imageStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 

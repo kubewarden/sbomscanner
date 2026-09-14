@@ -14,7 +14,7 @@ import (
 //
 // NodeSBOM represents a Software Bill of Materials of a node
 type NodeSBOMApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	NodeMetadata                     *NodeMetadataApplyConfiguration `json:"nodeMetadata,omitempty"`
 	// SPDX contains the SPDX document of the SBOM in JSON format

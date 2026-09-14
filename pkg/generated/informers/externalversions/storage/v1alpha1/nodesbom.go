@@ -18,11 +18,39 @@ import (
 )
 
 // NodeSBOMInformer provides access to a shared informer and lister for
-// NodeSBOMs.
+// NodeSBOMs. Prefer using the type-safe variant (see [TypedNodeSBOMInformer]).
 type NodeSBOMInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() storagev1alpha1.NodeSBOMLister
 }
+
+// TypedNodeSBOMInformer provides access to a shared informer and lister for
+// NodeSBOMs, including the type-safe TypedInformer variant.
+// It is a superset of NodeSBOMInformer.
+type TypedNodeSBOMInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() NodeSBOMIndexInformer
+	Lister() storagev1alpha1.NodeSBOMLister
+}
+
+// NodeSBOMIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type NodeSBOMIndexInformer cache.TypedSharedIndexInformer[*apistoragev1alpha1.NodeSBOM]
+
+// NodeSBOMHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for NodeSBOM.
+type NodeSBOMHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apistoragev1alpha1.NodeSBOM]
+
+// NodeSBOMDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for NodeSBOM.
+type NodeSBOMDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apistoragev1alpha1.NodeSBOM]
+
+// NodeSBOMFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for NodeSBOM.
+type NodeSBOMFilteringHandler = cache.TypedFilteringResourceEventHandler[*apistoragev1alpha1.NodeSBOM]
+
+// NodeSBOMIndexers is a specialization of [cache.TypedIndexers] for NodeSBOM.
+type NodeSBOMIndexers = cache.TypedIndexers[*apistoragev1alpha1.NodeSBOM]
+
+// DeletedNodeSBOM is a specialization of [cache.DeletedObject] for NodeSBOM.
+type DeletedNodeSBOM = cache.DeletedObject[*apistoragev1alpha1.NodeSBOM]
 
 type nodeSBOMInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -32,25 +60,49 @@ type nodeSBOMInformer struct {
 // NewNodeSBOMInformer constructs a new informer for NodeSBOM type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedNodeSBOMInformer]).
 func NewNodeSBOMInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewNodeSBOMInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedNodeSBOMInformer constructs a new informer for NodeSBOM type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedNodeSBOMInformer(client versioned.Interface, resyncPeriod time.Duration, indexers NodeSBOMIndexers) NodeSBOMIndexInformer {
+	return NewTypedNodeSBOMInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredNodeSBOMInformer constructs a new informer for NodeSBOM type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredNodeSBOMInformer]).
 func NewFilteredNodeSBOMInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewNodeSBOMInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedNodeSBOMInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredNodeSBOMInformer constructs a new informer for NodeSBOM type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredNodeSBOMInformer(client versioned.Interface, resyncPeriod time.Duration, indexers NodeSBOMIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) NodeSBOMIndexInformer {
+	return NewTypedNodeSBOMInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewNodeSBOMInformerWithOptions constructs a new informer for NodeSBOM type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedNodeSBOMInformerWithOptions]).
 func NewNodeSBOMInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedNodeSBOMInformerWithOptions(client, options)
+}
+
+// NewTypedNodeSBOMInformerWithOptions constructs a new informer for NodeSBOM type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedNodeSBOMInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) NodeSBOMIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "storage.sbomscanner.kubewarden.io", Version: "v1alpha1", Resource: "nodesboms"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.NodeSBOM](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -83,17 +135,57 @@ func NewNodeSBOMInformerWithOptions(client versioned.Interface, options internal
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *nodeSBOMInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewNodeSBOMInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedNodeSBOMInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *nodeSBOMInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apistoragev1alpha1.NodeSBOM{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *nodeSBOMInformer) TypedInformer() NodeSBOMIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.NodeSBOM](f.factory.InformerFor(&apistoragev1alpha1.NodeSBOM{}, f.defaultInformer))
 }
 
 func (f *nodeSBOMInformer) Lister() storagev1alpha1.NodeSBOMLister {
 	return storagev1alpha1.NewNodeSBOMLister(f.Informer().GetIndexer())
+}
+
+// ToTypedNodeSBOMInformer converts an untyped informer into a TypedNodeSBOMInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *NodeSBOM. If that is not the case, calling type-safe methods of the returned
+// TypedNodeSBOMInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedNodeSBOMInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedNodeSBOMInformer(informer NodeSBOMInformer) TypedNodeSBOMInformer {
+	if informer, ok := informer.(TypedNodeSBOMInformer); ok {
+		return informer
+	}
+	return &nodeSBOMTypedInformerAdapter{informer}
+}
+
+type nodeSBOMTypedInformerAdapter struct {
+	NodeSBOMInformer
+}
+
+func (a *nodeSBOMTypedInformerAdapter) TypedInformer() NodeSBOMIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.NodeSBOM](a.Informer())
+}
+
+// ToNodeSBOMIndexInformer converts an untyped informer into a NodeSBOMIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *NodeSBOM. If that is not the case, calling type-safe methods of the returned
+// NodeSBOMIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a NodeSBOMIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToNodeSBOMIndexInformer(informer cache.SharedIndexInformer) NodeSBOMIndexInformer {
+	if informer, ok := informer.(NodeSBOMIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.NodeSBOM](informer)
 }

@@ -13,7 +13,7 @@ import (
 //
 // WorkloadScanReport represents the vulnerability scan results for a workload's containers.
 type WorkloadScanReportApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// Spec contains the workload container references, written by the reconciler.
 	Spec *WorkloadScanReportSpecApplyConfiguration `json:"spec,omitempty"`

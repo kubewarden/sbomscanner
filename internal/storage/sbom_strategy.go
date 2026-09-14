@@ -37,11 +37,11 @@ func (sbomStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []stri
 	return nil
 }
 
-func (sbomStrategy) AllowCreateOnUpdate() bool {
+func (sbomStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (sbomStrategy) AllowUnconditionalUpdate() bool {
+func (sbomStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 
