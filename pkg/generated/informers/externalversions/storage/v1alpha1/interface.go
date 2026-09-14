@@ -9,17 +9,17 @@ import (
 // Interface provides access to all the informers in this group version.
 type Interface interface {
 	// Images returns a ImageInformer.
-	Images() ImageInformer
+	Images() TypedImageInformer
 	// NodeSBOMs returns a NodeSBOMInformer.
-	NodeSBOMs() NodeSBOMInformer
+	NodeSBOMs() TypedNodeSBOMInformer
 	// NodeVulnerabilityReports returns a NodeVulnerabilityReportInformer.
-	NodeVulnerabilityReports() NodeVulnerabilityReportInformer
+	NodeVulnerabilityReports() TypedNodeVulnerabilityReportInformer
 	// SBOMs returns a SBOMInformer.
-	SBOMs() SBOMInformer
+	SBOMs() TypedSBOMInformer
 	// VulnerabilityReports returns a VulnerabilityReportInformer.
-	VulnerabilityReports() VulnerabilityReportInformer
+	VulnerabilityReports() TypedVulnerabilityReportInformer
 	// WorkloadScanReports returns a WorkloadScanReportInformer.
-	WorkloadScanReports() WorkloadScanReportInformer
+	WorkloadScanReports() TypedWorkloadScanReportInformer
 }
 
 type version struct {
@@ -33,32 +33,32 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// Images returns a ImageInformer.
-func (v *version) Images() ImageInformer {
+// Images returns a TypedImageInformer.
+func (v *version) Images() TypedImageInformer {
 	return &imageInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// NodeSBOMs returns a NodeSBOMInformer.
-func (v *version) NodeSBOMs() NodeSBOMInformer {
+// NodeSBOMs returns a TypedNodeSBOMInformer.
+func (v *version) NodeSBOMs() TypedNodeSBOMInformer {
 	return &nodeSBOMInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// NodeVulnerabilityReports returns a NodeVulnerabilityReportInformer.
-func (v *version) NodeVulnerabilityReports() NodeVulnerabilityReportInformer {
+// NodeVulnerabilityReports returns a TypedNodeVulnerabilityReportInformer.
+func (v *version) NodeVulnerabilityReports() TypedNodeVulnerabilityReportInformer {
 	return &nodeVulnerabilityReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// SBOMs returns a SBOMInformer.
-func (v *version) SBOMs() SBOMInformer {
+// SBOMs returns a TypedSBOMInformer.
+func (v *version) SBOMs() TypedSBOMInformer {
 	return &sBOMInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// VulnerabilityReports returns a VulnerabilityReportInformer.
-func (v *version) VulnerabilityReports() VulnerabilityReportInformer {
+// VulnerabilityReports returns a TypedVulnerabilityReportInformer.
+func (v *version) VulnerabilityReports() TypedVulnerabilityReportInformer {
 	return &vulnerabilityReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// WorkloadScanReports returns a WorkloadScanReportInformer.
-func (v *version) WorkloadScanReports() WorkloadScanReportInformer {
+// WorkloadScanReports returns a TypedWorkloadScanReportInformer.
+func (v *version) WorkloadScanReports() TypedWorkloadScanReportInformer {
 	return &workloadScanReportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

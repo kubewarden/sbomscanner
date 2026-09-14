@@ -14,7 +14,7 @@ import (
 //
 // SBOM represents a Software Bill of Materials of an OCI artifact
 type SBOMApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	ImageMetadata                    *ImageMetadataApplyConfiguration `json:"imageMetadata,omitempty"`
 	// SPDX contains the SPDX document of the SBOM in JSON format

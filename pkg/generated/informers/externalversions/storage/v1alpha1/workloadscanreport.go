@@ -18,11 +18,39 @@ import (
 )
 
 // WorkloadScanReportInformer provides access to a shared informer and lister for
-// WorkloadScanReports.
+// WorkloadScanReports. Prefer using the type-safe variant (see [TypedWorkloadScanReportInformer]).
 type WorkloadScanReportInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() storagev1alpha1.WorkloadScanReportLister
 }
+
+// TypedWorkloadScanReportInformer provides access to a shared informer and lister for
+// WorkloadScanReports, including the type-safe TypedInformer variant.
+// It is a superset of WorkloadScanReportInformer.
+type TypedWorkloadScanReportInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() WorkloadScanReportIndexInformer
+	Lister() storagev1alpha1.WorkloadScanReportLister
+}
+
+// WorkloadScanReportIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type WorkloadScanReportIndexInformer cache.TypedSharedIndexInformer[*apistoragev1alpha1.WorkloadScanReport]
+
+// WorkloadScanReportHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for WorkloadScanReport.
+type WorkloadScanReportHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apistoragev1alpha1.WorkloadScanReport]
+
+// WorkloadScanReportDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for WorkloadScanReport.
+type WorkloadScanReportDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apistoragev1alpha1.WorkloadScanReport]
+
+// WorkloadScanReportFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for WorkloadScanReport.
+type WorkloadScanReportFilteringHandler = cache.TypedFilteringResourceEventHandler[*apistoragev1alpha1.WorkloadScanReport]
+
+// WorkloadScanReportIndexers is a specialization of [cache.TypedIndexers] for WorkloadScanReport.
+type WorkloadScanReportIndexers = cache.TypedIndexers[*apistoragev1alpha1.WorkloadScanReport]
+
+// DeletedWorkloadScanReport is a specialization of [cache.DeletedObject] for WorkloadScanReport.
+type DeletedWorkloadScanReport = cache.DeletedObject[*apistoragev1alpha1.WorkloadScanReport]
 
 type workloadScanReportInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -33,25 +61,49 @@ type workloadScanReportInformer struct {
 // NewWorkloadScanReportInformer constructs a new informer for WorkloadScanReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedWorkloadScanReportInformer]).
 func NewWorkloadScanReportInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewWorkloadScanReportInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedWorkloadScanReportInformer constructs a new informer for WorkloadScanReport type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedWorkloadScanReportInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers WorkloadScanReportIndexers) WorkloadScanReportIndexInformer {
+	return NewTypedWorkloadScanReportInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredWorkloadScanReportInformer constructs a new informer for WorkloadScanReport type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredWorkloadScanReportInformer]).
 func NewFilteredWorkloadScanReportInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewWorkloadScanReportInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedWorkloadScanReportInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredWorkloadScanReportInformer constructs a new informer for WorkloadScanReport type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredWorkloadScanReportInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers WorkloadScanReportIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) WorkloadScanReportIndexInformer {
+	return NewTypedWorkloadScanReportInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewWorkloadScanReportInformerWithOptions constructs a new informer for WorkloadScanReport type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedWorkloadScanReportInformerWithOptions]).
 func NewWorkloadScanReportInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedWorkloadScanReportInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedWorkloadScanReportInformerWithOptions constructs a new informer for WorkloadScanReport type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedWorkloadScanReportInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) WorkloadScanReportIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "storage.sbomscanner.kubewarden.io", Version: "v1alpha1", Resource: "workloadscanreports"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.WorkloadScanReport](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -84,17 +136,57 @@ func NewWorkloadScanReportInformerWithOptions(client versioned.Interface, namesp
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *workloadScanReportInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewWorkloadScanReportInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedWorkloadScanReportInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *workloadScanReportInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apistoragev1alpha1.WorkloadScanReport{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *workloadScanReportInformer) TypedInformer() WorkloadScanReportIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.WorkloadScanReport](f.factory.InformerFor(&apistoragev1alpha1.WorkloadScanReport{}, f.defaultInformer))
 }
 
 func (f *workloadScanReportInformer) Lister() storagev1alpha1.WorkloadScanReportLister {
 	return storagev1alpha1.NewWorkloadScanReportLister(f.Informer().GetIndexer())
+}
+
+// ToTypedWorkloadScanReportInformer converts an untyped informer into a TypedWorkloadScanReportInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *WorkloadScanReport. If that is not the case, calling type-safe methods of the returned
+// TypedWorkloadScanReportInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedWorkloadScanReportInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedWorkloadScanReportInformer(informer WorkloadScanReportInformer) TypedWorkloadScanReportInformer {
+	if informer, ok := informer.(TypedWorkloadScanReportInformer); ok {
+		return informer
+	}
+	return &workloadScanReportTypedInformerAdapter{informer}
+}
+
+type workloadScanReportTypedInformerAdapter struct {
+	WorkloadScanReportInformer
+}
+
+func (a *workloadScanReportTypedInformerAdapter) TypedInformer() WorkloadScanReportIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.WorkloadScanReport](a.Informer())
+}
+
+// ToWorkloadScanReportIndexInformer converts an untyped informer into a WorkloadScanReportIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *WorkloadScanReport. If that is not the case, calling type-safe methods of the returned
+// WorkloadScanReportIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a WorkloadScanReportIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToWorkloadScanReportIndexInformer(informer cache.SharedIndexInformer) WorkloadScanReportIndexInformer {
+	if informer, ok := informer.(WorkloadScanReportIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apistoragev1alpha1.WorkloadScanReport](informer)
 }
