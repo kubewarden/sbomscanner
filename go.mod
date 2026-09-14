@@ -40,8 +40,7 @@ require (
 	modernc.org/sqlite v1.57.0
 	sigs.k8s.io/controller-runtime v0.25.0
 	sigs.k8s.io/e2e-framework v0.7.0
-	sigs.k8s.io/structured-merge-diff/v6 v6.4.1
-	sigs.k8s.io/structured-merge-diff/v7 v7.0.0
+	sigs.k8s.io/structured-merge-diff/v6 v6.4.2
 )
 
 require (
