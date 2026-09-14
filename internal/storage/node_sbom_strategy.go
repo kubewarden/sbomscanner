@@ -37,11 +37,11 @@ func (nodeSBOMStrategy) WarningsOnCreate(_ context.Context, _ runtime.Object) []
 	return nil
 }
 
-func (nodeSBOMStrategy) AllowCreateOnUpdate() bool {
+func (nodeSBOMStrategy) AllowCreateOnUpdate(_ context.Context) bool {
 	return false
 }
 
-func (nodeSBOMStrategy) AllowUnconditionalUpdate() bool {
+func (nodeSBOMStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 	return false
 }
 
