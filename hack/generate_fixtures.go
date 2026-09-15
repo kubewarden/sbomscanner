@@ -27,7 +27,7 @@ import (
 const (
 	testTrivyDBRepository       = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-db:2"
 	testTrivyJavaDBRepository   = "ghcr.io/kubewarden/sbomscanner/test-assets/trivy-java-db:1"
-	testSBOMScannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb:1"
+	testSBOMScannerDBRepository = "ghcr.io/kubewarden/sbomscanner/test-assets/sbomscannerdb"
 )
 
 func main() {
@@ -63,7 +63,7 @@ func main() {
 		log.Fatalf("failed to create cache dir: %v", err)
 	}
 	defer os.RemoveAll(cacheDir)
-	db := sbomscannerdb.New(testSBOMScannerDBRepository, cacheDir, oci.Config{}, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	db := sbomscannerdb.Open(testSBOMScannerDBRepository, cacheDir, oci.Config{}, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 
 	for _, file := range files {
 		if err := generateReport(context.Background(), db, cacheDir, file); err != nil {
@@ -217,7 +217,10 @@ func generateReport(ctx context.Context, db *sbomscannerdb.DB, cacheDir, spdxFil
 	for i := range results {
 		for j := range results[i].Vulnerabilities {
 			vuln := &results[i].Vulnerabilities[j]
-			record := db.Lookup(vuln.CVE)
+			record, err := db.Lookup(ctx, vuln.CVE)
+			if err != nil {
+				return fmt.Errorf("failed to look up %s: %w", vuln.CVE, err)
+			}
 			vuln.KEV = record.KEV
 			vuln.EPSS = record.EPSS
 		}

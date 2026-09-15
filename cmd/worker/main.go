@@ -56,7 +56,7 @@ func main() {
 	flag.StringVar(&trivyDBRepository, "trivy-db-repository", "public.ecr.aws/aquasecurity/trivy-db", "OCI repository to retrieve trivy-db.")
 	flag.StringVar(&trivyJavaDBRepository, "trivy-java-db-repository", "public.ecr.aws/aquasecurity/trivy-java-db", "OCI repository to retrieve trivy-java-db.")
 	flag.StringVar(&installationNamespace, "installation-namespace", "sbomscanner", "The namespace where sbomscanner is installed.")
-	flag.StringVar(&sbomscannerDBRepository, "sbomscanner-db-repository", "", "OCI reference (tag) of the sbomscanner vulnerability database (KEV, EPSS, …). Empty disables the database.")
+	flag.StringVar(&sbomscannerDBRepository, "sbomscanner-db-repository", "", "OCI repository of the sbomscanner vulnerability database (KEV, EPSS, …). Empty disables the database.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.StringVar(&mode, "mode", "registry", "Mode of operation ('registry' or 'node').")
@@ -154,7 +154,7 @@ func main() {
 
 	var sbomscannerDB *sbomscannerdb.DB
 	if sbomscannerDBRepository != "" {
-		sbomscannerDB = sbomscannerdb.New(sbomscannerDBRepository, runDir, oci.Config{}, logger)
+		sbomscannerDB = sbomscannerdb.Open(sbomscannerDBRepository, runDir, oci.Config{}, logger)
 	}
 
 	var scanMode messaging.HandlerRegistry
@@ -207,6 +207,10 @@ func main() {
 	logger.Debug("Shutting down health server")
 	if err := healthServer.Close(); err != nil {
 		logger.Error("Error shutting down health check server", "error", err)
+		os.Exit(1)
+	}
+	if err := sbomscannerDB.Close(); err != nil {
+		logger.Error("Error closing the sbomscanner database", "error", err)
 		os.Exit(1)
 	}
 }

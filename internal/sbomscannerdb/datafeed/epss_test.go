@@ -24,28 +24,22 @@ func TestEPSSDownloader_Download(t *testing.T) {
 	d.url = srv.URL + "/epss_scores.csv.gz"
 	require.NoError(t, d.Download(context.Background(), dir))
 
-	// The gzipped fixture must land decompressed under the plain CSV name.
-	file, err := os.Open(filepath.Join(dir, EPSSFileName))
+	// Download decompresses the CSV; BuildSQLite turns it into the database.
+	dbDir := t.TempDir()
+	_, err := d.BuildSQLite(context.Background(), dir, dbDir)
 	require.NoError(t, err)
-	defer file.Close()
 
-	scores, err := ParseEPSSScores(file)
-	require.NoError(t, err)
-	assert.Equal(t, "v2026.06.15", scores.ModelVersion)
-	assert.Equal(t, time.Date(2026, time.July, 12, 12, 0, 0, 0, time.UTC), scores.ScoreDate)
-	require.Len(t, scores.Scores, 1)
-	assert.Equal(t, EPSSScore{CVE: "CVE-2021-44228", EPSS: 0.97565, Percentile: 0.99992}, scores.Scores[0])
+	var entry EPSSEntry
+	lookupJSON(t, filepath.Join(dbDir, EPSSDBFileName), "CVE-2021-44228", &entry)
+	assert.Equal(t, EPSSEntry{EPSS: 0.97565, Percentile: 0.99992, Date: time.Date(2026, time.July, 12, 12, 0, 0, 0, time.UTC)}, entry)
 }
 
-func TestEPSSDownloader_DownloadFailsOnInvalidPayload(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("<html><body>Service temporarily unavailable</body></html>"))
-	}))
-	t.Cleanup(srv.Close)
+func TestEPSSDownloader_BuildSQLiteFailsOnInvalidPayload(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, EPSSSourceFileName), []byte("<html>error</html>"), 0o600))
 
 	d := NewEPSSDownloader(NewHTTPDownloader(), slog.New(slog.DiscardHandler))
-	d.url = srv.URL + "/epss_scores-current.csv.gz"
-	err := d.Download(context.Background(), t.TempDir())
+	_, err := d.BuildSQLite(context.Background(), dir, t.TempDir())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "validate EPSS")
 }

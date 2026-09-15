@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,8 +17,11 @@ import (
 	"time"
 )
 
-// EPSSFileName is the file name of the EPSS scores in the destination directory.
-const EPSSFileName = "epss_scores.csv"
+// EPSSSourceFileName is the file name of the EPSS scores as downloaded from FIRST.
+const EPSSSourceFileName = "epss_scores.csv"
+
+// EPSSDBFileName is the file name of the EPSS database built from the scores.
+const EPSSDBFileName = "epss.sqlite"
 
 // defaultEPSSURL is the daily EPSS bulk feed (gzipped CSV).
 const defaultEPSSURL = "https://epss.empiricalsecurity.com/epss_scores-current.csv.gz"
@@ -39,6 +43,13 @@ type EPSSScore struct {
 	CVE        string
 	EPSS       float64
 	Percentile float64
+}
+
+// EPSSEntry is the JSON stored per CVE in the EPSS database.
+type EPSSEntry struct {
+	EPSS       float64   `json:"epss"`
+	Percentile float64   `json:"percentile"`
+	Date       time.Time `json:"date"`
 }
 
 // ParseEPSSScores parses and sanity-checks an EPSS bulk feed CSV:
@@ -149,37 +160,37 @@ func NewEPSSDownloader(httpDownloader *HTTPDownloader, logger *slog.Logger) *EPS
 // Name is the short feed id.
 func (d *EPSSDownloader) Name() string { return "epss" }
 
-// FileName is the EPSS scores' file name within the data directory.
-func (d *EPSSDownloader) FileName() string { return EPSSFileName }
-
-// Format is the EPSS scores' file format.
-func (d *EPSSDownloader) Format() string { return "csv" }
-
-// Download fetches the EPSS scores (gzipped CSV, decompressed on the fly)
-// into dir/EPSSFileName and validates that it parses as a usable feed.
+// Download fetches the EPSS scores (gzipped CSV, decompressed on the fly) into dir.
 func (d *EPSSDownloader) Download(ctx context.Context, dir string) error {
-	dst := filepath.Join(dir, EPSSFileName)
 	d.logger.InfoContext(ctx, "downloading EPSS scores", "url", d.url)
-	size, err := d.http.Download(ctx, d.url, dst)
+	size, err := d.http.Download(ctx, d.url, filepath.Join(dir, EPSSSourceFileName))
 	if err != nil {
 		return fmt.Errorf("download EPSS: %w", err)
 	}
-
-	scores, err := parseEPSSFile(dst)
-	if err != nil {
-		return fmt.Errorf("validate EPSS: %w", err)
-	}
-
-	d.logger.InfoContext(ctx, "downloaded EPSS scores", "file", EPSSFileName, "bytes", size, "rows", len(scores.Scores), "modelVersion", scores.ModelVersion)
+	d.logger.InfoContext(ctx, "downloaded EPSS scores", "bytes", size)
 	return nil
 }
 
-// Validate parses dir/EPSSFileName as an EPSS feed.
-func (d *EPSSDownloader) Validate(dir string) error {
-	if _, err := parseEPSSFile(filepath.Join(dir, EPSSFileName)); err != nil {
-		return fmt.Errorf("validate EPSS: %w", err)
+// BuildSQLite parses srcDir/EPSSSourceFileName and writes dstDir/EPSSDBFileName.
+// Each entry carries the score, the percentile, and the feed's score_date.
+func (d *EPSSDownloader) BuildSQLite(ctx context.Context, srcDir, dstDir string) (string, error) {
+	scores, err := parseEPSSFile(filepath.Join(srcDir, EPSSSourceFileName))
+	if err != nil {
+		return "", fmt.Errorf("validate EPSS: %w", err)
 	}
-	return nil
+	entries := make([]Entry, 0, len(scores.Scores))
+	for _, score := range scores.Scores {
+		data, err := json.Marshal(EPSSEntry{EPSS: score.EPSS, Percentile: score.Percentile, Date: scores.ScoreDate})
+		if err != nil {
+			return "", fmt.Errorf("encode EPSS entry %s: %w", score.CVE, err)
+		}
+		entries = append(entries, Entry{CVE: score.CVE, JSON: data})
+	}
+	if err := writeDatabase(ctx, filepath.Join(dstDir, EPSSDBFileName), entries); err != nil {
+		return "", fmt.Errorf("build EPSS database: %w", err)
+	}
+	d.logger.InfoContext(ctx, "built EPSS database", "file", EPSSDBFileName, "rows", len(entries), "modelVersion", scores.ModelVersion)
+	return EPSSDBFileName, nil
 }
 
 // parseEPSSFile opens the file at path and parses it as an EPSS feed.

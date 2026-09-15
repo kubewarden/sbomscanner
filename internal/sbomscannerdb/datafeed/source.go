@@ -5,21 +5,16 @@ import (
 	"log/slog"
 )
 
-// Source is one upstream vulnerability data feed. Implementations know how to
-// fetch and validate their feed into a data directory and describe how it
-// should be packed as an OCI layer (name + on-disk file + file format).
+// Source is one upstream vulnerability data feed.
+// Implementations fetch the upstream feed and build a SQLite database from it.
 type Source interface {
 	// Name is the short feed id (e.g. "kev"); it names the OCI layer.
 	Name() string
-	// FileName is the feed's file name within the data directory.
-	FileName() string
-	// Format is the feed's file format / extension (e.g. "json", "csv");
-	// it is carried in the layer media type.
-	Format() string
-	// Download fetches and validates the feed into dir/FileName().
+	// Download fetches the upstream feed file into dir.
 	Download(ctx context.Context, dir string) error
-	// Validate checks that dir/FileName() is a usable feed.
-	Validate(dir string) error
+	// BuildSQLite parses the upstream feed file in srcDir, writes the database into dstDir,
+	// and returns the database file name.
+	BuildSQLite(ctx context.Context, srcDir, dstDir string) (string, error)
 }
 
 // AllSources returns every data feed packed into the DB artifact.

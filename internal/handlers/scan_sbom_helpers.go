@@ -172,7 +172,10 @@ func (b *scanSBOMBase) enrichResults(ctx context.Context, results []storagev1alp
 		vulns := results[i].Vulnerabilities
 		for j := range vulns {
 			vuln := &vulns[j]
-			record := b.sbomscannerDB.Lookup(vuln.CVE)
+			record, err := b.sbomscannerDB.Lookup(ctx, vuln.CVE)
+			if err != nil {
+				return fmt.Errorf("failed to look up %s in sbomscanner DB: %w", vuln.CVE, err)
+			}
 			vuln.KEV = record.KEV
 			vuln.EPSS = record.EPSS
 		}

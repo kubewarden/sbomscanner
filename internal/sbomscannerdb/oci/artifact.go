@@ -31,7 +31,7 @@ const (
 	// data-layer media type (see DataLayerMediaType), so layers can be
 	// recognized by shape without enumerating each source.
 	dataLayerMediaTypePrefix = "application/vnd.sbomscanner.db."
-	dataLayerMediaTypeSuffix = "+gzip"
+	dataLayerMediaTypeSuffix = ".v1.sqlite+tar+gzip"
 
 	// AnnotationLastUpdate records when the artifact was last rebuilt and pushed.
 	AnnotationLastUpdate = "io.kubewarden.sbomscanner.db.lastUpdate"
@@ -77,11 +77,11 @@ func (w UpdateWindow) annotations() map[string]string {
 	}
 }
 
-// DataLayerMediaType builds the media type of a DB data layer from the source
-// name and its file format, e.g. DataLayerMediaType("kev", "json") yields
-// "application/vnd.sbomscanner.db.kev.v1.json+gzip".
-func DataLayerMediaType(name, format string) string {
-	return dataLayerMediaTypePrefix + name + ".v1." + format + dataLayerMediaTypeSuffix
+// DataLayerMediaType builds the media type of a DB data layer from the feed name.
+// Every layer is a SQLite database packed as tar.gz, so DataLayerMediaType("kev")
+// yields "application/vnd.sbomscanner.db.kev.v1.sqlite+tar+gzip".
+func DataLayerMediaType(name string) string {
+	return dataLayerMediaTypePrefix + name + dataLayerMediaTypeSuffix
 }
 
 // isDataLayerMediaType reports whether mediaType is a DB data layer, matching
