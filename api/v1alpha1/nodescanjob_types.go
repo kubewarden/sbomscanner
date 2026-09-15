@@ -173,8 +173,10 @@ func (s *NodeScanJob) MarkScheduled(reason, message string) {
 
 // MarkInProgress marks the job as in progress.
 func (s *NodeScanJob) MarkInProgress(reason, message string) {
-	now := metav1.Now()
-	s.Status.StartTime = &now
+	if s.Status.StartTime == nil {
+		now := metav1.Now()
+		s.Status.StartTime = &now
+	}
 
 	meta.SetStatusCondition(&s.Status.Conditions, metav1.Condition{
 		Type:               ConditionNodeScanJobTypeScheduled,
