@@ -21,6 +21,10 @@ DEPLOYMENTS=(
 STATEFULSETS=(
   "sbomscanner-nats:app.kubernetes.io/component=nats"
 )
+# Only rendered when controller.nodeScan.enabled=true.
+DAEMONSETS=(
+  "sbomscanner-worker-node:app.kubernetes.io/component=worker-node"
+)
 
 # ─── Styling ─────────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -171,6 +175,17 @@ verify_resources() {
   return $all_ok
 }
 
+# True when at least one of the given "name:label" daemonsets exists.
+daemonsets_present() {
+  local res label found
+  for res in "$@"; do
+    label="${res##*:}"
+    found=$(kubectl -n "$NAMESPACE" get daemonset -l "$label" -o name 2>/dev/null || true)
+    [[ -n "$found" ]] && return 0
+  done
+  return 1
+}
+
 # ─── Collect ─────────────────────────────────────────────────────────────────
 collect_pod_logs() {
   local ns="$1" label="$2" out_dir="$3"
@@ -224,6 +239,7 @@ collect_data() {
   for label in \
     "app.kubernetes.io/component=controller" \
     "app.kubernetes.io/component=worker" \
+    "app.kubernetes.io/component=worker-node" \
     "app.kubernetes.io/component=storage" \
     "app.kubernetes.io/component=nats"; do
     collect_pod_logs "$NAMESPACE" "$label" "$logs_dir"
@@ -241,7 +257,7 @@ collect_data() {
 
   if [[ "$COLLECT_ALL_MANIFESTS" == true ]]; then
     section "Collecting cluster-scoped manifests"
-    for kind in vexhub workloadscanconfiguration; do
+    for kind in vexhub workloadscanconfiguration nodescanconfiguration nodescanjob nodesbom nodevulnerabilityreport; do
       step "$kind"
       kubectl get "$kind" -o yaml > "${manifests_dir}/cluster_${kind}.yaml" 2>/dev/null \
         || warn "No $kind resources found"
@@ -307,6 +323,13 @@ cmd_verify() {
 
   section "StatefulSets"
   verify_resources "statefulset" "${STATEFULSETS[@]}" || ok=false
+
+  section "DaemonSets"
+  if daemonsets_present "${DAEMONSETS[@]}"; then
+    verify_resources "daemonset" "${DAEMONSETS[@]}" || ok=false
+  else
+    step "(no worker-node daemonset found: node scan is disabled)"
+  fi
 
   hr
   if [[ "$ok" == true ]]; then
