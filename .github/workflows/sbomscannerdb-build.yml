@@ -1,0 +1,67 @@
+name: build and publish enrichment vulnerability db
+
+on:
+  schedule:
+    # Every day at midnight UTC.
+    - cron: "0 0 * * *"
+  workflow_dispatch: {}
+
+env:
+  DB_REF: ghcr.io/${{ github.repository_owner }}/sbomscanner/sbomscannerdb:1
+
+jobs:
+  build:
+    name: Build, sign and push the vulnerability DB
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Checkout the repository
+      packages: write # Push the DB artifact to ghcr.io
+      id-token: write # Keyless signing with cosign
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Build the sbomscannerdb CLI
+        run: make db-cli
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the DB artifact
+        run: ./bin/sbomscannerdb build "${DB_REF}"
+
+      - name: Push the DB artifact
+        id: push
+        run: |
+          set -euo pipefail
+          # push prints: "pushed <ref> (<digest>)"
+          output=$(./bin/sbomscannerdb push "${DB_REF}")
+          echo "${output}"
+          digest=$(echo "${output}" | sed -n 's/.*(\(sha256:[0-9a-f]\{64\}\)).*/\1/p')
+          if [ -z "${digest}" ]; then
+            echo "failed to parse pushed digest" >&2
+            exit 1
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Sign the DB artifact (keyless)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          repo="${DB_REF%:*}"
+          cosign sign --yes "${repo}@${DIGEST}"
