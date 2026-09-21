@@ -355,7 +355,9 @@ RegistrySpec defines the desired state of Registry
 | *`uri`* __string__ | URI is the URI of the container registry + |  | 
 | *`catalogType`* __string__ | CatalogType is the type of catalog used to list the images within the registry. + |  | 
 | *`repositories`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-repository[$$Repository$$] array__ | Repositories is the list of the repositories to be scanned +
-An empty list means all the repositories found in the registry are going to be scanned. + |  | 
+An empty list means all the repositories found in the registry are going to be scanned. +
+The scanner only catalogs container images. +
+It skips other OCI artifacts, for example, signatures, attestations, and Helm charts. + |  | 
 | *`authSecret`* __string__ | AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry. +
 The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ + |  | 
 | *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__ | ScanInterval is the interval at which the registry is scanned. +

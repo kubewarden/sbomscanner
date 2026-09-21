@@ -264,7 +264,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `uri` _string_ | URI is the URI of the container registry |  |  |
 | `catalogType` _string_ | CatalogType is the type of catalog used to list the images within the registry. |  |  |
-| `repositories` _[Repository](#repository) array_ | Repositories is the list of the repositories to be scanned<br />An empty list means all the repositories found in the registry are going to be scanned. |  |  |
+| `repositories` _[Repository](#repository) array_ | Repositories is the list of the repositories to be scanned<br />An empty list means all the repositories found in the registry are going to be scanned.<br />The scanner only catalogs container images.<br />It skips other OCI artifacts, for example, signatures, attestations, and Helm charts. |  |  |
 | `authSecret` _string_ | AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry.<br />The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ |  |  |
 | `scanInterval` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta)_ | ScanInterval is the interval at which the registry is scanned.<br />If not set, automatic scanning is disabled. |  |  |
 | `caBundle` _string_ | CABundle is the CA bundle to use when connecting to the registry. |  |  |

@@ -66,6 +66,18 @@ const (
 
 	artifactRefHelmChart        = "ghcr.io/kubewarden/sbomscanner/test-assets/charts/kubewarden-controller:5.9.0"
 	artifactRefKubewardenPolicy = "ghcr.io/kubewarden/sbomscanner/test-assets/policies/echo:v0.1.15"
+
+	// The nginx-signed repository contains a copy of imageRefSingleArch plus the
+	// cosign artifacts that point to it. The image digest is imageDigestSingleArch.
+	// To create the artifacts again, run these commands with a throwaway key pair:
+	//   crane copy ghcr.io/kubewarden/sbomscanner/test-assets/nginx:1.27.1 ghcr.io/kubewarden/sbomscanner/test-assets/nginx-signed:1.27.1
+	//   cosign generate-key-pair
+	//   # cosign v2: tag-based signature (.sig) and attestation (.att)
+	//   cosign sign --key cosign.key --tlog-upload=false -y ghcr.io/kubewarden/sbomscanner/test-assets/nginx-signed@<digest>
+	//   cosign attest --key cosign.key --tlog-upload=false -y --predicate predicate.json --type custom ghcr.io/kubewarden/sbomscanner/test-assets/nginx-signed@<digest>
+	imageRefSingleArchSigned     = "ghcr.io/kubewarden/sbomscanner/test-assets/nginx-signed:1.27.1"
+	artifactRefCosignSignature   = "ghcr.io/kubewarden/sbomscanner/test-assets/nginx-signed:sha256-f41b7d70c5779beba4a570ca861f788d480156321de2876ce479e072fb0246f1.sig"
+	artifactRefCosignAttestation = "ghcr.io/kubewarden/sbomscanner/test-assets/nginx-signed:sha256-f41b7d70c5779beba4a570ca861f788d480156321de2876ce479e072fb0246f1.att"
 )
 
 // testMessage is a simple implementation of a message used for testing purposes.

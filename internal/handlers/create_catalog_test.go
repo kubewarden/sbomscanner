@@ -42,6 +42,9 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 	multiArchWithSamePlatformRef := name.MustParseReference(imageRefMultiArchWithSamePlatform)
 	helmChartRef := name.MustParseReference(artifactRefHelmChart)
 	kubewardenPolicyRef := name.MustParseReference(artifactRefKubewardenPolicy)
+	singleArchSignedRef := name.MustParseReference(imageRefSingleArchSigned)
+	cosignSignatureRef := name.MustParseReference(artifactRefCosignSignature)
+	cosignAttestationRef := name.MustParseReference(artifactRefCosignAttestation)
 
 	testRegistry, err := runTestRegistry(t.Context(), []name.Reference{
 		singleArchRef,
@@ -50,6 +53,9 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 		multiArchWithSamePlatformRef,
 		helmChartRef,
 		kubewardenPolicyRef,
+		singleArchSignedRef,
+		cosignSignatureRef,
+		cosignAttestationRef,
 	},
 		testRegistryOptions{
 			Private: false,
@@ -102,6 +108,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "windows/amd64:10.0.20348.4773", imageDigestWindowsAmd64OsVersion10020WithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
 				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/ppc64le", imageDigestLinuxPpc64leWithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
 				imageFactory(testRegistry.RegistryName, multiArchWithSamePlatformRef.Context().RepositoryStr(), multiArchWithSamePlatformRef.Identifier(), "linux/s390x", imageDigestLinuxS390xWithSamePlatform, imageIndexDigestMultiArchWithSamePlatform),
+				imageFactory(testRegistry.RegistryName, singleArchSignedRef.Context().RepositoryStr(), singleArchSignedRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
 			},
 		},
 		{
@@ -308,6 +315,26 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedImages: []*storagev1alpha1.Image{},
+		},
+		{
+			name: "repository with cosign signatures and attestations",
+			registry: &v1alpha1.Registry{
+				Name:      "test-registry",
+				Namespace: "default",
+				Spec: v1alpha1.RegistrySpec{
+					URI: testRegistry.RegistryName,
+					Repositories: []v1alpha1.Repository{
+						{
+							Name: singleArchSignedRef.Context().RepositoryStr(),
+						},
+					},
+				},
+			},
+			// The repository has the image, a .sig tag, and a .att tag.
+			// The catalog must contain only the image.
+			expectedImages: []*storagev1alpha1.Image{
+				imageFactory(testRegistry.RegistryName, singleArchSignedRef.Context().RepositoryStr(), singleArchSignedRef.Identifier(), "linux/amd64", imageDigestSingleArch, ""),
+			},
 		},
 		{
 			name: "ScanJob targets a subset of the Registry: obsolete-image cleanup is skipped",

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	cranev1 "github.com/google/go-containerregistry/pkg/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -128,12 +130,11 @@ func (r *NodeScanJobReconciler) validateNodeAgainstConfig(ctx context.Context, j
 		}
 	}
 
-	if !filters.IsPlatformAllowed(
-		node.Status.NodeInfo.OperatingSystem,
-		node.Status.NodeInfo.Architecture,
-		"",
-		config.Spec.Platforms,
-	) {
+	nodePlatform := &cranev1.Platform{
+		OS:           node.Status.NodeInfo.OperatingSystem,
+		Architecture: node.Status.NodeInfo.Architecture,
+	}
+	if !filters.IsPlatformAllowed(nodePlatform, config.Spec.Platforms) {
 		log.Info("Node platform not allowed by NodeScanConfiguration, marking NodeScanJob as failed",
 			"nodeScanJob", job.Name, "node", node.Name,
 			"platform", fmt.Sprintf("%s/%s", node.Status.NodeInfo.OperatingSystem, node.Status.NodeInfo.Architecture))
