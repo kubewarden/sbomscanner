@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -93,17 +92,15 @@ func collectDecisions(t *testing.T, reader *sdkmetric.ManualReader) []metricdata
 // newRequestContext returns a context carrying an admission request for the given operation.
 func newRequestContext(ctx context.Context, operation admissionv1.Operation) context.Context {
 	return admission.NewContextWithRequest(ctx, admission.Request{
-		AdmissionRequest: admissionv1.AdmissionRequest{
-			UID:       types.UID("uid-1"),
-			Operation: operation,
-		},
+		UID:       types.UID("uid-1"),
+		Operation: operation,
 	})
 }
 
 // newRegistry returns a Registry test object, optionally carrying the given annotations.
 func newRegistry(annotations map[string]string) *v1alpha1.Registry {
 	return &v1alpha1.Registry{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-registry", Namespace: "default", Annotations: annotations},
+		Name: "my-registry", Namespace: "default", Annotations: annotations,
 	}
 }
 

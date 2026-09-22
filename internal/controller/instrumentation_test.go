@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,9 +79,10 @@ func TestInstrumentedReconciler_Success(t *testing.T) {
 	instrumentation, spanRecorder := newTestInstrumentation(t)
 	reconciler := instrumentReconciler(instrumentation, "ScanJob", "ScanJob", &fakeReconciler{})
 
-	request := ctrl.Request{}
-	request.Namespace = "default"
-	request.Name = "my-job"
+	request := ctrl.Request{
+		Namespace: "default",
+		Name:      "my-job",
+	}
 
 	_, err := reconciler.Reconcile(context.Background(), request)
 	require.NoError(t, err)
@@ -138,13 +138,14 @@ func TestInstrumentedReconciler_JoinsJobTrace(t *testing.T) {
 	jobSpan.End()
 
 	scanJob := &v1alpha1.ScanJob{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-job", Namespace: "default", Annotations: annotations},
+		Name: "my-job", Namespace: "default", Annotations: annotations,
 	}
 	reconciler := instrumentReconcilerWithTraceparent(instrumentation, "ScanJob", "ScanJob", newFakeReader(t, scanJob), &v1alpha1.ScanJob{}, &fakeReconciler{})
 
-	request := ctrl.Request{}
-	request.Namespace = "default"
-	request.Name = "my-job"
+	request := ctrl.Request{
+		Namespace: "default",
+		Name:      "my-job",
+	}
 
 	_, err := reconciler.Reconcile(context.Background(), request)
 	require.NoError(t, err)

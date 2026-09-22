@@ -75,13 +75,11 @@ var _ = Describe("RegistryScanRunner", func() {
 			It("Should label scan jobs created for workloadscan-managed registries", func(ctx context.Context) {
 				By("Creating a workloadscan-managed Registry")
 				managedRegistry := &v1alpha1.Registry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.New().String(),
-						Namespace: "default",
-						Labels: map[string]string{
-							api.LabelManagedByKey:    api.LabelManagedByValue,
-							api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
-						},
+					Name:      uuid.New().String(),
+					Namespace: "default",
+					Labels: map[string]string{
+						api.LabelManagedByKey:    api.LabelManagedByValue,
+						api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
 					},
 					Spec: v1alpha1.RegistrySpec{
 						ScanInterval: &metav1.Duration{Duration: 1 * time.Hour},
