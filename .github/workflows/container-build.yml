@@ -52,6 +52,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.${{ matrix.component }}
+          build-args: |
+            VERSION=${{ inputs.version || 'dev' }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.platform }}
           push: true
