@@ -197,10 +197,9 @@ func instanceID() string {
 	return hostname
 }
 
-// buildResource merges SDK defaults
-// (which already include attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME)
-// with the service name and version supplied by the caller,
+// buildResource merges SDK defaults with the service name and version supplied by the caller,
 // plus any Kubernetes pod metadata exposed by the chart.
+// OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME are applied last, so they override every other value.
 func buildResource(ctx context.Context, serviceName, serviceVersion string) (*resource.Resource, error) {
 	attrs := []attribute.KeyValue{
 		semconv.ServiceName(serviceName),
@@ -213,12 +212,13 @@ func buildResource(ctx context.Context, serviceName, serviceVersion string) (*re
 		}
 	}
 
+	// Detectors merge in order and later values win.
 	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
 		resource.WithProcess(),
 		resource.WithHost(),
 		resource.WithTelemetrySDK(),
 		resource.WithAttributes(attrs...),
+		resource.WithFromEnv(),
 	)
 	if err != nil {
 		// resource.New can return a partial resource with a non-fatal error

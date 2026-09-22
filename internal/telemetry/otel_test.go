@@ -142,6 +142,20 @@ func TestBuildResource_ServiceAttrs(t *testing.T) {
 	assert.Equal(t, "v1.2.3", attrs[string(semconv.ServiceVersionKey)])
 }
 
+// TestBuildResource_EnvOverridesCaller checks that OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES
+// win over the service name and version supplied by the caller.
+func TestBuildResource_EnvOverridesCaller(t *testing.T) {
+	t.Setenv("OTEL_SERVICE_NAME", "from-env")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "service.version=9.9.9")
+
+	res, err := buildResource(context.Background(), "svc-under-test", "v1.2.3")
+	require.NoError(t, err)
+
+	attrs := attributesAsMap(res.Attributes())
+	assert.Equal(t, "from-env", attrs[string(semconv.ServiceNameKey)])
+	assert.Equal(t, "9.9.9", attrs[string(semconv.ServiceVersionKey)])
+}
+
 // TestBuildResource_IncludesDownwardAPI checks that each K8S_* env var lands on the resource under its OTel key.
 func TestBuildResource_IncludesDownwardAPI(t *testing.T) {
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
