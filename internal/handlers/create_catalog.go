@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -375,12 +376,52 @@ func (h *CreateCatalogHandler) discoverImages(
 		return []string{}, fmt.Errorf("cannot parse repository name %q: %w", repository, err)
 	}
 
+	if references, ok, err := workloadRepositoryReferences(registry, repo); ok || err != nil {
+		return references, err
+	}
+
 	contents, err := registryClient.ListRepositoryContents(ctx, repo)
 	if err != nil {
 		return []string{}, fmt.Errorf("cannot list repository contents: %w", err)
 	}
 
 	return contents, nil
+}
+
+// workloadRepositoryReferences resolves the exact references emitted by the workload controller.
+func workloadRepositoryReferences(registry *v1alpha1.Registry, repo name.Repository) ([]string, bool, error) {
+	if registry.Labels[api.LabelManagedByKey] != api.LabelManagedByValue ||
+		registry.Labels[api.LabelWorkloadScanKey] != api.LabelWorkloadScanValue {
+		return nil, false, nil
+	}
+	repository := registry.GetRepository(repo.RepositoryStr())
+	if repository == nil || repository.MatchOperator != v1alpha1.MatchOperatorOr || len(repository.MatchConditions) == 0 {
+		return nil, false, nil
+	}
+	references := sets.New[string]()
+	hasDigest := false
+	for _, condition := range repository.MatchConditions {
+		identifier, ok := strings.CutPrefix(condition.Name, "tag-")
+		if !ok || condition.Expression != fmt.Sprintf("tag == %q", identifier) {
+			return nil, false, nil
+		}
+		var ref name.Reference
+		var err error
+		if strings.HasPrefix(identifier, "sha256:") {
+			hasDigest = true
+			ref, err = name.NewDigest(repo.Name()+"@"+identifier, nameOptions(registry)...)
+		} else {
+			ref, err = name.NewTag(repo.Name()+":"+identifier, nameOptions(registry)...)
+		}
+		if err != nil {
+			return nil, false, fmt.Errorf("invalid workload reference %q in repository %q: %w", identifier, repo.Name(), err)
+		}
+		references.Insert(ref.Name())
+	}
+	if !hasDigest {
+		return nil, false, nil
+	}
+	return sets.List(references), true, nil
 }
 
 // refToImages converts a reference to a list of Image resources.
