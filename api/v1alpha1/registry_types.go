@@ -48,6 +48,8 @@ type RegistrySpec struct {
 	CatalogType string `json:"catalogType,omitempty"`
 	// Repositories is the list of the repositories to be scanned
 	// An empty list means all the repositories found in the registry are going to be scanned.
+	// The scanner only catalogs container images.
+	// It skips other OCI artifacts, for example, signatures, attestations, and Helm charts.
 	Repositories []Repository `json:"repositories,omitempty"`
 	// AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry.
 	// The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/

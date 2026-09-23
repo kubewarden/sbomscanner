@@ -65,6 +65,14 @@ func Test_isPlatformAllowed(t *testing.T) {
 			want: false,
 		},
 		{
+			name:                 "platform is unknown and no platforms provided",
+			platformArchitecture: "unknown",
+			platformOs:           "unknown",
+			platformVariant:      "",
+			allowedPlatforms:     []v1alpha1.Platform{},
+			want:                 false,
+		},
+		{
 			name:                 "platform is linux/arm/v7",
 			platformArchitecture: "arm",
 			platformOs:           "linux",

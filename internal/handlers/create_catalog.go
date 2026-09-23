@@ -459,6 +459,8 @@ func (h *CreateCatalogHandler) refToImages(
 }
 
 // singleArchRefToImages handles single-arch images.
+// The function returns an empty slice when the reference points to an artifact that is not
+// a container image, or when the image has no platform information.
 func (h *CreateCatalogHandler) singleArchRefToImages(
 	ctx context.Context,
 	message messaging.Message,
@@ -468,6 +470,20 @@ func (h *CreateCatalogHandler) singleArchRefToImages(
 ) ([]storagev1alpha1.Image, error) {
 	imageDetails, err := registryClient.GetImageDetails(ctx, ref, nil)
 	if err != nil {
+		if errors.Is(err, registryclient.ErrNotContainerImage) {
+			h.logger.DebugContext(ctx, "Skipping non-image artifact",
+				"ref", ref.Name(),
+			)
+			return []storagev1alpha1.Image{}, nil
+		}
+
+		if errors.Is(err, registryclient.ErrNoPlatform) {
+			h.logger.DebugContext(ctx, "Skipping image without platform",
+				"ref", ref.Name(),
+			)
+			return []storagev1alpha1.Image{}, nil
+		}
+
 		return []storagev1alpha1.Image{}, fmt.Errorf("cannot get image details for %q: %w", ref.Name(), err)
 	}
 
@@ -517,16 +533,42 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 	images := []storagev1alpha1.Image{}
 
 	for _, m := range manifest.Manifests {
+		// Image index entries must have a platform. OCI artifacts that reuse the image
+		// index format (for example, cosign referrers) have entries without a platform.
+		if m.Platform == nil {
+			h.logger.DebugContext(ctx, "Skipping index entry without platform",
+				"ref", ref.Name(),
+				"digest", m.Digest,
+				"artifactType", m.ArtifactType,
+			)
+			continue
+		}
+
 		if !filters.IsPlatformAllowed(
 			m.Platform.OS,
 			m.Platform.Architecture,
 			m.Platform.Variant,
 			registry.Spec.Platforms) {
+			h.logger.DebugContext(ctx, "Skipping index entry, platform not allowed",
+				"ref", ref.Name(),
+				"digest", m.Digest,
+				"platform", m.Platform,
+				"artifactType", m.ArtifactType,
+			)
 			continue
 		}
 
 		imageDetails, err := registryClient.GetImageDetailsFromIndex(ctx, imageIndex, m.Digest, m.Platform)
 		if err != nil {
+			if errors.Is(err, registryclient.ErrNotContainerImage) {
+				h.logger.DebugContext(ctx, "Skipping non-image index entry",
+					"ref", ref.Name(),
+					"digest", m.Digest,
+					"platform", m.Platform,
+				)
+				continue
+			}
+
 			return nil, fmt.Errorf("cannot get image details for %q digest %s platform %v: %w", ref.Name(), m.Digest, m.Platform, err)
 		}
 

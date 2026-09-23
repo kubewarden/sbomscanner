@@ -3,6 +3,7 @@ package registry
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,16 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	cranev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+)
+
+var (
+	// ErrNotContainerImage means that the manifest is not a container image.
+	// Signatures, attestations, Helm charts, and other OCI artifacts cause this error.
+	ErrNotContainerImage = errors.New("not a container image")
+
+	// ErrNoPlatform means that the image has no platform information.
+	ErrNoPlatform = errors.New("no platform found")
 )
 
 type ImageDetails struct {
@@ -124,38 +135,105 @@ func (c *Client) GetDescriptor(ctx context.Context, ref name.Reference) (*remote
 	return desc, nil
 }
 
-// IsContainerImage checks if the descriptor represents an actual container image
-// (as opposed to other OCI artifacts like Helm charts, signatures, attestations, etc.)
+// IsContainerImageManifest reports if a manifest describes a container image.
 //
-// Image indexes are considered container images. For single manifests, this method
-// parses the manifest and checks if the config media type is a container image config.
+// The function uses an allow list. A manifest is a container image only when
+// all these conditions are true:
+//   - The media type is an OCI image manifest or a Docker manifest.
+//   - The manifest has no artifactType. OCI artifacts use this field.
+//   - The config media type is an OCI or Docker image config.
+//   - Each layer has an image layer media type.
+//
+// A manifest with no layers is a valid container image. For example, an image
+// built from scratch with only metadata has no layers.
+//
+// Other OCI artifacts fail one or more of these conditions. For example, a
+// cosign signature uses the image config media type, but its layers do not
+// have an image layer media type. A Helm chart uses its own config media type.
+func IsContainerImageManifest(mediaType types.MediaType, manifest *cranev1.Manifest) bool {
+	if manifest == nil {
+		return false
+	}
+
+	if !mediaType.IsImage() {
+		return false
+	}
+
+	if manifest.ArtifactType != "" {
+		return false
+	}
+
+	if !manifest.Config.MediaType.IsConfig() {
+		return false
+	}
+
+	for _, layer := range manifest.Layers {
+		if !layer.MediaType.IsLayer() {
+			return false
+		}
+	}
+
+	return true
+}
+
+// IsContainerImage reports if the descriptor points to a container image or to
+// an image index that can contain container images.
+//
+// For a single manifest, the function parses the manifest and applies
+// IsContainerImageManifest. For an image index, the function only makes sure
+// that the index has no artifactType. The caller must validate each entry of
+// the index when it processes the platforms.
 func (c *Client) IsContainerImage(ctx context.Context, desc *remote.Descriptor) (bool, error) {
-	// Image indexes are considered container images.
-	// Individual manifests within the index will be validated when processing platforms.
 	if desc.MediaType.IsIndex() {
+		indexManifest, err := cranev1.ParseIndexManifest(bytes.NewReader(desc.Manifest))
+		if err != nil {
+			return false, fmt.Errorf("cannot parse index manifest: %w", err)
+		}
+
+		if indexManifest.ArtifactType != "" {
+			c.logger.DebugContext(ctx, "Index has an artifactType, it is not an image index",
+				"mediaType", desc.MediaType,
+				"artifactType", indexManifest.ArtifactType)
+			return false, nil
+		}
+
 		return true, nil
 	}
 
-	// Not a recognized manifest type
 	if !desc.MediaType.IsImage() {
 		c.logger.DebugContext(ctx, "Unknown manifest type", "mediaType", desc.MediaType)
 		return false, nil
 	}
 
-	// For single manifests, we need to check the config media type.
-	// OCI artifacts (Helm charts, signatures, etc.) use the same manifest schema
-	// but have different config media types.
 	manifest, err := cranev1.ParseManifest(bytes.NewReader(desc.Manifest))
 	if err != nil {
 		return false, fmt.Errorf("cannot parse manifest: %w", err)
 	}
 
-	return manifest.Config.MediaType.IsConfig(), nil
+	return IsContainerImageManifest(desc.MediaType, manifest), nil
 }
 
 // imageDetails extracts config, digest, platform, and layers from a cranev1.Image.
 // If platform is nil, it falls back to the platform from the image config file.
+//
+// The function returns ErrNotContainerImage when the manifest of the image is
+// not a container image manifest. The function returns ErrNoPlatform when no
+// platform is available.
 func imageDetails(img cranev1.Image, platform *cranev1.Platform, label string) (ImageDetails, error) {
+	mediaType, err := img.MediaType()
+	if err != nil {
+		return ImageDetails{}, fmt.Errorf("cannot read media type for %s: %w", label, err)
+	}
+
+	manifest, err := img.Manifest()
+	if err != nil {
+		return ImageDetails{}, fmt.Errorf("cannot read manifest for %s: %w", label, err)
+	}
+
+	if !IsContainerImageManifest(mediaType, manifest) {
+		return ImageDetails{}, fmt.Errorf("%s: %w", label, ErrNotContainerImage)
+	}
+
 	cfgFile, err := img.ConfigFile()
 	if err != nil {
 		return ImageDetails{}, fmt.Errorf("cannot read config for %s: %w", label, err)
@@ -166,13 +244,13 @@ func imageDetails(img cranev1.Image, platform *cranev1.Platform, label string) (
 		return ImageDetails{}, fmt.Errorf("cannot compute image digest for %s: %w", label, err)
 	}
 
-	// When no platform is provided (single-arch images or index entries without
-	// an explicit platform), fall back to the platform from the config file.
+	// When no platform is provided (single-arch images), fall back to the
+	// platform from the config file.
 	// Note: the config file does not contain the Variant field.
 	if platform == nil {
 		platform = cfgFile.Platform()
 		if platform == nil {
-			return ImageDetails{}, fmt.Errorf("cannot get platform for %s", label)
+			return ImageDetails{}, fmt.Errorf("%s: %w", label, ErrNoPlatform)
 		}
 	}
 
