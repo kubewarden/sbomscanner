@@ -39,6 +39,7 @@ func NewWorkloadScanReportStore(
 	optsGetter generic.RESTOptionsGetter,
 	db *pgxpool.Pool,
 	nc *nats.Conn,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
 ) (*registry.Store, []Watcher, error) {
 	strategy := newWorkloadScanReportStrategy(scheme)
@@ -49,7 +50,7 @@ func NewWorkloadScanReportStore(
 	repo := repository.NewWorkloadScanReportRepository(workloadScanReportResourcePluralName, vulnerabilityReportResourcePluralName, imageResourcePluralName)
 
 	watchBroadcaster := watch.NewBroadcaster(1000, watch.WaitIfChannelFull)
-	natsBroadcaster := newNatsBroadcaster(nc, workloadScanReportResourcePluralName, watchBroadcaster, TransformStripWorkloadScanReport, logger)
+	natsBroadcaster := newNatsBroadcaster(nc, workloadScanReportResourcePluralName, watchBroadcaster, TransformStripWorkloadScanReport, instrumentation, logger)
 
 	store := &store{
 		db:          db,
@@ -60,7 +61,7 @@ func NewWorkloadScanReportStore(
 		logger:      logger.With("store", workloadScanReportResourceSingularName),
 	}
 
-	natsWatcher := newNatsWatcher(nc, workloadScanReportResourcePluralName, watchBroadcaster, store, logger)
+	natsWatcher := newNatsWatcher(nc, workloadScanReportResourcePluralName, watchBroadcaster, store, instrumentation, logger)
 
 	workloadScanReportWatcher := newWorkloadScanReportWatcher(
 		nc,
@@ -68,6 +69,7 @@ func NewWorkloadScanReportStore(
 		repo,
 		natsBroadcaster,
 		store,
+		instrumentation,
 		logger,
 	)
 
@@ -78,7 +80,7 @@ func NewWorkloadScanReportStore(
 		DefaultQualifiedResource:  storagev1alpha1.Resource(workloadScanReportResourcePluralName),
 		SingularQualifiedResource: storagev1alpha1.Resource(workloadScanReportResourceSingularName),
 		Storage: registry.DryRunnableStorage{
-			Storage: store,
+			Storage: instrumentStore(instrumentation, "WorkloadScanReportStore", store),
 		},
 		CreateStrategy: strategy,
 		UpdateStrategy: strategy,

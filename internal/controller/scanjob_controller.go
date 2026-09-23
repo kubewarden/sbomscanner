@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sort"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,6 +33,8 @@ type ScanJobReconciler struct {
 
 	Scheme    *runtime.Scheme
 	Publisher messaging.Publisher
+
+	instrumentation *Instrumentation
 }
 
 // +kubebuilder:rbac:groups=sbomscanner.kubewarden.io,resources=scanjobs,verbs=get;list;watch;create;update;patch;delete
@@ -51,6 +55,8 @@ func (r *ScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("unable to get ScanJob: %w", err)
 	}
 
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("scanjob.status", jobStatus(scanJob)))
+
 	if !scanJob.DeletionTimestamp.IsZero() {
 		log.V(1).Info("ScanJob is being deleted, skipping reconciliation", "scanJob", req.NamespacedName)
 		return ctrl.Result{}, nil
@@ -68,6 +74,9 @@ func (r *ScanJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.Status().Update(ctx, scanJob); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update ScanJob status: %w", err)
 	}
+
+	// The job was pending on entry, so a terminal status persisted here is a fresh completion.
+	r.instrumentation.recordScanJobFinished(ctx, scanJob)
 
 	return reconcileResult, reconcileErr
 }
@@ -217,13 +226,15 @@ func validateScanJobTargets(scanJob *v1alpha1.ScanJob, registry *v1alpha1.Regist
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ScanJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ScanJobReconciler) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
+	r.instrumentation = instrumentation
+
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ScanJob{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: maxConcurrentReconciles,
 		}).
-		Complete(r)
+		Complete(instrumentReconcilerWithTraceparent(instrumentation, "ScanJob", "ScanJob", r.Client, &v1alpha1.ScanJob{}, r))
 	if err != nil {
 		return fmt.Errorf("failed to create ScanJob controller: %w", err)
 	}

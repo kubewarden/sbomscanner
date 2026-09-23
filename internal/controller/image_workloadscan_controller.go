@@ -89,7 +89,7 @@ func (r *ImageWorkloadScanReconciler) findWorkloadScanReportsByImage(ctx context
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ImageWorkloadScanReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ImageWorkloadScanReconciler) SetupWithManager(mgr ctrl.Manager, instrumentation *Instrumentation) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		Named("image-workloadscan").
 		For(&storagev1alpha1.Image{},
@@ -99,7 +99,7 @@ func (r *ImageWorkloadScanReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&storagev1alpha1.WorkloadScanReport{},
 			handler.EnqueueRequestsFromMapFunc(mapWorkloadScanReportToImages(mgr.GetClient())),
 		).
-		Complete(r)
+		Complete(instrumentReconciler(instrumentation, "ImageWorkloadScan", "Image", r))
 	if err != nil {
 		return fmt.Errorf("failed to setup image-workloadscan controller: %w", err)
 	}

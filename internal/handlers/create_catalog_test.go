@@ -542,7 +542,7 @@ func TestCreateCatalogHandler_Handle(t *testing.T) {
 				mockPublisher.On("Publish", mock.Anything, GenerateSBOMSubject, messageID, expectedMessage).Return(nil).Once()
 			}
 
-			handler := NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, mockPublisher, "sbomscanner", slog.Default())
+			handler := NewCreateCatalogHandler(registryClientFactory, k8sClient, scheme, mockPublisher, "sbomscanner", newNoopInstrumentation(), slog.Default())
 
 			message, err := json.Marshal(&CreateCatalogMessage{
 				ScanJob: ObjectRef{
@@ -644,6 +644,9 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 		},
 	}
 
+	completeScanJob := scanJob.DeepCopy()
+	completeScanJob.MarkComplete(v1alpha1.ReasonScanJobNoImagesToScan, "No images to process")
+
 	tests := []struct {
 		name               string
 		existingObjects    []runtime.Object
@@ -654,6 +657,13 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 		{
 			name:               "scanjob not found initially",
 			existingObjects:    []runtime.Object{registry},
+			setup:              func(_ client.Client, _ *v1alpha1.ScanJob) {},
+			interceptorFuncs:   interceptor.Funcs{},
+			expectedImageCount: 0,
+		},
+		{
+			name:               "scanjob already finished, e.g. a redelivered message",
+			existingObjects:    []runtime.Object{registry, completeScanJob},
 			setup:              func(_ client.Client, _ *v1alpha1.ScanJob) {},
 			interceptorFuncs:   interceptor.Funcs{},
 			expectedImageCount: 0,
@@ -780,7 +790,7 @@ func TestCreateCatalogHandler_Handle_StopProcessing(t *testing.T) {
 
 			mockPublisher := messagingMocks.NewMockPublisher(t)
 
-			handler := NewCreateCatalogHandler(registryClient, k8sClientWithInterceptors, scheme, mockPublisher, "sbomscanner", slog.Default())
+			handler := NewCreateCatalogHandler(registryClient, k8sClientWithInterceptors, scheme, mockPublisher, "sbomscanner", newNoopInstrumentation(), slog.Default())
 
 			message, err := json.Marshal(&CreateCatalogMessage{
 				ScanJob: ObjectRef{

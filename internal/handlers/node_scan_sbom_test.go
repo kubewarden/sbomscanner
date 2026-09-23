@@ -59,7 +59,7 @@ func TestNodeScanSBOMHandler_Handle(t *testing.T) {
 		WithStatusSubresource(&v1alpha1.NodeScanJob{}).
 		Build()
 
-	handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
+	handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, newNoopInstrumentation(), slog.Default())
 
 	message, err := json.Marshal(&ScanNodeSBOMMessage{
 		NodeScanJob: ObjectRef{
@@ -123,6 +123,9 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 	failedNodeScanJob := nodeScanJob.DeepCopy()
 	failedNodeScanJob.MarkFailed(v1alpha1.ReasonScanJobInternalError, "kaboom")
 
+	completeNodeScanJob := nodeScanJob.DeepCopy()
+	completeNodeScanJob.MarkComplete(v1alpha1.ReasonNodeScanJobComplete, "done")
+
 	tests := []struct {
 		name            string
 		nodeScanJob     *v1alpha1.NodeScanJob
@@ -144,6 +147,11 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 			existingObjects: []runtime.Object{failedNodeScanJob, nodeSBOM, vexHubs},
 		},
 		{
+			name:            "nodescanjob is complete, e.g. a redelivered message",
+			nodeScanJob:     completeNodeScanJob,
+			existingObjects: []runtime.Object{completeNodeScanJob, nodeSBOM, vexHubs},
+		},
+		{
 			name:            "nodesbom not found",
 			nodeScanJob:     nodeScanJob,
 			existingObjects: []runtime.Object{nodeScanJob, vexHubs},
@@ -163,7 +171,7 @@ func TestNodeScanSBOMHandler_Handle_StopProcessing(t *testing.T) {
 				Build()
 
 			cacheDir := t.TempDir()
-			handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, slog.Default())
+			handler := NewNodeScanSBOMHandler(k8sClient, scheme, cacheDir, testTrivyDBRepository, testTrivyJavaDBRepository, newNoopInstrumentation(), slog.Default())
 
 			message, err := json.Marshal(&ScanNodeSBOMMessage{
 				NodeScanJob: ObjectRef{

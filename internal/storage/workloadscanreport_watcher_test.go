@@ -107,6 +107,7 @@ func (suite *workloadScanReportWatcherTestSuite) SetupTest() {
 		"workloadscanreports",
 		suite.localBroadcaster,
 		TransformStripWorkloadScanReport,
+		noopInstrumentation(suite.T()),
 		slog.Default(),
 	)
 
@@ -124,6 +125,7 @@ func (suite *workloadScanReportWatcherTestSuite) SetupTest() {
 		"workloadscanreports",
 		suite.localBroadcaster,
 		suite.workloadStore,
+		noopInstrumentation(suite.T()),
 		slog.Default(),
 	)
 }
@@ -155,6 +157,7 @@ func (suite *workloadScanReportWatcherTestSuite) TestNoMatchingWorkloadScanRepor
 		suite.repo,
 		suite.workloadBroadcaster,
 		suite.workloadStore,
+		noopInstrumentation(suite.T()),
 		slog.Default(),
 	)
 	suite.Require().NoError(watcher.Setup(ctx))
@@ -222,6 +225,7 @@ func (suite *workloadScanReportWatcherTestSuite) TestMultipleWorkloadScanReports
 		suite.repo,
 		suite.workloadBroadcaster,
 		suite.workloadStore,
+		noopInstrumentation(suite.T()),
 		slog.Default(),
 	)
 	suite.Require().NoError(watcher.Setup(ctx))

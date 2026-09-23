@@ -36,6 +36,7 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/handlers/dockerauth"
 	registryclient "github.com/kubewarden/sbomscanner/internal/handlers/registry"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // CreateCatalogHandler is a handler for creating a catalog of images in a registry.
@@ -45,6 +46,7 @@ type CreateCatalogHandler struct {
 	scheme                *runtime.Scheme
 	publisher             messaging.Publisher
 	installationNamespace string
+	instrumentation       *Instrumentation
 	logger                *slog.Logger
 }
 
@@ -55,16 +57,18 @@ func NewCreateCatalogHandler(
 	scheme *runtime.Scheme,
 	publisher messaging.Publisher,
 	installationNamespace string,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *CreateCatalogHandler {
-	return &CreateCatalogHandler{
+) *InstrumentedHandler {
+	return instrumentHandler(instrumentation, "CreateCatalogHandler", "catalog", &CreateCatalogHandler{
 		registryClientFactory: registryClientFactory,
 		k8sClient:             k8sClient,
 		publisher:             publisher,
 		scheme:                scheme,
 		installationNamespace: installationNamespace,
+		instrumentation:       instrumentation,
 		logger:                logger.With("handler", "create_catalog_handler"),
-	}
+	})
 }
 
 // Handle processes the create catalog message and creates Image resources.
@@ -83,6 +87,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	// It is possible that the controller is slow to set the status condition "Scheduled" to true,
 	// so we might encounter conflicts when setting the status condition to "InProgress".
 	scanJob := &v1alpha1.ScanJob{}
+	var alreadyFinished bool
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err = h.k8sClient.Get(ctx, client.ObjectKey{
 			Name:      createCatalogMessage.ScanJob.Name,
@@ -98,6 +103,13 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			)
 		}
 
+		// A finished job means this message is a redelivery: skip it, so the job
+		// is not moved back to in-progress and completed (and counted) again.
+		if telemetry.JobFinished(scanJob) {
+			alreadyFinished = true
+			return nil
+		}
+
 		scanJob.MarkInProgress(v1alpha1.ReasonScanJobCatalogCreationInProgress, "Catalog creation in progress")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
@@ -105,9 +117,15 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 		if apierrors.IsNotFound(err) {
 			// Stop processing if the scanjob is not found, since it might have been deleted.
 			h.logger.InfoContext(ctx, "ScanJob not found, stopping catalog creation", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("cannot update scan job status %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
+	}
+	if alreadyFinished {
+		h.logger.InfoContext(ctx, "ScanJob is already finished, stopping catalog creation", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace)
+		recordSpanSkipReason(ctx, skipReasonJobFinished)
+		return nil
 	}
 
 	// Retrieve the registry from the scan job annotations.
@@ -226,6 +244,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					h.logger.InfoContext(ctx, "ScanJob not found, stopping catalog creation", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace)
+					recordSpanSkipReason(ctx, skipReasonJobNotFound)
 					return nil
 				}
 				return fmt.Errorf("cannot get scanjob %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
@@ -233,6 +252,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			if string(scanJob.GetUID()) != createCatalogMessage.ScanJob.UID {
 				h.logger.InfoContext(ctx, "ScanJob not found, stopping SBOM generation (UID changed)", "scanjob", createCatalogMessage.ScanJob.Name, "namespace", createCatalogMessage.ScanJob.Namespace,
 					"uid", createCatalogMessage.ScanJob.UID)
+				recordSpanSkipReason(ctx, skipReasonUIDMismatch)
 				return nil
 			}
 
@@ -272,6 +292,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 
 	// It is possible that the controller is slow to set the status condition "Scheduled" to true,
 	// so we might encounter conflicts when setting the status conditions.
+	var wasFinished bool
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err = h.k8sClient.Get(ctx, types.NamespacedName{
 			Name:      scanJob.Name,
@@ -287,6 +308,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			)
 		}
 
+		wasFinished = telemetry.JobFinished(scanJob)
 		if len(discoveredImages) == 0 {
 			h.logger.InfoContext(ctx, "No images to process", "scanjob", scanJob.Name, "namespace", scanJob.Namespace)
 			scanJob.MarkComplete(v1alpha1.ReasonScanJobNoImagesToScan, "No images to process")
@@ -306,6 +328,12 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			return nil
 		}
 		return fmt.Errorf("cannot update scan job status %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
+	}
+
+	// Count the completion persisted here (the no-images case); a job that was
+	// already finished was counted by the writer that finished it.
+	if !wasFinished {
+		h.instrumentation.recordScanJobFinished(ctx, scanJob)
 	}
 
 	for _, image := range discoveredImages {
@@ -347,7 +375,9 @@ func (h *CreateCatalogHandler) discoverRepositories(
 	// In this case, we need to discover all the repositories in the registry.
 	if len(registry.Spec.Repositories) == 0 {
 		var allRepositories []string
+		catalogDone := h.instrumentation.startRegistryCall(ctx, "catalog")
 		allRepositories, err = registryClient.Catalog(ctx, reg)
+		catalogDone(err)
 		if err != nil {
 			return []string{}, fmt.Errorf("cannot discover repositories: %w", err)
 		}
@@ -380,7 +410,9 @@ func (h *CreateCatalogHandler) discoverImages(
 		return references, err
 	}
 
+	listDone := h.instrumentation.startRegistryCall(ctx, "list_repository_contents")
 	contents, err := registryClient.ListRepositoryContents(ctx, repo)
+	listDone(err)
 	if err != nil {
 		return []string{}, fmt.Errorf("cannot list repository contents: %w", err)
 	}
@@ -433,7 +465,9 @@ func (h *CreateCatalogHandler) refToImages(
 	ref name.Reference,
 	registry *v1alpha1.Registry,
 ) ([]storagev1alpha1.Image, error) {
+	descriptorDone := h.instrumentation.startRegistryCall(ctx, "get_descriptor")
 	desc, err := registryClient.GetDescriptor(ctx, ref)
+	descriptorDone(err)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get descriptor for %q: %w", ref.Name(), err)
 	}
@@ -468,7 +502,9 @@ func (h *CreateCatalogHandler) singleArchRefToImages(
 	ref name.Reference,
 	registry *v1alpha1.Registry,
 ) ([]storagev1alpha1.Image, error) {
+	detailsDone := h.instrumentation.startRegistryCall(ctx, "get_image_details")
 	imageDetails, err := registryClient.GetImageDetails(ctx, ref, nil)
+	detailsDone(err)
 	if err != nil {
 		if errors.Is(err, registryclient.ErrNotContainerImage) {
 			h.logger.DebugContext(ctx, "Skipping non-image artifact",
@@ -558,7 +594,9 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 			continue
 		}
 
+		indexDetailsDone := h.instrumentation.startRegistryCall(ctx, "get_image_details")
 		imageDetails, err := registryClient.GetImageDetailsFromIndex(ctx, imageIndex, m.Digest, m.Platform)
+		indexDetailsDone(err)
 		if err != nil {
 			if errors.Is(err, registryclient.ErrNotContainerImage) {
 				h.logger.DebugContext(ctx, "Skipping non-image index entry",

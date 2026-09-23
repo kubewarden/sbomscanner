@@ -60,10 +60,60 @@ The package provides:
 - A `Setup` function each `cmd/*/main.go` calls once at startup to install the global providers (or no-ops when telemetry is disabled).
 - An `slog.Handler` wrapper that decorates every log record with `trace_id` and `span_id` for log-to-trace correlation, while leaving the existing JSON-on-stdout pipeline intact so `kubectl logs`, Loki, and Datadog continue to work unchanged.
 - A NATS header carrier that propagates the W3C `traceparent` over JetStream headers so a single trace survives the producer-to-consumer hop.
+- An annotation carrier that stores the W3C `traceparent` in the `sbomscanner.kubewarden.io/traceparent` object annotation, so a job trace survives hops between processes that communicate through the Kubernetes API (see [Job trace propagation](#job-trace-propagation)).
 - `Tracer` and `Meter` helpers that take a package directory (e.g. `internal/handlers`) and produce instances whose [instrumentation scope](https://opentelemetry.io/docs/specs/otel/common/instrumentation-scope/) is the full Go import path of the calling package.
 
 Tracers and meters are passed through constructors as struct fields, the same way `*slog.Logger` is already threaded through the codebase.
 There are no package-level globals: the constructor-injection style keeps instrumentation testable and matches the maintainer guidance in [OpenTelemetry Go discussion #4532](https://github.com/open-telemetry/opentelemetry-go/discussions/4532).
+
+## Span naming convention
+
+Span names follow the `Component.Operation` convention, so every span name states the acting component:
+
+- Reconcilers: `<Kind>Reconciler.Reconcile` (e.g. `ScanJobReconciler.Reconcile`).
+- Runners: `RegistryScanRunner.CreateScanJob`, `NodeScanRunner.CreateNodeScanJob`.
+- Webhooks use the Kubernetes-facing webhook kinds:
+  `<Kind>ValidatingWebhook.<Verb>` and `<Kind>MutatingWebhook.<Verb>`
+  with the admission verb (`Create` / `Update` / `Delete`), e.g. `ScanJobValidatingWebhook.Create`.
+
+Names are static and low-cardinality, per the
+[OpenTelemetry span name guidance](https://opentelemetry.io/docs/specs/otel/trace/api/#span)
+("the most general string that identifies a (statistically) interesting class of Spans");
+identities (object name, namespace, operation, outcome) live in attributes.
+[Tekton names its reconcile spans the same way](https://github.com/tektoncd/pipeline/blob/main/pkg/reconciler/pipelinerun/tracing.go)
+(`PipelineRun:Reconciler`).
+
+## Job trace propagation
+
+[job-trace-propagation]: #job-trace-propagation
+
+A scan is a finite workflow that crosses process boundaries through a custom resource (`ScanJob` / `NodeScanJob`).
+To keep every actor's spans in one trace, the trace context travels on the object itself:
+the `sbomscanner.kubewarden.io/traceparent` annotation holds the W3C [`traceparent`](https://www.w3.org/TR/trace-context/#traceparent-header) of the job trace.
+Only the job kinds carry it: long-lived objects (`Registry`, the configuration singletons) have no lifecycle to trace.
+
+The annotation is written exactly once, when the job is created:
+by the runner for scheduled jobs, or by the mutating webhook for jobs created any other way (kubectl, GitOps, MCP).
+An existing annotation is never overwritten,
+so a client that is already traced (e.g. a CI pipeline creating a `ScanJob`) can pre-set it
+and adopt the whole scan into its own trace.
+Reconcilers only ever read the annotation,
+so the instrumentation cannot retrigger the reconcile loops it observes.
+
+On the message hop, the trace context travels in the NATS headers instead:
+publishers inject the current traceparent and worker consumer spans parent from it.
+
+On the Kubernetes API hop, the trace context travels as the standard HTTP `traceparent` header:
+the controller and the worker instrument their clients with the
+[upstream Kubernetes client wrapper](https://pkg.go.dev/k8s.io/component-base/tracing#WrapperFor),
+the kube-apiserver aggregation proxy forwards the header,
+and the storage API server's spans join the caller's trace down to the SQL statements.
+The client spans are sampled parent-based:
+an API call made inside a trace produces a child span,
+while background traffic (leader election renewals, informer resyncs) produces nothing,
+instead of flooding the backend with one-span traces.
+One carrier per transport: the annotation for the resource hop,
+NATS headers for the message hop, HTTP headers for the API-call hop.
 
 ## Metric label cardinality
 
@@ -80,15 +130,44 @@ and Grafana Labs on [managing high-cardinality metrics](https://grafana.com/blog
 The following attribute classes are banned from metric labels:
 
 - Pod identifiers (`k8s.pod.name`, `k8s.pod.uid`) and anything else with a generated suffix. Every rollout or scale event mints new ones, so cardinality grows monotonically.
-- Full image references with digest or tag. The label uses `repository`; the full reference goes on the span, the log record, or an [exemplar](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars).
+- Full image references with digest or tag. The label uses `repository`; the full reference goes on the span or the log record.
 - Raw error strings. The label uses a finite `error.type` enum.
 - Free-form input: session IDs, SQL statements, request paths with IDs, user IDs, IP addresses.
 
-High-cardinality data belongs on spans, on log fields, or as exemplars.
+High-cardinality data belongs on spans or on log fields.
 
 Per-workload metrics (`worker.workload.*`) keep the owning controller's `kind`, `namespace`, and `name` on the label set.
 Cardinality grows with the number of scanned workloads in the cluster, not over time: workload names are operator-set and only change on intentional rename.
 This matches the label shape used by [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) and by the [trivy-operator `trivy_image_vulnerabilities`](https://aquasecurity.github.io/trivy-operator/latest/tutorials/integrations/metrics/) family, so the metrics join cleanly against existing dashboards without rewrites.
+
+## Histograms
+
+Histograms are exported as
+[base2 exponential histograms](https://opentelemetry.io/docs/specs/otel/metrics/sdk/#base2-exponential-bucket-histogram-aggregation)
+by default:
+bucket resolution adapts to the recorded values,
+matching the native histograms the Prometheus bridge already emits for the controller-runtime metrics.
+The default is applied in the shared telemetry setup only when the standard
+[`OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION`](https://opentelemetry.io/docs/specs/otel/metrics/sdk_exporters/otlp/) environment variable is unset,
+so the variable keeps its standard behaviour:
+setting it to `explicit_bucket_histogram` restores classic histograms
+for pipelines without exponential-histogram support.
+
+## Exemplars
+
+Histograms recorded inside a sampled span automatically carry
+[exemplars](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars):
+occasional concrete measurements stamped with the trace and span identifiers.
+This is the default SDK behaviour
+([trace-based exemplar filter](https://opentelemetry.io/docs/specs/otel/metrics/sdk/#exemplar-defaults)),
+applies to every histogram in the catalogue below, and requires no per-metric code.
+Backends that store exemplars
+(e.g. Prometheus with [exemplar storage](https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage))
+keep them alongside the aggregated data,
+and Grafana renders them as dots on latency panels that link straight to the trace,
+turning "this percentile spiked" into "here is the exact slow request".
+Exemplars carry only the trace identity;
+high-cardinality request details stay on the linked span.
 
 ## Traces and metrics catalogue
 
@@ -99,83 +178,112 @@ They show the current direction per component, not a frozen contract.
 
 Traces:
 
-| Span                                | Triggered by                                      | Key attributes                                                                                     |
-| :---------------------------------- | :------------------------------------------------ | :------------------------------------------------------------------------------------------------- |
-| `Reconcile ScanJob`                 | `ScanJobReconciler` reconcile call                | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `scanjob.phase`, `controller.result` |
-| `Reconcile VulnerabilityReport`     | `VulnerabilityReportReconciler` reconcile call    | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile WorkloadScan`            | `WorkloadScanReconciler` reconcile call           | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`, `workload.kind` |
-| `Reconcile ImageWorkloadScan`       | `ImageWorkloadScanReconciler` reconcile call      | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile NodeScan`                | `NodeScanReconciler` reconcile call               | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile NodeScanConfiguration`   | `NodeScanConfigurationReconciler` reconcile call  | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`                  |
-| `Reconcile NodeScanJob`             | `NodeScanJobReconciler` reconcile call            | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `nodescanjob.phase`, `controller.result` |
-| `RegistryScanRunner tick`           | Periodic runner loop                              | `registry.name`, `registry.namespace`, `scan.scheduled`                                            |
-| `NodeScanRunner tick`               | Periodic runner loop                              | `nodescanconfiguration.name`, `nodes.scheduled`                                                    |
-| `Webhook Registry`                  | Validating webhook on `Registry`                  | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook ScanJob`                   | Validating webhook on `ScanJob`                   | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook WorkloadScanConfiguration` | Validating webhook on `WorkloadScanConfiguration` | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook NodeScanConfiguration`     | Validating webhook on `NodeScanConfiguration`     | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
-| `Webhook NodeScanJob`               | Validating webhook on `NodeScanJob`               | `webhook.kind`, `webhook.operation`, `webhook.allowed`, `webhook.reason`                           |
+| Span                               | Triggered by                                                                                                   | Key attributes                                                                                                                                             |
+| :--------------------------------- | :------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<Kind>Reconciler.Reconcile`       | Each reconcile (ScanJob, VulnerabilityReport, WorkloadScan, ImageWorkloadScan, NodeScan, NodeScanConfiguration, NodeScanJob) | `k8s.resource.kind`, `k8s.namespace.name`, `k8s.object.name`, `controller.result`; the job reconcilers add `scanjob.status` / `nodescanjob.status`           |
+| `RegistryScanRunner.CreateScanJob` | `RegistryScanRunner` creating a job                                                                             | `scanjob.trigger=runner`, `registry.name`, `registry.namespace`, `k8s.object.name`                                                                            |
+| `NodeScanRunner.CreateNodeScanJob` | `NodeScanRunner` creating a job                                                                                 | `nodescanjob.trigger=runner`, `k8s.node.name`, `k8s.object.name`                                                                                              |
+| `<Kind>ValidatingWebhook.<Verb>`   | Validating admission (Registry, ScanJob, WorkloadScanConfiguration, NodeScanConfiguration, NodeScanJob)         | `webhook.type=validating`, `webhook.kind`, `webhook.operation`, `webhook.request.uid`, `webhook.allowed`, `webhook.reason`, `k8s.namespace.name`, `k8s.object.name` |
+| `<Kind>MutatingWebhook.<Verb>`     | Mutating admission (Registry, ScanJob, NodeScanJob)                                                             | `webhook.type=mutating`, plus the validating-webhook attributes                                                                                               |
+
+Each reconcile emits exactly one span,
+parented into the job trace when the object carries the traceparent annotation
+(see [Job trace propagation](#job-trace-propagation)) and standalone otherwise.
+Webhook spans join the job trace the same way.
+
+The runner spans are the roots of fresh job traces, one trace per job.
+Jobs created by users (kubectl, GitOps, MCP) have no runner span:
+their trace roots at the `<Kind>MutatingWebhook.Create` span that injected the traceparent,
+so the root span name tells the job's origin apart at a glance,
+backed by the bounded `scanjob.trigger` / `nodescanjob.trigger` attribute.
 
 Metrics:
 
-| Metric                           | Type      | Labels (bounded)                         | Exemplars                                         |
-| :------------------------------- | :-------- | :--------------------------------------- | :------------------------------------------------ |
-| `controller.reconcile.duration`  | Histogram | `kind`, `controller`, `result`           | `trace_id`, `namespace`, `name`                   |
-| `controller.reconcile.errors`    | Counter   | `kind`, `controller`, `error.type`       | `trace_id`, `namespace`, `name`                   |
-| `controller.webhook.decisions`   | Counter   | `kind`, `operation`, `allowed`, `reason` | `trace_id`, `request.uid`                         |
-| `controller.registry_scan.ticks` | Counter   | `result`                                 | `trace_id`, `registry.name`, `registry.namespace` |
+| Metric                           | Type    | Labels (bounded)                                                   |
+| :------------------------------- | :------ | :------------------------------------------------------------------ |
+| `controller.webhook.decisions`   | Counter | `type` (`validating` / `mutating`), `kind`, `operation`, `allowed`, `reason` |
+| `controller.registry_scan.ticks` | Counter | `result`                                                             |
+| `controller.node_scan.ticks`     | Counter | `result`                                                             |
+| `sbomscanner.scanjobs`           | Counter | `result` (`complete` / `failed`), `source` (`registry` / `workload`) |
+| `sbomscanner.nodescanjobs`       | Counter | `result` (`complete` / `failed`)                                     |
+
+Reconcile durations and error counts are deliberately not duplicated here:
+controller-runtime already exports them, along with the workqueue, rest-client, webhook-server,
+and Go runtime families
+(see the [kubebuilder metrics reference](https://book.kubebuilder.io/reference/metrics-reference)).
+Instead, the controller bridges its whole controller-runtime Prometheus registry over OTLP with the
+[Prometheus bridge](https://pkg.go.dev/go.opentelemetry.io/contrib/bridges/prometheus),
+so one OTLP stream carries the built-in and the first-party metrics
+(including controller-runtime's native histograms, translated to exponential histograms),
+while the [controller-runtime metrics server](https://book.kubebuilder.io/reference/metrics)
+keeps serving them for users on Prometheus pull.
 
 ### Worker
 
 Traces:
 
-| Span                    | Triggered by                                                            | Key attributes                                                                                      |
-| :---------------------- | :---------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
-| `Handler CreateCatalog` | NATS consume on `sbomscanner.scanjob.create-catalog`                    | `messaging.system`, `messaging.consumer.name`, `registry.host`, `scanjob.name`, `scanjob.namespace` |
-| `Handler GenerateSBOM`  | NATS consume on `sbomscanner.scanjob.generate-sbom`                     | `messaging.consumer.name`, `oci.image.ref`, `oci.image.platform`, `scanjob.name`                    |
-| `Handler ScanSBOM`      | NATS consume on `sbomscanner.scanjob.scan-sbom`                         | `messaging.consumer.name`, `oci.image.ref`, `vulnerability.count`, `vulnerability.count.critical`   |
-| `Handler ScanJobFailure` | NATS consume on the `ScanJob` failure subject                          | `messaging.consumer.name`, `scanjob.name`, `scanjob.namespace`, `error.type`                        |
-| `Handler GenerateNodeSBOM` | NATS consume on `sbomscanner.nodescanjob.generate-sbom`              | `messaging.consumer.name`, `k8s.node.name`, `nodescanjob.name`                                      |
-| `Handler NodeScanSBOM`  | NATS consume on `sbomscanner.nodescanjob.scan-sbom`                     | `messaging.consumer.name`, `k8s.node.name`, `nodescanjob.name`, `vulnerability.count`, `vulnerability.count.critical` |
-| `Handler NodeScanJobFailure` | NATS consume on the `NodeScanJob` failure subject                  | `messaging.consumer.name`, `nodescanjob.name`, `k8s.node.name`, `error.type`                        |
-| `Registry HTTP`         | `otelhttp.NewTransport` wrapping `go-containerregistry`                 | `http.method`, `http.url`, `http.status_code`, `registry.host`, `registry.operation`                |
-| `Trivy invoke`          | Each Trivy entry point call site in `generate_sbom.go` / `scan_sbom.go` / `generate_node_sbom.go` / `node_scan_sbom.go` | `trivy.command`, `trivy.target`, `trivy.db.version`, `result`                                       |
+| Span                                     | Triggered by                                                    | Key attributes                                       |
+| :---------------------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------- |
+| `<Handler>.Handle`                       | Each consumed message (CreateCatalogHandler, GenerateSBOMHandler, ScanSBOMHandler, GenerateNodeSBOMHandler, NodeScanSBOMHandler) | `messaging.system=nats`, `handler.skip_reason` on the early-return paths |
+| `<Handler>.HandleFailure`                | A message exhausting its redeliveries (ScanJobFailureHandler, NodeScanJobFailureHandler) | `messaging.system=nats`, `error.message`             |
+| `Trivy.Image` / `Trivy.SBOM` / `Trivy.Filesystem` | Each Trivy invocation                                    | `trivy.command`                                       |
+
+Consumer spans (`SpanKind=Consumer`) are parented from the traceparent carried in the NATS
+message headers, injected by the publisher from the publishing context.
+Handlers publishing the next pipeline message do so inside their own span,
+so the job trace forms a tree over NATS:
+reconcile → catalog → per-image SBOM generation → scan.
 
 Metrics:
 
-| Metric                            | Type      | Labels (bounded)                                          | Exemplars                                          |
-| :-------------------------------- | :-------- | :-------------------------------------------------------- | :------------------------------------------------- |
-| `worker.scan.duration`            | Histogram | `stage` (`catalog`/`generate_sbom`/`scan_sbom`/`generate_node_sbom`/`node_scan_sbom`), `result` | `trace_id`, `scanjob.name`, `oci.image.ref`        |
-| `worker.images.scanned`           | Counter   | `registry_host`, `result`                                 | `trace_id`, `oci.image.ref`                        |
-| `worker.vulnerabilities.found`    | Counter   | `severity`, `registry_host`                               | `trace_id`, `oci.image.ref`, `vulnerability.id`    |
-| `worker.registry.call.duration`   | Histogram | `registry_host`, `operation`, `http.status_code`          | `trace_id`, `oci.image.ref`                        |
-| `worker.trivy.invoke.duration`    | Histogram | `trivy.command`, `result`                                 | `trace_id`, `trivy.target`                         |
-| `worker.handler.errors`           | Counter   | `handler`, `error.type`                                   | `trace_id`, `error.message`                        |
-| `worker.workload.vulnerabilities` | Gauge     | `owner.kind`, `owner.namespace`, `owner.name`, `severity` | `trace_id`, `workload.uid`                         |
-| `worker.workload.scans`           | Counter   | `owner.kind`, `owner.namespace`, `owner.name`, `result`   | `trace_id`, `scanjob.name`                         |
-| `worker.image.vulnerabilities`    | Gauge     | `registry_host`, `repository`, `severity`                 | `trace_id`, `oci.image.ref` (full ref with digest) |
-| `worker.image.scan.duration`      | Histogram | `registry_host`, `repository`, `result`                   | `trace_id`, `oci.image.ref`                        |
+| Metric                          | Type      | Labels (bounded)                                                                                  |
+| :------------------------------- | :-------- | :-------------------------------------------------------------------------------------------------- |
+| `worker.scan.duration`          | Histogram | `stage` (`catalog` / `generate_sbom` / `scan_sbom` / `generate_node_sbom` / `node_scan_sbom`), `result` |
+| `sbomscanner.images.scanned`    | Counter   | `registry` (host), `result`                                                                          |
+| `worker.registry.call.duration` | Histogram | `operation` (`catalog` / `list_repository_contents` / `get_descriptor` / `get_image_details`), `result` |
+| `worker.trivy.duration`         | Histogram | `command` (`image` / `sbom` / `filesystem`), `result`                                                |
+| `worker.handler.errors`         | Counter   | `handler`, `error.type` (Kubernetes status reason, `canceled`, `deadline_exceeded`, or `unknown`)    |
 
 ### Storage
 
 Traces:
 
-| Span                    | Triggered by                                                                            | Key attributes                                                                                     |
-| :---------------------- | :-------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-| `APIServer request`     | `otelhttp.NewHandler` on the aggregated `genericapiserver` chain                        | `http.method`, `http.route`, `http.status_code`, `k8s.api.verb`, `k8s.api.resource`                |
-| `Storage <Kind>.<Verb>` | REST storage methods on `Image` / `SBOM` / `VulnerabilityReport` / `WorkloadScanReport` | `k8s.api.verb`, `k8s.api.resource`, `k8s.namespace.name`, `k8s.object.name`, `result`              |
-| `Postgres <op>`         | `otelpgx.NewTracer()` on `pgxpool.Config.ConnConfig.Tracer`                             | `db.system=postgresql`, `db.operation`, `db.sql.table`, `db.rows_affected`                         |
-| `Watch fan-out publish` | `internal/storage/watcher.go` publishing to NATS                                        | `messaging.system=nats`, `messaging.destination.name`, `event.type` (`added`/`modified`/`deleted`) |
-| `Watch fan-out consume` | Storage-side NATS subscriber                                                            | `messaging.system=nats`, `messaging.consumer.name`, `event.type`                                   |
+| Span                                                       | Triggered by                                                                                                    | Key attributes                                                                                                   |
+| :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
+| `GET` / `POST` / ... (HTTP method)                         | [otelhttp](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp) server handler, outermost on the aggregated API server handler chain | standard [HTTP server semantic conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/)          |
+| `<Kind>Store.<Operation>`                                  | Each storage operation (`Create`, `Get`, `GetList`, `GuaranteedUpdate`, `Delete`, `Watch`) on the served resources | `k8s.namespace.name`, `k8s.object.name`, `storage.result` (`success` / `not_found` / `already_exists` / `error`)   |
+| `query <KEYWORD>` (e.g. `query INSERT`)                    | [otelpgx](https://github.com/exaring/otelpgx) tracer on the pgx pool                                               | standard [database client semantic conventions](https://opentelemetry.io/docs/specs/semconv/database/database-spans/), full SQL statement |
+| `NatsBroadcaster.Publish`                                  | Watch fan-out publish leg: each write publishes its event to NATS with the write's trace context in the headers    | `messaging.system=nats`, `messaging.destination.name`, `event.type` (`added` / `modified` / `deleted`)             |
+| `NatsWatcher.HandleMessage`                                | Watch fan-out consume leg on every storage replica, parented from the publishing write                             | `messaging.system=nats`, `messaging.destination.name`, `event.type`                                                |
+| `WorkloadScanReportWatcher.HandleVulnerabilityReportEvent` | VulnerabilityReport events fanned out as synthetic WorkloadScanReport events                                       | `messaging.system=nats`, `messaging.destination.name`                                                              |
+
+The HTTP server span is extracted before any other filter runs, so it covers the whole request, authentication included.
+Machinery requests (probes, discovery, OpenAPI aggregation) produce no server spans:
+they are polled every few seconds without a trace context,
+and each request would otherwise become a one-span root trace.
+Direct client requests remain traced.
+Not found and already exists are recorded as expected outcomes on the `storage.result` attribute, not as span errors:
+a miss on a lookup is normal control flow and must not light up traces as failures.
+Pool-acquire spans are disabled as noise; acquire latency stays observable through the pool metrics below.
 
 Metrics:
 
-| Metric                               | Type      | Labels (bounded)                         | Exemplars                       |
-| :----------------------------------- | :-------- | :--------------------------------------- | :------------------------------ |
-| `storage.apiserver.request.duration` | Histogram | `verb`, `resource`, `code`               | `trace_id`, `namespace`, `name` |
-| `storage.postgres.query.duration`    | Histogram | `db.operation`, `db.sql.table`, `result` | `trace_id`                      |
-| `storage.watch.events`               | Counter   | `resource`, `event.type`                 | `trace_id`, `namespace`, `name` |
-| `storage.watch.subscribers`          | Gauge     | `resource`                               | `trace_id`                      |
+| Metric                               | Type      | Labels (bounded)           |
+| :----------------------------------- | :-------- | :------------------------- |
+| `storage.apiserver.request.duration` | Histogram | `verb`, `resource`, `code` |
+| `storage.watch.events`               | Counter   | `resource`, `event.type`   |
+
+The request duration histogram covers resource requests only:
+non-resource endpoints (health, discovery, OpenAPI) are skipped,
+and so are long-running requests (watches), whose duration is a connection lifetime, not a latency.
+
+The instrumentation libraries add the standard families on top:
+otelhttp exports [`http.server.request.duration`](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/),
+and otelpgx exports [`db.client.operation.duration`](https://opentelemetry.io/docs/specs/semconv/database/database-metrics/)
+(labeled by the pgx operation type) together with the connection pool gauges.
+A separate first-party Postgres histogram would duplicate that signal while requiring SQL parsing to label it,
+so the semantic-convention metric is the source of truth for query latency;
+per-statement detail lives on the spans.
 
 ### MCP
 
@@ -188,11 +296,11 @@ Traces:
 
 Metrics:
 
-| Metric                      | Type      | Labels (bounded)      | Exemplars                |
-| :-------------------------- | :-------- | :-------------------- | :----------------------- |
-| `mcp.tool.calls`            | Counter   | `tool.name`, `result` | `trace_id`, `session.id` |
-| `mcp.tool.call.duration`    | Histogram | `tool.name`, `result` | `trace_id`, `session.id` |
-| `mcp.rate_limit.rejections` | Counter   | `tool.name`           | `trace_id`, `session.id` |
+| Metric                      | Type      | Labels (bounded)      |
+| :-------------------------- | :-------- | :-------------------- |
+| `mcp.tool.calls`            | Counter   | `tool.name`, `result` |
+| `mcp.tool.call.duration`    | Histogram | `tool.name`, `result` |
+| `mcp.rate_limit.rejections` | Counter   | `tool.name`           |
 
 # Drawbacks
 

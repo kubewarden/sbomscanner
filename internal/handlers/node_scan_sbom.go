@@ -17,6 +17,7 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
+	"github.com/kubewarden/sbomscanner/internal/telemetry"
 )
 
 // NodeScanSBOMHandler handles SBOM scan requests for nodes.
@@ -31,16 +32,18 @@ func NewNodeScanSBOMHandler(
 	workDir string,
 	trivyDBRepository string,
 	trivyJavaDBRepository string,
+	instrumentation *Instrumentation,
 	logger *slog.Logger,
-) *NodeScanSBOMHandler {
-	return &NodeScanSBOMHandler{
+) *InstrumentedHandler {
+	return instrumentHandler(instrumentation, "NodeScanSBOMHandler", "node_scan_sbom", &NodeScanSBOMHandler{
 		k8sClient:             k8sClient,
 		scheme:                scheme,
 		workDir:               workDir,
 		trivyDBRepository:     trivyDBRepository,
 		trivyJavaDBRepository: trivyJavaDBRepository,
+		instrumentation:       instrumentation,
 		logger:                logger.With("handler", "scan_node_sbom_handler"),
-	}
+	})
 }
 
 //nolint:funlen,gocognit // This function is responsible for orchestrating multiple steps in the node SBOM scanning process, making it inherently complex and lengthy.
@@ -68,6 +71,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	}, scanJob); err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.ErrorContext(ctx, "NodeScanJob not found, stopping SBOM scan", "scanJob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 
@@ -77,11 +81,15 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	if string(scanJob.GetUID()) != nodeScanJobUID {
 		h.logger.InfoContext(ctx, "NodeScanJob not found, stopping SBOM generation (UID changed)", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace,
 			"uid", nodeScanJobUID)
+		recordSpanSkipReason(ctx, skipReasonUIDMismatch)
 		return nil
 	}
 
-	if scanJob.IsFailed() {
-		h.logger.InfoContext(ctx, "NodeScanJob is in failed state, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+	// A finished job means this message is a redelivery: skip it, so the job
+	// is not moved back to in-progress and completed (and counted) again.
+	if telemetry.JobFinished(scanJob) {
+		h.logger.InfoContext(ctx, "NodeScanJob is already finished, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+		recordSpanSkipReason(ctx, skipReasonJobFinished)
 		return nil
 	}
 
@@ -100,6 +108,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		// The NodeScanJob may have been deleted while we were processing; abandon the update.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanJob not found, stopping SBOM scan", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("failed to update NodeScanJob status to SBOM generation in progress: %w", err)
@@ -112,6 +121,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	}, sbom); err != nil {
 		if apierrors.IsNotFound(err) {
 			h.logger.ErrorContext(ctx, "SBOM not found, stopping SBOM scan", "sbom", nodeSBOMName, "namespace", nodeSBOMNamespace)
+			recordSpanSkipReason(ctx, skipReasonObjectNotFound)
 			return nil
 		}
 
@@ -159,6 +169,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		"namespace", nodeSBOMNamespace,
 	)
 
+	var wasFinished bool
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := h.k8sClient.Get(ctx, client.ObjectKey{
 			Name:      nodeScanJobName,
@@ -167,6 +178,7 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 			return fmt.Errorf("failed to get ScanJob: %w", err)
 		}
 
+		wasFinished = telemetry.JobFinished(scanJob)
 		scanJob.MarkComplete(v1alpha1.ReasonNodeScanJobComplete, "NodeSBOM scanned successfully")
 		return h.k8sClient.Status().Update(ctx, scanJob)
 	})
@@ -174,9 +186,16 @@ func (h *NodeScanSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 		// The NodeScanJob may have been deleted while we were processing; abandon the update.
 		if apierrors.IsNotFound(err) {
 			h.logger.InfoContext(ctx, "NodeScanJob not found, skipping completion update", "scanjob", nodeScanJobName, "namespace", nodeScanJobNamespace)
+			recordSpanSkipReason(ctx, skipReasonJobNotFound)
 			return nil
 		}
 		return fmt.Errorf("failed to update NodeScanJob status: %w", err)
+	}
+
+	// Count the completion persisted here; a job that was already finished
+	// was counted by the writer that finished it.
+	if !wasFinished {
+		h.instrumentation.recordNodeScanJobFinished(ctx, scanJob)
 	}
 	h.logger.InfoContext(ctx, "NodeSBOM scanned",
 		"nodesbom", nodeSBOMName,

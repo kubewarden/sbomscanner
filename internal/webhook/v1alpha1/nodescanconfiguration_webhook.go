@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/webhook"
 )
 
 // missingDefaultSkipPatternsWarning builds the admission warning emitted when a
@@ -72,14 +73,14 @@ func validateNodeScanSkipPatterns(skipPatterns []string) admission.Warnings {
 }
 
 // SetupNodeScanConfigurationWebhookWithManager registers the webhook for NodeScanConfiguration in the manager.
-func SetupNodeScanConfigurationWebhookWithManager(mgr ctrl.Manager) error {
+func SetupNodeScanConfigurationWebhookWithManager(mgr ctrl.Manager, instrumentation *webhook.Instrumentation) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.NodeScanConfiguration{}).
-		WithValidator(&NodeScanConfigurationCustomValidator{
+		WithValidator(webhook.InstrumentValidator(instrumentation, "NodeScanConfiguration", &NodeScanConfigurationCustomValidator{
 			logger: mgr.GetLogger().WithName("NodeScanConfiguration_validator"),
-		}).
-		WithDefaulter(&NodeScanConfigurationCustomDefaulter{
+		})).
+		WithDefaulter(webhook.InstrumentDefaulter(instrumentation, "NodeScanConfiguration", &NodeScanConfigurationCustomDefaulter{
 			logger: mgr.GetLogger().WithName("NodeScanConfiguration_defaulter"),
-		}).
+		})).
 		Complete()
 	if err != nil {
 		return fmt.Errorf("failed to setup NodeScanConfiguration webhook: %w", err)

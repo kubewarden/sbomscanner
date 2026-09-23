@@ -82,7 +82,7 @@ func (r *NodeScanReconciler) cleanupNodeResources(ctx context.Context, nodeName 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager) error {
+func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager, instrumentation *Instrumentation) error {
 	err := ctrl.NewControllerManagedBy(manager).
 		Named("nodescan-controller").
 		Watches(&corev1.Node{},
@@ -97,7 +97,7 @@ func (r *NodeScanReconciler) SetupWithManager(manager ctrl.Manager) error {
 				GenericFunc: func(_ event.GenericEvent) bool { return false },
 			}),
 		).
-		Complete(r)
+		Complete(instrumentReconciler(instrumentation, "NodeScan", "Node", r))
 	if err != nil {
 		return fmt.Errorf("failed to create nodescan controller: %w", err)
 	}

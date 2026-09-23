@@ -65,11 +65,11 @@ func (r *NodeScanConfigurationReconciler) cleanupAllNodeResources(ctx context.Co
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *NodeScanConfigurationReconciler) SetupWithManager(manager ctrl.Manager) error {
+func (r *NodeScanConfigurationReconciler) SetupWithManager(manager ctrl.Manager, instrumentation *Instrumentation) error {
 	err := ctrl.NewControllerManagedBy(manager).
 		Named("nodescanconfiguration-controller").
 		For(&v1alpha1.NodeScanConfiguration{}).
-		Complete(r)
+		Complete(instrumentReconciler(instrumentation, "NodeScanConfiguration", "NodeScanConfiguration", r))
 	if err != nil {
 		return fmt.Errorf("failed to create nodescanconfiguration controller: %w", err)
 	}
