@@ -100,6 +100,12 @@ func newTestDB(runDir string) *DB {
 	return Open(testRepository, runDir, oci.Config{}, slog.New(slog.DiscardHandler))
 }
 
+// newTestDBSkipVerify opens a DB with signature verification disabled, so tests
+// that exercise the pull path reach the registry without a verify step in front.
+func newTestDBSkipVerify(runDir string) *DB {
+	return Open(testRepository, runDir, oci.Config{SkipVerify: true}, slog.New(slog.DiscardHandler))
+}
+
 func TestLookup(t *testing.T) {
 	dir := t.TempDir()
 	buildArtifact(t, dir, 24*time.Hour)
@@ -192,9 +198,9 @@ func TestUpdate_StaleBrokenLocalCopyIsPulledAgain(t *testing.T) {
 	cacheDir := filepath.Join(dir, cacheDirName)
 	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, datafeed.KEVDBFileName), []byte("not sqlite"), 0o600))
 
-	// The local copy is stale and broken. Update must reach the pull
-	// instead of failing on the local parse.
-	db := newTestDB(dir)
+	// The local copy is stale and broken. With verification skipped, Update must
+	// reach the pull instead of failing on the local parse.
+	db := newTestDBSkipVerify(dir)
 	err := db.Update(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pull sbomscanner DB")
