@@ -125,7 +125,7 @@ func TestIsContainerImageManifest(t *testing.T) {
 				Config: cranev1.Descriptor{MediaType: types.OCIConfigJSON},
 				Layers: []cranev1.Descriptor{},
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name:      "cosign signature",

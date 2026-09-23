@@ -113,7 +113,7 @@ func TestWorkloadDigestPrivateMultiArchitecture(t *testing.T) {
 	}
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	handler := &CreateCatalogHandler{scheme: scheme}
+	handler := &CreateCatalogHandler{scheme: scheme, logger: slog.Default()}
 	client := registryclient.NewClient(server.Client().Transport, slog.Default())
 	refs, err := handler.discoverImages(t.Context(), client, registry, repo.Name())
 	require.NoError(t, err)
@@ -157,7 +157,7 @@ func TestDiscoverWorkloadImagesWithoutTagListing(t *testing.T) {
 					MatchConditions: []v1alpha1.MatchCondition{{Name: "tag-" + digest, Expression: fmt.Sprintf("tag == %q", digest)}},
 				}}},
 			}
-			handler := &CreateCatalogHandler{}
+			handler := &CreateCatalogHandler{logger: slog.Default()}
 			client := registryclient.NewClient(server.Client().Transport, slog.Default())
 			refs, err := handler.discoverImages(t.Context(), client, registry, host+"/private/image")
 			require.NoError(t, err)

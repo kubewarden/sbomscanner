@@ -470,10 +470,16 @@ func (h *CreateCatalogHandler) singleArchRefToImages(
 ) ([]storagev1alpha1.Image, error) {
 	imageDetails, err := registryClient.GetImageDetails(ctx, ref, nil)
 	if err != nil {
-		if errors.Is(err, registryclient.ErrNotContainerImage) || errors.Is(err, registryclient.ErrNoPlatform) {
+		if errors.Is(err, registryclient.ErrNotContainerImage) {
 			h.logger.DebugContext(ctx, "Skipping non-image artifact",
 				"ref", ref.Name(),
-				"reason", err.Error(),
+			)
+			return []storagev1alpha1.Image{}, nil
+		}
+
+		if errors.Is(err, registryclient.ErrNoPlatform) {
+			h.logger.DebugContext(ctx, "Skipping image without platform",
+				"ref", ref.Name(),
 			)
 			return []storagev1alpha1.Image{}, nil
 		}
@@ -481,7 +487,11 @@ func (h *CreateCatalogHandler) singleArchRefToImages(
 		return []storagev1alpha1.Image{}, fmt.Errorf("cannot get image details for %q: %w", ref.Name(), err)
 	}
 
-	if !filters.IsPlatformAllowed(&imageDetails.Platform, registry.Spec.Platforms) {
+	if !filters.IsPlatformAllowed(
+		imageDetails.Platform.OS,
+		imageDetails.Platform.Architecture,
+		imageDetails.Platform.Variant,
+		registry.Spec.Platforms) {
 		return []storagev1alpha1.Image{}, nil
 	}
 
@@ -523,7 +533,22 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 	images := []storagev1alpha1.Image{}
 
 	for _, m := range manifest.Manifests {
-		if !filters.IsPlatformAllowed(m.Platform, registry.Spec.Platforms) {
+		// Image index entries must have a platform. OCI artifacts that reuse the image
+		// index format (for example, cosign referrers) have entries without a platform.
+		if m.Platform == nil {
+			h.logger.DebugContext(ctx, "Skipping index entry without platform",
+				"ref", ref.Name(),
+				"digest", m.Digest,
+				"artifactType", m.ArtifactType,
+			)
+			continue
+		}
+
+		if !filters.IsPlatformAllowed(
+			m.Platform.OS,
+			m.Platform.Architecture,
+			m.Platform.Variant,
+			registry.Spec.Platforms) {
 			h.logger.DebugContext(ctx, "Skipping index entry, platform not allowed",
 				"ref", ref.Name(),
 				"digest", m.Digest,

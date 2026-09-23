@@ -142,8 +142,10 @@ func (c *Client) GetDescriptor(ctx context.Context, ref name.Reference) (*remote
 //   - The media type is an OCI image manifest or a Docker manifest.
 //   - The manifest has no artifactType. OCI artifacts use this field.
 //   - The config media type is an OCI or Docker image config.
-//   - The manifest has one or more layers.
 //   - Each layer has an image layer media type.
+//
+// A manifest with no layers is a valid container image. For example, an image
+// built from scratch with only metadata has no layers.
 //
 // Other OCI artifacts fail one or more of these conditions. For example, a
 // cosign signature uses the image config media type, but its layers do not
@@ -162,10 +164,6 @@ func IsContainerImageManifest(mediaType types.MediaType, manifest *cranev1.Manif
 	}
 
 	if !manifest.Config.MediaType.IsConfig() {
-		return false
-	}
-
-	if len(manifest.Layers) == 0 {
 		return false
 	}
 

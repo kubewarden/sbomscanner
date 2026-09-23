@@ -3,27 +3,31 @@ package filters
 import (
 	"testing"
 
-	cranev1 "github.com/google/go-containerregistry/pkg/v1"
-
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 )
 
 func Test_isPlatformAllowed(t *testing.T) {
 	tests := []struct {
-		name             string // description of this test case
-		platform         *cranev1.Platform
-		allowedPlatforms []v1alpha1.Platform
-		want             bool
+		name                 string // description of this test case
+		platformOs           string
+		platformArchitecture string
+		platformVariant      string
+		allowedPlatforms     []v1alpha1.Platform
+		want                 bool
 	}{
 		{
-			name:             "no platforms provided",
-			platform:         &cranev1.Platform{OS: "linux", Architecture: "amd64"},
-			allowedPlatforms: []v1alpha1.Platform{},
-			want:             true,
+			name:                 "no platforms provided",
+			platformArchitecture: "amd64",
+			platformOs:           "linux",
+			platformVariant:      "",
+			allowedPlatforms:     []v1alpha1.Platform{},
+			want:                 true,
 		},
 		{
-			name:     "platform matches",
-			platform: &cranev1.Platform{OS: "linux", Architecture: "amd64"},
+			name:                 "platform matches",
+			platformArchitecture: "amd64",
+			platformOs:           "linux",
+			platformVariant:      "",
 			allowedPlatforms: []v1alpha1.Platform{
 				{
 					Architecture: "amd64",
@@ -33,8 +37,10 @@ func Test_isPlatformAllowed(t *testing.T) {
 			want: true,
 		},
 		{
-			name:     "platform doesn't match",
-			platform: &cranev1.Platform{OS: "linux", Architecture: "amd64"},
+			name:                 "platform doesn't match",
+			platformArchitecture: "amd64",
+			platformOs:           "linux",
+			platformVariant:      "",
 			allowedPlatforms: []v1alpha1.Platform{
 				{
 					Architecture: "arm",
@@ -45,8 +51,10 @@ func Test_isPlatformAllowed(t *testing.T) {
 			want: false,
 		},
 		{
-			name:     "platform is unknown",
-			platform: &cranev1.Platform{OS: "unknown", Architecture: "unknown"},
+			name:                 "platform is unknown",
+			platformArchitecture: "unknown",
+			platformOs:           "unknown",
+			platformVariant:      "",
 			allowedPlatforms: []v1alpha1.Platform{
 				{
 					Architecture: "arm",
@@ -57,31 +65,18 @@ func Test_isPlatformAllowed(t *testing.T) {
 			want: false,
 		},
 		{
-			name:             "platform is unknown and no platforms provided",
-			platform:         &cranev1.Platform{OS: "unknown", Architecture: "unknown"},
-			allowedPlatforms: []v1alpha1.Platform{},
-			want:             false,
+			name:                 "platform is unknown and no platforms provided",
+			platformArchitecture: "unknown",
+			platformOs:           "unknown",
+			platformVariant:      "",
+			allowedPlatforms:     []v1alpha1.Platform{},
+			want:                 false,
 		},
 		{
-			name:             "platform is nil and no platforms provided",
-			platform:         nil,
-			allowedPlatforms: []v1alpha1.Platform{},
-			want:             false,
-		},
-		{
-			name:     "platform is nil",
-			platform: nil,
-			allowedPlatforms: []v1alpha1.Platform{
-				{
-					Architecture: "amd64",
-					OS:           "linux",
-				},
-			},
-			want: false,
-		},
-		{
-			name:     "platform is linux/arm/v7",
-			platform: &cranev1.Platform{OS: "linux", Architecture: "arm", Variant: "v7"},
+			name:                 "platform is linux/arm/v7",
+			platformArchitecture: "arm",
+			platformOs:           "linux",
+			platformVariant:      "v7",
 			allowedPlatforms: []v1alpha1.Platform{
 				{
 					Architecture: "arm",
@@ -91,8 +86,10 @@ func Test_isPlatformAllowed(t *testing.T) {
 			want: true,
 		},
 		{
-			name:     "platform is linux/arm",
-			platform: &cranev1.Platform{OS: "linux", Architecture: "arm"},
+			name:                 "platform is linux/arm",
+			platformArchitecture: "arm",
+			platformOs:           "linux",
+			platformVariant:      "",
 			allowedPlatforms: []v1alpha1.Platform{
 				{
 					Architecture: "arm",
@@ -110,7 +107,7 @@ func Test_isPlatformAllowed(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := IsPlatformAllowed(test.platform, test.allowedPlatforms)
+			got := IsPlatformAllowed(test.platformOs, test.platformArchitecture, test.platformVariant, test.allowedPlatforms)
 			if got != test.want {
 				t.Errorf("isPlatformAllowed() = %v, want %v", got, test.want)
 			}

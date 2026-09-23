@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	cranev1 "github.com/google/go-containerregistry/pkg/v1"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,11 +60,12 @@ func ValidateNodeScanJobAgainstConfig(ctx context.Context, c client.Reader, node
 		}
 	}
 
-	nodePlatform := &cranev1.Platform{
-		OS:           node.Status.NodeInfo.OperatingSystem,
-		Architecture: node.Status.NodeInfo.Architecture,
-	}
-	if !filters.IsPlatformAllowed(nodePlatform, config.Spec.Platforms) {
+	if !filters.IsPlatformAllowed(
+		node.Status.NodeInfo.OperatingSystem,
+		node.Status.NodeInfo.Architecture,
+		"",
+		config.Spec.Platforms,
+	) {
 		allErrs = append(allErrs, field.Forbidden(nodeNameField,
 			fmt.Sprintf("node %q platform %s/%s is not allowed by the NodeScanConfiguration",
 				nodeName, node.Status.NodeInfo.OperatingSystem, node.Status.NodeInfo.Architecture)))
