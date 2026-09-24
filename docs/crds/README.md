@@ -5,18 +5,6 @@
 
 ## Documentation generation
 
-### Markdown
-
-To generate markdown documentation:
-
-```shell
-$ make markdown
-```
-
-The result will be saved to the `CRD-docs-for-docs-repo.md` file.
-
-### ASCIIDoc
-
 To generate asciidoc documentation:
 
 ```shell
