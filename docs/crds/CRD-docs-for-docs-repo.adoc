@@ -1,7 +1,7 @@
 // Generated documentation. Please do not edit.
 :anchor_prefix: k8s-api
 
-[id="{p}-api-reference"]
+[id="{anchor_prefix}-api-reference"]
 == API Reference
 
 .Packages
@@ -480,7 +480,7 @@ ScanJobRepository selects a Registry repository (and optionally a subset of its 
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-rescanrequest[$$RescanRequest$$]
+- RescanRequest
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobspec[$$ScanJobSpec$$]
 ****
 
@@ -855,7 +855,7 @@ Image is the Schema for the images API
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagelist[$$ImageList$$]
+- ImageList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
@@ -1030,7 +1030,7 @@ NodeSBOM represents a Software Bill of Materials of a node
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodesbomlist[$$NodeSBOMList$$]
+- NodeSBOMList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
@@ -1056,7 +1056,7 @@ NodeVulnerabilityReport is the Schema for the scanresults API
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodevulnerabilityreportlist[$$NodeVulnerabilityReportList$$]
+- NodeVulnerabilityReportList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
@@ -1130,7 +1130,7 @@ SBOM represents a Software Bill of Materials of an OCI artifact
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-sbomlist[$$SBOMList$$]
+- SBOMList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
@@ -1268,7 +1268,7 @@ VulnerabilityReport is the Schema for the scanresults API
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vulnerabilityreportlist[$$VulnerabilityReportList$$]
+- VulnerabilityReportList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
@@ -1294,7 +1294,7 @@ WorkloadScanReport represents the vulnerability scan results for a workload's co
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanreportlist[$$WorkloadScanReportList$$]
+- WorkloadScanReportList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
