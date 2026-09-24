@@ -1,7 +1,7 @@
 // Generated documentation. Please do not edit.
 :anchor_prefix: k8s-api
 
-[id="{p}-api-reference"]
+[id="{anchor_prefix}-api-reference"]
 == API Reference
 
 .Packages
@@ -49,12 +49,21 @@ MatchCondition defines a CEL expression to filter image tags.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name is an identifier for this match condition, used for strategic merging of MatchConditions, +
+| *`name`* __string__
+| Name is an identifier for this match condition, used for strategic merging of MatchConditions, +
 as well as providing an identifier for logging purposes. +
-A good name should be descriptive of the associated expression. + |  | 
-| *`expression`* __string__ | Expression represents the expression which will be evaluated by CEL. Must evaluate to bool. +
-Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/ + |  | 
-| *`labels`* __object (keys:string, values:string)__ | Labels are key-value pairs that can be used to organize and categorize match conditions. + |  | 
+A good name should be descriptive of the associated expression. +
+| 
+|
+| *`expression`* __string__
+| Expression represents the expression which will be evaluated by CEL. Must evaluate to bool. +
+Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/ +
+| 
+|
+| *`labels`* __object (keys:string, values:string)__
+| Labels are key-value pairs that can be used to organize and categorize match conditions. +
+| 
+|
 |===
 
 
@@ -95,9 +104,15 @@ This is a singleton resource - only one instance named "default" is allowed.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `NodeScanConfiguration` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationspec[$$NodeScanConfigurationSpec$$]__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfigurationspec[$$NodeScanConfigurationSpec$$]__
+| 
+| 
+|
 |===
 
 
@@ -117,9 +132,15 @@ NodeScanConfigurationList contains a list of NodeScanConfiguration.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `NodeScanConfigurationList` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfiguration[$$NodeScanConfiguration$$] array__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanconfiguration[$$NodeScanConfiguration$$] array__
+| 
+| 
+|
 |===
 
 
@@ -140,13 +161,23 @@ NodeScanConfigurationSpec defines the desired configuration for node scanning.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`enabled`* __boolean__ | Enabled controls whether node scanning is active. + | true | 
-| *`nodeSelector`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta[$$LabelSelector$$]__ | NodeSelector filters which nodes are scanned. +
-If not specified, all the nodes are scanned. + |  | Optional: \{} +
-
-| *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__ | ScanInterval is the interval at which nodes are scanned. + |  | Optional: \{} +
-
-| *`skipPatterns`* __string__ | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning. +
+| *`enabled`* __boolean__
+| Enabled controls whether node scanning is active. +
+| true
+|
+| *`nodeSelector`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta[$$LabelSelector$$]__
+| NodeSelector filters which nodes are scanned. +
+If not specified, all the nodes are scanned. +
+| 
+|
+Optional: \{} +
+| *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__
+| ScanInterval is the interval at which nodes are scanned. +
+| 
+|
+Optional: \{} +
+| *`skipPatterns`* __string__
+| SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning. +
 Patterns ending with "/" are treated as directories. +
 All other patterns are treated as files. +
 Glob patterns like "**/vendor/" or "*.min.js" are supported. +
@@ -159,11 +190,16 @@ If unset, container-runtime state is skipped by default: +
 - /var/lib/containers/ +
 - /run/containerd/ +
 - /run/k3s/containerd/ +
-Set to an empty list to scan everything, including the paths above. + |  | Optional: \{} +
-
-| *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__ | Platforms allows to specify the list of platforms to scan. +
-If not set, all nodes are scanned regardless of their platform. + |  | Optional: \{} +
-
+Set to an empty list to scan everything, including the paths above. +
+| 
+|
+Optional: \{} +
+| *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__
+| Platforms allows to specify the list of platforms to scan. +
+If not set, all nodes are scanned regardless of their platform. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -186,10 +222,19 @@ NodeScanJob is the Schema for the nodescanjobs API.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `NodeScanJob` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobspec[$$NodeScanJobSpec$$]__ |  |  | 
-| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobstatus[$$NodeScanJobStatus$$]__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobspec[$$NodeScanJobSpec$$]__
+| 
+| 
+|
+| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjobstatus[$$NodeScanJobStatus$$]__
+| 
+| 
+|
 |===
 
 
@@ -209,9 +254,15 @@ NodeScanJobList contains a list of NodeScanJob.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `NodeScanJobList` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjob[$$NodeScanJob$$] array__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-nodescanjob[$$NodeScanJob$$] array__
+| 
+| 
+|
 |===
 
 
@@ -232,7 +283,10 @@ NodeScanJobSpec defines the desired state of NodeScanJob.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`nodeName`* __string__ | NodeName specifies the name of the node to be scanned. + |  | 
+| *`nodeName`* __string__
+| NodeName specifies the name of the node to be scanned. +
+| 
+|
 |===
 
 
@@ -253,12 +307,21 @@ NodeScanJobStatus defines the observed state of NodeScanJob.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`conditions`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta[$$Condition$$] array__ | Conditions represent the latest available observations of ScanJob state + |  | Optional: \{} +
-
-| *`startTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__ | StartTime is when the job started processing. + |  | Optional: \{} +
-
-| *`completionTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__ | CompletionTime is when the job completed or failed. + |  | Optional: \{} +
-
+| *`conditions`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta[$$Condition$$] array__
+| Conditions represent the latest available observations of ScanJob state +
+| 
+|
+Optional: \{} +
+| *`startTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__
+| StartTime is when the job started processing. +
+| 
+|
+Optional: \{} +
+| *`completionTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__
+| CompletionTime is when the job completed or failed. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -281,11 +344,20 @@ Platform describes the platform which the image in the manifest runs on.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`arch`* __string__ | Architecture field specifies the CPU architecture, for example +
-`amd64` or `ppc64le`. + |  | 
-| *`os`* __string__ | OS specifies the operating system, for example `linux` or `windows`. + |  | 
-| *`variant`* __string__ | Variant is an optional field specifying a variant of the CPU, for +
-example `v7` to specify ARMv7 when architecture is `arm`. + |  | 
+| *`arch`* __string__
+| Architecture field specifies the CPU architecture, for example +
+`amd64` or `ppc64le`. +
+| 
+|
+| *`os`* __string__
+| OS specifies the operating system, for example `linux` or `windows`. +
+| 
+|
+| *`variant`* __string__
+| Variant is an optional field specifying a variant of the CPU, for +
+example `v7` to specify ARMv7 when architecture is `arm`. +
+| 
+|
 |===
 
 
@@ -308,10 +380,19 @@ Registry is the Schema for the registries API
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `Registry` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registryspec[$$RegistrySpec$$]__ |  |  | 
-| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registrystatus[$$RegistryStatus$$]__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registryspec[$$RegistrySpec$$]__
+| 
+| 
+|
+| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registrystatus[$$RegistryStatus$$]__
+| 
+| 
+|
 |===
 
 
@@ -331,9 +412,15 @@ RegistryList contains a list of Registry
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `RegistryList` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registry[$$Registry$$] array__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registry[$$Registry$$] array__
+| 
+| 
+|
 |===
 
 
@@ -354,20 +441,44 @@ RegistrySpec defines the desired state of Registry
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`uri`* __string__ | URI is the URI of the container registry + |  | 
-| *`catalogType`* __string__ | CatalogType is the type of catalog used to list the images within the registry. + |  | 
-| *`repositories`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-repository[$$Repository$$] array__ | Repositories is the list of the repositories to be scanned +
+| *`uri`* __string__
+| URI is the URI of the container registry +
+| 
+|
+| *`catalogType`* __string__
+| CatalogType is the type of catalog used to list the images within the registry. +
+| 
+|
+| *`repositories`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-repository[$$Repository$$] array__
+| Repositories is the list of the repositories to be scanned +
 An empty list means all the repositories found in the registry are going to be scanned. +
 The scanner only catalogs container images. +
-It skips other OCI artifacts, for example, signatures, attestations, and Helm charts. + |  | 
-| *`authSecret`* __string__ | AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry. +
-The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ + |  | 
-| *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__ | ScanInterval is the interval at which the registry is scanned. +
-If not set, automatic scanning is disabled. + |  | 
-| *`caBundle`* __string__ | CABundle is the CA bundle to use when connecting to the registry. + |  | 
-| *`insecure`* __boolean__ | Insecure allows insecure connections to the registry when set to true. + |  | 
-| *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__ | Platforms allows to specify the list of platform to scan. +
-If not set, all the available platforms of a container image will be scanned. + |  | 
+It skips other OCI artifacts, for example, signatures, attestations, and Helm charts. +
+| 
+|
+| *`authSecret`* __string__
+| AuthSecret is the name of the secret in the same namespace that contains the credentials to access the registry. +
+The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ +
+| 
+|
+| *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__
+| ScanInterval is the interval at which the registry is scanned. +
+If not set, automatic scanning is disabled. +
+| 
+|
+| *`caBundle`* __string__
+| CABundle is the CA bundle to use when connecting to the registry. +
+| 
+|
+| *`insecure`* __boolean__
+| Insecure allows insecure connections to the registry when set to true. +
+| 
+|
+| *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__
+| Platforms allows to specify the list of platform to scan. +
+If not set, all the available platforms of a container image will be scanned. +
+| 
+|
 |===
 
 
@@ -388,7 +499,10 @@ RegistryStatus defines the observed state of Registry
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`conditions`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta[$$Condition$$] array__ |  |  | 
+| *`conditions`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta[$$Condition$$] array__
+| 
+| 
+|
 |===
 
 
@@ -409,13 +523,22 @@ Repository specifies an OCI repository and which image tags to scan.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name is the repository name. + |  | 
-| *`matchConditions`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-matchcondition[$$MatchCondition$$] array__ | MatchConditions filters image tags using CEL expressions. + |  | 
-| *`matchOperator`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-matchoperator[$$MatchOperator$$]__ | MatchOperator specifies how this condition is combined with other conditions. +
+| *`name`* __string__
+| Name is the repository name. +
+| 
+|
+| *`matchConditions`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-matchcondition[$$MatchCondition$$] array__
+| MatchConditions filters image tags using CEL expressions. +
+| 
+|
+| *`matchOperator`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-matchoperator[$$MatchOperator$$]__
+| MatchOperator specifies how this condition is combined with other conditions. +
 When set to "And" (default), all conditions must pass for the filter to match. +
-When set to "Or", at least one condition must pass for the filter to match. + | And | Enum: [And Or] +
+When set to "Or", at least one condition must pass for the filter to match. +
+| And
+|
+Enum: [And Or] +
 Optional: \{} +
-
 |===
 
 
@@ -440,10 +563,19 @@ ScanJob is the Schema for the scanjobs API.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `ScanJob` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobspec[$$ScanJobSpec$$]__ |  |  | 
-| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobstatus[$$ScanJobStatus$$]__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobspec[$$ScanJobSpec$$]__
+| 
+| 
+|
+| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobstatus[$$ScanJobStatus$$]__
+| 
+| 
+|
 |===
 
 
@@ -463,9 +595,15 @@ ScanJobList contains a list of ScanJob.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `ScanJobList` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjob[$$ScanJob$$] array__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjob[$$ScanJob$$] array__
+| 
+| 
+|
 |===
 
 
@@ -480,19 +618,25 @@ ScanJobRepository selects a Registry repository (and optionally a subset of its 
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-rescanrequest[$$RescanRequest$$]
+- RescanRequest
 - xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobspec[$$ScanJobSpec$$]
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name is the name of a repository declared on the Registry. + |  | Required: \{} +
-
-| *`matchConditions`* __string array__ | MatchConditions optionally narrows the scan to a subset of the MatchConditions declared on the targeted repository. +
+| *`name`* __string__
+| Name is the name of a repository declared on the Registry. +
+| 
+|
+Required: \{} +
+| *`matchConditions`* __string array__
+| MatchConditions optionally narrows the scan to a subset of the MatchConditions declared on the targeted repository. +
 Each entry must reference an existing MatchCondition by name. +
-When empty, all MatchConditions of the repository apply. + |  | Optional: \{} +
-
+When empty, all MatchConditions of the repository apply. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -513,11 +657,17 @@ ScanJobSpec defines the desired state of ScanJob.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`registry`* __string__ | Registry is the registry in the same namespace to scan. + |  | Required: \{} +
-
-| *`repositories`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobrepository[$$ScanJobRepository$$] array__ | Repositories optionally narrows the scan to a subset of the repositories configured on the targeted Registry. +
-When empty, all repositories of the Registry are scanned. + |  | Optional: \{} +
-
+| *`registry`* __string__
+| Registry is the registry in the same namespace to scan. +
+| 
+|
+Required: \{} +
+| *`repositories`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobrepository[$$ScanJobRepository$$] array__
+| Repositories optionally narrows the scan to a subset of the repositories configured on the targeted Registry. +
+When empty, all repositories of the Registry are scanned. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -538,14 +688,29 @@ ScanJobStatus defines the observed state of ScanJob.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`conditions`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta[$$Condition$$] array__ | Conditions represent the latest available observations of ScanJob state + |  | Optional: \{} +
-
-| *`imagesCount`* __integer__ | ImagesCount is the number of images in the registry. + |  | 
-| *`scannedImagesCount`* __integer__ | ScannedImagesCount is the number of images that have been scanned. + |  | 
-| *`startTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__ | StartTime is when the job started processing. + |  | Optional: \{} +
-
-| *`completionTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__ | CompletionTime is when the job completed or failed. + |  | Optional: \{} +
-
+| *`conditions`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta[$$Condition$$] array__
+| Conditions represent the latest available observations of ScanJob state +
+| 
+|
+Optional: \{} +
+| *`imagesCount`* __integer__
+| ImagesCount is the number of images in the registry. +
+| 
+|
+| *`scannedImagesCount`* __integer__
+| ScannedImagesCount is the number of images that have been scanned. +
+| 
+|
+| *`startTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__
+| StartTime is when the job started processing. +
+| 
+|
+Optional: \{} +
+| *`completionTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__
+| CompletionTime is when the job completed or failed. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -568,13 +733,22 @@ VEXHub is the Schema for the vexhubs API
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `VEXHub` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | Optional: \{} +
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
 
-| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhubspec[$$VEXHubSpec$$]__ | spec defines the desired state of VEXHub + |  | Required: \{} +
-
-| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhubstatus[$$VEXHubStatus$$]__ | status defines the observed state of VEXHub + |  | Optional: \{} +
-
+| 
+|
+Optional: \{} +
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhubspec[$$VEXHubSpec$$]__
+| spec defines the desired state of VEXHub +
+| 
+|
+Required: \{} +
+| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhubstatus[$$VEXHubStatus$$]__
+| status defines the observed state of VEXHub +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -594,9 +768,15 @@ VEXHubList contains a list of VEXHub
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `VEXHubList` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhub[$$VEXHub$$] array__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhub[$$VEXHub$$] array__
+| 
+| 
+|
 |===
 
 
@@ -617,8 +797,14 @@ VEXHubSpec defines the desired state of VEXHub
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`url`* __string__ | URL is the URL of the VEXHub repository + |  | 
-| *`enabled`* __boolean__ | Enabled tells if the VEX Hub is enabled for processing + |  | 
+| *`url`* __string__
+| URL is the URL of the VEXHub repository +
+| 
+|
+| *`enabled`* __boolean__
+| Enabled tells if the VEX Hub is enabled for processing +
+| 
+|
 |===
 
 
@@ -658,9 +844,15 @@ This is a singleton resource - only one instance named "default" is allowed.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `WorkloadScanConfiguration` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-workloadscanconfigurationspec[$$WorkloadScanConfigurationSpec$$]__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-workloadscanconfigurationspec[$$WorkloadScanConfigurationSpec$$]__
+| 
+| 
+|
 |===
 
 
@@ -680,9 +872,15 @@ WorkloadScanConfigurationList contains a list of WorkloadScanConfiguration.
 | Field | Description | Default | Validation
 | *`apiVersion`* __string__ | `sbomscanner.kubewarden.io/v1alpha1` | |
 | *`kind`* __string__ | `WorkloadScanConfigurationList` | |
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-workloadscanconfiguration[$$WorkloadScanConfiguration$$] array__ |  |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#listmeta-v1-meta[$$ListMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`items`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-workloadscanconfiguration[$$WorkloadScanConfiguration$$] array__
+| 
+| 
+|
 |===
 
 
@@ -703,30 +901,57 @@ WorkloadScanConfigurationSpec defines the desired configuration for workload sca
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`enabled`* __boolean__ | Enabled controls whether workload scanning is active. + | true | 
-| *`namespaceSelector`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta[$$LabelSelector$$]__ | NamespaceSelector filters which namespaces are scanned for workloads. +
-If not specified, workloads in all namespaces are scanned. + |  | Optional: \{} +
-
-| *`artifactsNamespace`* __string__ | ArtifactsNamespace is the namespace where scan artifacts (Registry, ScanJob, SBOM, VulnerabilityReport) are created. +
+| *`enabled`* __boolean__
+| Enabled controls whether workload scanning is active. +
+| true
+|
+| *`namespaceSelector`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#labelselector-v1-meta[$$LabelSelector$$]__
+| NamespaceSelector filters which namespaces are scanned for workloads. +
+If not specified, workloads in all namespaces are scanned. +
+| 
+|
+Optional: \{} +
+| *`artifactsNamespace`* __string__
+| ArtifactsNamespace is the namespace where scan artifacts (Registry, ScanJob, SBOM, VulnerabilityReport) are created. +
 When empty, artifacts are created in the workload's own namespace. +
 Can only be changed when Enabled is false. +
-Note: WorkloadScanReport resources are always created in the workload's namespace, regardless of this setting. + |  | Optional: \{} +
-
-| *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__ | ScanInterval is the interval at which discovered registries are scanned. + |  | Optional: \{} +
-
-| *`scanOnChange`* __boolean__ | ScanOnChange triggers a scan when a managed Registry resource is created or updated. +
-Defaults to true. + | true | Optional: \{} +
-
-| *`authSecret`* __string__ | AuthSecret is the name of a secret in the installation namespace containing credentials to access registries. +
-The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ + |  | Optional: \{} +
-
-| *`caBundle`* __string__ | CABundle is the CA bundle to use when connecting to registries. + |  | Optional: \{} +
-
-| *`insecure`* __boolean__ | Insecure allows insecure connections to registries when set to true. + |  | Optional: \{} +
-
-| *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__ | Platforms specifies which platforms to scan for container images. +
-If not specified, all platforms available in the image manifest will be scanned. + |  | Optional: \{} +
-
+Note: WorkloadScanReport resources are always created in the workload's namespace, regardless of this setting. +
+| 
+|
+Optional: \{} +
+| *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__
+| ScanInterval is the interval at which discovered registries are scanned. +
+| 
+|
+Optional: \{} +
+| *`scanOnChange`* __boolean__
+| ScanOnChange triggers a scan when a managed Registry resource is created or updated. +
+Defaults to true. +
+| true
+|
+Optional: \{} +
+| *`authSecret`* __string__
+| AuthSecret is the name of a secret in the installation namespace containing credentials to access registries. +
+The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ +
+| 
+|
+Optional: \{} +
+| *`caBundle`* __string__
+| CABundle is the CA bundle to use when connecting to registries. +
+| 
+|
+Optional: \{} +
+| *`insecure`* __boolean__
+| Insecure allows insecure connections to registries when set to true. +
+| 
+|
+Optional: \{} +
+| *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__
+| Platforms specifies which platforms to scan for container images. +
+If not specified, all platforms available in the image manifest will be scanned. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -755,8 +980,14 @@ CVSS holds Common Vulnerability Scoring System data for a vulnerability.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`v3vector`* __string__ | V3Vector string (e.g., "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H") + |  | 
-| *`v3score`* __string__ | V3Score numerical score + |  | 
+| *`v3vector`* __string__
+| V3Vector string (e.g., "AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H") +
+| 
+|
+| *`v3score`* __string__
+| V3Score numerical score +
+| 
+|
 |===
 
 
@@ -793,8 +1024,14 @@ ContainerRef identifies a container and its image reference for vulnerability lo
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name is the name of the container. + |  | 
-| *`imageRef`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imageref[$$ImageRef$$]__ | ImageRef identifies which VulnerabilityReports to associate with this container. + |  | 
+| *`name`* __string__
+| Name is the name of the container. +
+| 
+|
+| *`imageRef`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imageref[$$ImageRef$$]__
+| ImageRef identifies which VulnerabilityReports to associate with this container. +
+| 
+|
 |===
 
 
@@ -815,10 +1052,16 @@ ContainerResult contains the vulnerability scan results for a single container.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name is the name of the container (matches ContainerRef.Name). + |  | 
-| *`vulnerabilityReports`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanvulnerabilityreport[$$WorkloadScanVulnerabilityReport$$] array__ | VulnerabilityReports contains the vulnerability reports for this container's image. +
-Multiple reports may exist for multi-arch images (one per platform). + |  | Optional: \{} +
-
+| *`name`* __string__
+| Name is the name of the container (matches ContainerRef.Name). +
+| 
+|
+| *`vulnerabilityReports`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanvulnerabilityreport[$$WorkloadScanVulnerabilityReport$$] array__
+| VulnerabilityReports contains the vulnerability reports for this container's image. +
+Multiple reports may exist for multi-arch images (one per platform). +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -839,8 +1082,14 @@ ContainerStatus contains the scan status for a single container.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name is the name of the container (matches ContainerRef.Name). + |  | 
-| *`scanStatus`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-scanstatus[$$ScanStatus$$]__ | ScanStatus indicates the scan status for this container. + |  | 
+| *`name`* __string__
+| Name is the name of the container (matches ContainerRef.Name). +
+| 
+|
+| *`scanStatus`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-scanstatus[$$ScanStatus$$]__
+| ScanStatus indicates the scan status for this container. +
+| 
+|
 |===
 
 
@@ -855,17 +1104,29 @@ Image is the Schema for the images API
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagelist[$$ImageList$$]
+- ImageList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__ | Metadata of the image + |  | 
-| *`layers`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagelayer[$$ImageLayer$$] array__ | List of the layers that make the image + |  | 
-| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagestatus[$$ImageStatus$$]__ | Status of the image + |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__
+| Metadata of the image +
+| 
+|
+| *`layers`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagelayer[$$ImageLayer$$] array__
+| List of the layers that make the image +
+| 
+|
+| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagestatus[$$ImageStatus$$]__
+| Status of the image +
+| 
+|
 |===
 
 
@@ -886,10 +1147,19 @@ ImageLayer define a layer part of an OCI Image
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`command`* __string__ | command is the command that led to the creation +
-of the layer. The contents are base64 encoded + |  | 
-| *`digest`* __string__ | digest is the Hash of the compressed layer + |  | 
-| *`diffID`* __string__ | diffID is the Hash of the uncompressed layer + |  | 
+| *`command`* __string__
+| command is the command that led to the creation +
+of the layer. The contents are base64 encoded +
+| 
+|
+| *`digest`* __string__
+| digest is the Hash of the compressed layer +
+| 
+|
+| *`diffID`* __string__
+| diffID is the Hash of the uncompressed layer +
+| 
+|
 |===
 
 
@@ -915,13 +1185,34 @@ ImageMetadata contains the metadata details of an image.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`registry`* __string__ | Registry specifies the name of the Registry object in the same namespace where the image is stored. + |  | 
-| *`registryURI`* __string__ | RegistryURI specifies the URI of the registry where the image is stored. Example: "registry-1.docker.io:5000".` + |  | 
-| *`repository`* __string__ | Repository specifies the repository path of the image. Example: "kubewarden/sbomscanner". + |  | 
-| *`tag`* __string__ | Tag specifies the tag of the image. Example: "latest". + |  | 
-| *`platform`* __string__ | Platform specifies the platform of the image. Example "linux/amd64". + |  | 
-| *`digest`* __string__ | Digest specifies the image manifest digest. + |  | 
-| *`indexDigest`* __string__ | IndexDigest specifies the image index digest that referenced this manifest. Set only for multi-arch images. + |  | 
+| *`registry`* __string__
+| Registry specifies the name of the Registry object in the same namespace where the image is stored. +
+| 
+|
+| *`registryURI`* __string__
+| RegistryURI specifies the URI of the registry where the image is stored. Example: "registry-1.docker.io:5000".` +
+| 
+|
+| *`repository`* __string__
+| Repository specifies the repository path of the image. Example: "kubewarden/sbomscanner". +
+| 
+|
+| *`tag`* __string__
+| Tag specifies the tag of the image. Example: "latest". +
+| 
+|
+| *`platform`* __string__
+| Platform specifies the platform of the image. Example "linux/amd64". +
+| 
+|
+| *`digest`* __string__
+| Digest specifies the image manifest digest. +
+| 
+|
+| *`indexDigest`* __string__
+| IndexDigest specifies the image index digest that referenced this manifest. Set only for multi-arch images. +
+| 
+|
 |===
 
 
@@ -944,10 +1235,22 @@ ImageRef identifies a set of VulnerabilityReports by image reference.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`registry`* __string__ | Registry is the name of the Registry custom resource. + |  | 
-| *`namespace`* __string__ | Namespace is the namespace where the VulnerabilityReports are stored. + |  | 
-| *`repository`* __string__ | Repository is the repository path of the image. + |  | 
-| *`tag`* __string__ | Tag is the tag of the image. + |  | 
+| *`registry`* __string__
+| Registry is the name of the Registry custom resource. +
+| 
+|
+| *`namespace`* __string__
+| Namespace is the namespace where the VulnerabilityReports are stored. +
+| 
+|
+| *`repository`* __string__
+| Repository is the repository path of the image. +
+| 
+|
+| *`tag`* __string__
+| Tag is the tag of the image. +
+| 
+|
 |===
 
 
@@ -968,7 +1271,10 @@ ImageStatus contains the observed state of the Image
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`workloadScanReports`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imageworkloadscanreports[$$ImageWorkloadScanReports$$] array__ | WorkloadScanReports is the list of workloads referencing this image + |  | 
+| *`workloadScanReports`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imageworkloadscanreports[$$ImageWorkloadScanReports$$] array__
+| WorkloadScanReports is the list of workloads referencing this image +
+| 
+|
 |===
 
 
@@ -989,8 +1295,14 @@ ImageWorkloadScanReports identifies a workload that references this image
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name of the WorkloadScanReport + |  | 
-| *`namespace`* __string__ | Namespace of the WorkloadScanReport + |  | 
+| *`name`* __string__
+| Name of the WorkloadScanReport +
+| 
+|
+| *`namespace`* __string__
+| Namespace of the WorkloadScanReport +
+| 
+|
 |===
 
 
@@ -1012,8 +1324,14 @@ NodeMetadata contains the metadata details of a node.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name specifies the name of the node. + |  | 
-| *`platform`* __string__ | Platform specifies the platform of the image. Example "linux/amd64". + |  | 
+| *`name`* __string__
+| Name specifies the name of the node. +
+| 
+|
+| *`platform`* __string__
+| Platform specifies the platform of the image. Example "linux/amd64". +
+| 
+|
 |===
 
 
@@ -1030,16 +1348,25 @@ NodeSBOM represents a Software Bill of Materials of a node
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodesbomlist[$$NodeSBOMList$$]
+- NodeSBOMList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`nodeMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata[$$NodeMetadata$$]__ |  |  | 
-| *`spdx`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#rawextension-runtime-pkg[$$RawExtension$$]__ | SPDX contains the SPDX document of the SBOM in JSON format + |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`nodeMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata[$$NodeMetadata$$]__
+| 
+| 
+|
+| *`spdx`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#rawextension-runtime-pkg[$$RawExtension$$]__
+| SPDX contains the SPDX document of the SBOM in JSON format +
+| 
+|
 |===
 
 
@@ -1056,16 +1383,25 @@ NodeVulnerabilityReport is the Schema for the scanresults API
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodevulnerabilityreportlist[$$NodeVulnerabilityReportList$$]
+- NodeVulnerabilityReportList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`nodeMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata[$$NodeMetadata$$]__ | NodeMetadata contains info about the scanned node + |  | 
-| *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__ | Report is the actual vulnerability scan report + |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`nodeMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-nodemetadata[$$NodeMetadata$$]__
+| NodeMetadata contains info about the scanned node +
+| 
+|
+| *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__
+| Report is the actual vulnerability scan report +
+| 
+|
 |===
 
 
@@ -1090,8 +1426,14 @@ Report contains metadata about the scanned image and a list of vulnerability res
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`summary`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-summary[$$Summary$$]__ | Summary of vulnerabilities found + |  | 
-| *`results`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-result[$$Result$$] array__ | Results per target (e.g., layer, package type) + |  | 
+| *`summary`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-summary[$$Summary$$]__
+| Summary of vulnerabilities found +
+| 
+|
+| *`results`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-result[$$Result$$] array__
+| Results per target (e.g., layer, package type) +
+| 
+|
 |===
 
 
@@ -1112,10 +1454,22 @@ Result represents scan findings for a specific target and class of packages
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`target`* __string__ | Target is the specific target scanned + |  | 
-| *`class`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-class[$$Class$$]__ | Class is the classification of the target + |  | 
-| *`type`* __string__ | Type is the language type + |  | 
-| *`vulnerabilities`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vulnerability[$$Vulnerability$$] array__ | Vulnerabilities found in this target + |  | 
+| *`target`* __string__
+| Target is the specific target scanned +
+| 
+|
+| *`class`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-class[$$Class$$]__
+| Class is the classification of the target +
+| 
+|
+| *`type`* __string__
+| Type is the language type +
+| 
+|
+| *`vulnerabilities`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vulnerability[$$Vulnerability$$] array__
+| Vulnerabilities found in this target +
+| 
+|
 |===
 
 
@@ -1130,16 +1484,25 @@ SBOM represents a Software Bill of Materials of an OCI artifact
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-sbomlist[$$SBOMList$$]
+- SBOMList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__ |  |  | 
-| *`spdx`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#rawextension-runtime-pkg[$$RawExtension$$]__ | SPDX contains the SPDX document of the SBOM in JSON format + |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__
+| 
+| 
+|
+| *`spdx`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#rawextension-runtime-pkg[$$RawExtension$$]__
+| SPDX contains the SPDX document of the SBOM in JSON format +
+| 
+|
 |===
 
 
@@ -1179,12 +1542,30 @@ Summary provides a high-level overview of the vulnerabilities found.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`critical`* __integer__ | Critical vulnerabilities count + |  | 
-| *`high`* __integer__ | High vulnerabilities count + |  | 
-| *`medium`* __integer__ | Medium vulnerabilities count + |  | 
-| *`low`* __integer__ | Low vulnerabilities count + |  | 
-| *`unknown`* __integer__ | Unknown vulnerabilities count + |  | 
-| *`suppressed`* __integer__ | Suppressed vulnerabilities count + |  | 
+| *`critical`* __integer__
+| Critical vulnerabilities count +
+| 
+|
+| *`high`* __integer__
+| High vulnerabilities count +
+| 
+|
+| *`medium`* __integer__
+| Medium vulnerabilities count +
+| 
+|
+| *`low`* __integer__
+| Low vulnerabilities count +
+| 
+|
+| *`unknown`* __integer__
+| Unknown vulnerabilities count +
+| 
+|
+| *`suppressed`* __integer__
+| Suppressed vulnerabilities count +
+| 
+|
 |===
 
 
@@ -1206,9 +1587,18 @@ in a VEX document
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`repository`* __string__ | Repository providing the VEX document + |  | 
-| *`status`* __string__ | VEX status (e.g., "not_affected", "fixed", "under_investigation") + |  | 
-| *`statement`* __string__ | Statement optionally explain statement from the VEX document + |  | 
+| *`repository`* __string__
+| Repository providing the VEX document +
+| 
+|
+| *`status`* __string__
+| VEX status (e.g., "not_affected", "fixed", "under_investigation") +
+| 
+|
+| *`statement`* __string__
+| Statement optionally explain statement from the VEX document +
+| 
+|
 |===
 
 
@@ -1230,30 +1620,78 @@ found in a package
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`cve`* __string__ | CVE identifier + |  | 
-| *`title`* __string__ | Title is the title of the vulnerability + |  | 
-| *`packageName`* __string__ | PackageName is the name of the vulnerable package +
-(empty when Class is "binary") + |  | 
-| *`packagePath`* __string__ | PackagePath is the path where the package was found +
+| *`cve`* __string__
+| CVE identifier +
+| 
+|
+| *`title`* __string__
+| Title is the title of the vulnerability +
+| 
+|
+| *`packageName`* __string__
+| PackageName is the name of the vulnerable package +
+(empty when Class is "binary") +
+| 
+|
+| *`packagePath`* __string__
+| PackagePath is the path where the package was found +
 (equal to Target when Class is "binary"). +
 trivy removes the "/" at the beginning of the path +
-so we have to restore it. + |  | 
-| *`purl`* __string__ | PURL (Package URL) identify the package uniquely + |  | 
-| *`installedVersion`* __string__ | InstalledVersion of the package that was found + |  | 
-| *`fixedVersions`* __string array__ | FixedVersions is the list of versions where the vulnerability is fixed + |  | 
-| *`diffID`* __string__ | DiffID of the image layer where the vulnerability was introduced + |  | 
-| *`description`* __string__ | Description of the vulnerability + |  | 
-| *`severity`* __string__ | Severity rating (e.g., "HIGH", "MEDIUM") + |  | 
-| *`severitySource`* __string__ | SeveritySource identifies the vendor that produced the Severity +
+so we have to restore it. +
+| 
+|
+| *`purl`* __string__
+| PURL (Package URL) identify the package uniquely +
+| 
+|
+| *`installedVersion`* __string__
+| InstalledVersion of the package that was found +
+| 
+|
+| *`fixedVersions`* __string array__
+| FixedVersions is the list of versions where the vulnerability is fixed +
+| 
+|
+| *`diffID`* __string__
+| DiffID of the image layer where the vulnerability was introduced +
+| 
+|
+| *`description`* __string__
+| Description of the vulnerability +
+| 
+|
+| *`severity`* __string__
+| Severity rating (e.g., "HIGH", "MEDIUM") +
+| 
+|
+| *`severitySource`* __string__
+| SeveritySource identifies the vendor that produced the Severity +
 (e.g. "nvd", "ghsa", "redhat", "alpine"). +
 Consumers can use this key to look up the matching entry in the CVSS map to display alongside Severity. +
-May be empty when the source vendor is not known. + |  | 
-| *`references`* __string array__ | References contains URLs for more information + |  | 
-| *`cvss`* __object (keys:string, values:xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-cvss[$$CVSS$$])__ | CVSS scoring details + |  | 
-| *`cwes`* __string array__ | CWEs with which the CVE is classified + |  | 
-| *`suppressed`* __boolean__ | Suppressed identify when vulnerability has +
-been suppressed by VEX documents + |  | 
-| *`vexStatus`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vexstatus[$$VEXStatus$$]__ | VEXStatus information + |  | 
+May be empty when the source vendor is not known. +
+| 
+|
+| *`references`* __string array__
+| References contains URLs for more information +
+| 
+|
+| *`cvss`* __object (keys:string, values:xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-cvss[$$CVSS$$])__
+| CVSS scoring details +
+| 
+|
+| *`cwes`* __string array__
+| CWEs with which the CVE is classified +
+| 
+|
+| *`suppressed`* __boolean__
+| Suppressed identify when vulnerability has +
+been suppressed by VEX documents +
+| 
+|
+| *`vexStatus`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vexstatus[$$VEXStatus$$]__
+| VEXStatus information +
+| 
+|
 |===
 
 
@@ -1268,16 +1706,25 @@ VulnerabilityReport is the Schema for the scanresults API
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-vulnerabilityreportlist[$$VulnerabilityReportList$$]
+- VulnerabilityReportList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__ | ImageMetadata contains info about the scanned image + |  | 
-| *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__ | Report is the actual vulnerability scan report + |  | 
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
+
+| 
+|
+| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__
+| ImageMetadata contains info about the scanned image +
+| 
+|
+| *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__
+| Report is the actual vulnerability scan report +
+| 
+|
 |===
 
 
@@ -1294,26 +1741,41 @@ WorkloadScanReport represents the vulnerability scan results for a workload's co
 
 .Appears In:
 ****
-- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanreportlist[$$WorkloadScanReportList$$]
+- WorkloadScanReportList
 ****
 
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__ | Refer to Kubernetes API documentation for fields of `metadata`.
- |  | 
-| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanreportspec[$$WorkloadScanReportSpec$$]__ | Spec contains the workload container references, written by the reconciler. + |  | 
-| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanreportstatus[$$WorkloadScanReportStatus$$]__ | Status contains the scan status for each container. +
-Populated at read time. + |  | Optional: \{} +
+| *`metadata`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta[$$ObjectMeta$$]__
+| Refer to Kubernetes API documentation for fields of `metadata`.
 
-| *`summary`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-summary[$$Summary$$]__ | Summary provides aggregated vulnerability counts across all containers. +
+| 
+|
+| *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanreportspec[$$WorkloadScanReportSpec$$]__
+| Spec contains the workload container references, written by the reconciler. +
+| 
+|
+| *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-workloadscanreportstatus[$$WorkloadScanReportStatus$$]__
+| Status contains the scan status for each container. +
+Populated at read time. +
+| 
+|
+Optional: \{} +
+| *`summary`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-summary[$$Summary$$]__
+| Summary provides aggregated vulnerability counts across all containers. +
 Vulnerabilities are deduplicated per container (same CVE across platforms counts as 1), +
 then summed across all containers. +
-Populated at read time. + |  | Optional: \{} +
-
-| *`containers`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-containerresult[$$ContainerResult$$] array__ | Containers contains the vulnerability reports for each container. +
-Populated at read time by joining with VulnerabilityReport data. + |  | Optional: \{} +
-
+Populated at read time. +
+| 
+|
+Optional: \{} +
+| *`containers`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-containerresult[$$ContainerResult$$] array__
+| Containers contains the vulnerability reports for each container. +
+Populated at read time by joining with VulnerabilityReport data. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -1336,7 +1798,10 @@ WorkloadScanReportSpec defines the containers to scan.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`containers`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-containerref[$$ContainerRef$$] array__ | Containers contains the list of containers in the workload with their image references. + |  | 
+| *`containers`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-containerref[$$ContainerRef$$] array__
+| Containers contains the list of containers in the workload with their image references. +
+| 
+|
 |===
 
 
@@ -1357,8 +1822,11 @@ WorkloadScanReportStatus contains the observed scan state for the workload.
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`containerStatuses`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-containerstatus[$$ContainerStatus$$] array__ | ContainerStatuses contains the scan status for each container. + |  | Optional: \{} +
-
+| *`containerStatuses`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-containerstatus[$$ContainerStatus$$] array__
+| ContainerStatuses contains the scan status for each container. +
+| 
+|
+Optional: \{} +
 |===
 
 
@@ -1379,10 +1847,22 @@ WorkloadScanVulnerabilityReport contains vulnerability report data for a specifi
 [cols="20a,50a,15a,15a", options="header"]
 |===
 | Field | Description | Default | Validation
-| *`name`* __string__ | Name is the name of the VulnerabilityReport. + |  | 
-| *`namespace`* __string__ | Namespace is the namespace where the VulnerabilityReport is stored. + |  | 
-| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__ | ImageMetadata contains the VulnerabilityReport's image metadata. + |  | 
-| *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__ | Report is the actual vulnerability scan report. + |  | 
+| *`name`* __string__
+| Name is the name of the VulnerabilityReport. +
+| 
+|
+| *`namespace`* __string__
+| Namespace is the namespace where the VulnerabilityReport is stored. +
+| 
+|
+| *`imageMetadata`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-imagemetadata[$$ImageMetadata$$]__
+| ImageMetadata contains the VulnerabilityReport's image metadata. +
+| 
+|
+| *`report`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-report[$$Report$$]__
+| Report is the actual vulnerability scan report. +
+| 
+|
 |===
 
 

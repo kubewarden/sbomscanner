@@ -12,4 +12,4 @@ markdown:
 
 .PHONY: asciidoc
 asciidoc:
-	$(CRD_REF_DOCS) --log-level INFO --config=config.yml --renderer=asciidoctor --source-path=../../api --output-path=CRD-docs-for-docs-repo.adoc
+	$(CRD_REF_DOCS) --log-level INFO --config=config.yml --renderer=asciidoctor --templates-dir=templates/asciidoctor --source-path=../../api --output-path=CRD-docs-for-docs-repo.adoc
