@@ -107,7 +107,7 @@ storage:
 worker:
   image:
     repository: kubewarden/sbomscanner/worker
-    tag: v0.12.1
+    tag: v0.13.0
     pullPolicy: IfNotPresent
   replicas: 3
   logLevel: "info"
