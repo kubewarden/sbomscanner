@@ -43,6 +43,8 @@ type DB struct {
 	cacheDir string
 	local    *oci.Store
 	remote   *oci.Remote
+	verifier *oci.Verifier
+	config   oci.Config
 	logger   *slog.Logger
 
 	kev  *datafeed.Database
@@ -62,33 +64,64 @@ func Open(repository, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
 		cacheDir: cacheDir,
 		local:    oci.NewStore(filepath.Join(cacheDir, ociDirName), logger),
 		remote:   oci.NewRemote(cfg, logger),
+		verifier: oci.NewVerifier(cfg, logger),
+		config:   cfg,
 		logger:   logger,
 	}
 }
 
-// Update pulls the artifact when the local copy is missing or past its nextUpdate,
-// then loads it when it differs from the loaded one.
-// It returns an error when the database cannot be updated.
+// Update refreshes the local copy when it is missing or past its nextUpdate.
+// Before pulling, it verifies the cosign signature of the resolved remote digest
+// so no untrusted bytes are unpacked. A verification failure degrades to the last
+// known-good local copy when one exists (stale-but-trusted); with no local copy
+// it fails the scan. Registry and pull failures fail the scan as before.
 func (db *DB) Update(ctx context.Context) error {
 	if db == nil {
 		return nil
 	}
 
-	view, err := db.local.Inspect(ctx, db.ref)
-	if err != nil {
-		db.logger.WarnContext(ctx, "cannot read the local sbomscanner DB, pulling", "ref", db.ref, "error", err)
+	local, localErr := db.local.Inspect(ctx, db.ref)
+	if localErr != nil {
+		db.logger.WarnContext(ctx, "cannot read the local sbomscanner DB, pulling", "ref", db.ref, "error", localErr)
 	}
-	stale := err != nil || !time.Now().Before(nextHorizon(view))
-	if stale {
-		if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
-			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
+	haveLocal := localErr == nil
+	if haveLocal && time.Now().Before(nextHorizon(local)) {
+		// Fresh local copy: serve it, nothing to pull or verify.
+		return db.ensureLoaded(ctx, local)
+	}
+
+	// Stale or missing: resolve the remote manifest digest without copying blobs,
+	// then verify it before anything is pulled or unpacked.
+	if !db.config.SkipVerify {
+		remote, err := db.remote.Inspect(ctx, db.ref)
+		if err != nil {
+			return fmt.Errorf("inspect remote sbomscanner DB %s: %w", db.ref, err)
 		}
-		if view, err = db.local.Inspect(ctx, db.ref); err != nil {
-			return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
+		if err := db.verifier.Verify(ctx, db.ref, remote.Digest); err != nil {
+			// Degrade to stale-but-trusted when a known-good local copy exists.
+			if haveLocal {
+				db.logger.WarnContext(ctx, "sbomscanner DB verification failed, serving last known-good copy",
+					"ref", db.ref, "error", err)
+				return db.ensureLoaded(ctx, local)
+			}
+			return fmt.Errorf("verify sbomscanner DB %s: %w", db.ref, err)
 		}
 	}
 
-	if view.Digest == db.digest {
+	if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
+		return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
+	}
+	view, err := db.local.Inspect(ctx, db.ref)
+	if err != nil {
+		return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
+	}
+	return db.ensureLoaded(ctx, view)
+}
+
+// ensureLoaded reloads the feed databases when view differs from the loaded one.
+// An empty digest (no local copy at all) is a no-op.
+func (db *DB) ensureLoaded(ctx context.Context, view oci.ManifestView) error {
+	if view.Digest == "" || view.Digest == db.digest {
 		return nil
 	}
 	if err := db.reload(ctx, view); err != nil {
