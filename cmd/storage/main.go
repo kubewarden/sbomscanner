@@ -215,7 +215,6 @@ func newDB(ctx context.Context, pgURIFile, pgTLSCAFile string) (*pgxpool.Pool, e
 	// Pool-acquire spans are disabled as noise: acquire latency stays observable
 	// through the pgxpool.acquire_duration metric registered by RecordStats.
 	config.ConnConfig.Tracer = otelpgx.NewTracer(
-		otelpgx.WithTrimSQLInSpanName(),
 		otelpgx.WithDisableAcquireTracer(),
 	)
 
