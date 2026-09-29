@@ -30,6 +30,67 @@ Package v1alpha1 contains API Schema definitions for the SBOMscanner v1alpha1 AP
 
 
 
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlekeyselector"]
+==== CABundleKeySelector
+
+
+
+CABundleKeySelector selects a key of a ConfigMap or Secret containing a PEM-encoded CA bundle.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlesource[$$CABundleSource$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`name`* __string__
+| Name of the referenced object. +
+| 
+|
+| *`key`* __string__
+| Key holding the PEM-encoded CA bundle. Defaults to "ca.crt". +
+| ca.crt
+|
+Optional: \{} +
+|===
+
+
+[id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlesource"]
+==== CABundleSource
+
+
+
+CABundleSource references a PEM-encoded CA bundle stored in a ConfigMap or Secret.
+Exactly one of the fields must be set.
+
+
+
+.Appears In:
+****
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-registryspec[$$RegistrySpec$$]
+- xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-workloadscanconfigurationspec[$$WorkloadScanConfigurationSpec$$]
+****
+
+[cols="20a,50a,15a,15a", options="header"]
+|===
+| Field | Description | Default | Validation
+| *`configMap`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlekeyselector[$$CABundleKeySelector$$]__
+| ConfigMap references a key of a ConfigMap. +
+| 
+|
+Optional: \{} +
+| *`secret`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlekeyselector[$$CABundleKeySelector$$]__
+| Secret references a key of a Secret. +
+| 
+|
+Optional: \{} +
+|===
+
+
 
 
 [id="{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-matchcondition"]
@@ -467,9 +528,17 @@ If not set, automatic scanning is disabled. +
 | 
 |
 | *`caBundle`* __string__
-| CABundle is the CA bundle to use when connecting to the registry. +
+| CABundle is a PEM-encoded CA bundle to use when connecting to the registry. +
+Prefer CABundleRef, which avoids storing the bundle in the resource. Mutually exclusive with CABundleRef. +
 | 
 |
+| *`caBundleRef`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlesource[$$CABundleSource$$]__
+| CABundleRef references a ConfigMap or Secret key containing a PEM-encoded CA bundle to use when connecting to the registry. +
+The object is looked up in the Registry namespace, or in the installation namespace for workloadscan-managed registries. +
+Mutually exclusive with CABundle. +
+| 
+|
+Optional: \{} +
 | *`insecure`* __boolean__
 | Insecure allows insecure connections to the registry when set to true. +
 | 
@@ -937,7 +1006,14 @@ The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/t
 |
 Optional: \{} +
 | *`caBundle`* __string__
-| CABundle is the CA bundle to use when connecting to registries. +
+| CABundle is a PEM-encoded CA bundle to use when connecting to registries. +
+Prefer CABundleRef, which avoids copying the bundle into every managed Registry. Mutually exclusive with CABundleRef. +
+| 
+|
+Optional: \{} +
+| *`caBundleRef`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlesource[$$CABundleSource$$]__
+| CABundleRef references a ConfigMap or Secret key in the installation namespace containing a PEM-encoded CA bundle +
+to use when connecting to registries. Mutually exclusive with CABundle. +
 | 
 |
 Optional: \{} +

@@ -1,0 +1,30 @@
+# A Registry served with a certificate issued by a private CA.
+# The CA bundle is read from the ConfigMap `registry-ca` in the same namespace.
+# For workloadscan-managed registries, set `caBundleRef` on the WorkloadScanConfiguration
+# instead; the referenced object is then looked up in the SBOMScanner installation namespace.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-ca
+  namespace: default
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    ...
+    -----END CERTIFICATE-----
+---
+apiVersion: sbomscanner.kubewarden.io/v1alpha1
+kind: Registry
+metadata:
+  name: my-private-ca-registry
+  namespace: default
+spec:
+  uri: dev-registry.default.svc.cluster.local:5000
+  scanInterval: 1h
+  caBundleRef:
+    configMap:
+      name: registry-ca
+      # Optional, defaults to ca.crt. Use `secret:` instead of `configMap:` to read
+      # the bundle from a Secret (e.g. the ca.crt key of a kubernetes.io/tls Secret).
+      key: ca.crt

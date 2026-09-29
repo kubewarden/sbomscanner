@@ -124,6 +124,7 @@ func (r *WorkloadScanReconciler) updateRegistry(
 	registry.Spec.Repositories = updatedRepositories
 	registry.Spec.AuthSecret = config.Spec.AuthSecret
 	registry.Spec.CABundle = config.Spec.CABundle
+	registry.Spec.CABundleRef = config.Spec.CABundleRef.DeepCopy()
 	registry.Spec.Insecure = config.Spec.Insecure
 	registry.Spec.ScanInterval = config.Spec.ScanInterval
 	registry.Spec.Platforms = config.Spec.Platforms
@@ -347,6 +348,7 @@ func (r *WorkloadScanReconciler) createRegistry(
 			Repositories: registryRepositories,
 			AuthSecret:   config.Spec.AuthSecret,
 			CABundle:     config.Spec.CABundle,
+			CABundleRef:  config.Spec.CABundleRef.DeepCopy(),
 			Insecure:     config.Spec.Insecure,
 			ScanInterval: config.Spec.ScanInterval,
 			Platforms:    config.Spec.Platforms,
