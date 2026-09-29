@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
+	"github.com/kubewarden/sbomscanner/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,6 +42,7 @@ const (
 )
 
 // RegistrySpec defines the desired state of Registry
+// +kubebuilder:validation:XValidation:rule="!(has(self.caBundle) && has(self.caBundleRef))",message="caBundle and caBundleRef are mutually exclusive"
 type RegistrySpec struct {
 	// URI is the URI of the container registry
 	URI string `json:"uri,omitempty"`
@@ -57,8 +59,14 @@ type RegistrySpec struct {
 	// ScanInterval is the interval at which the registry is scanned.
 	// If not set, automatic scanning is disabled.
 	ScanInterval *metav1.Duration `json:"scanInterval,omitempty"`
-	// CABundle is the CA bundle to use when connecting to the registry.
+	// CABundle is a PEM-encoded CA bundle to use when connecting to the registry.
+	// Prefer CABundleRef, which avoids storing the bundle in the resource. Mutually exclusive with CABundleRef.
 	CABundle string `json:"caBundle,omitempty"`
+	// CABundleRef references a ConfigMap or Secret key containing a PEM-encoded CA bundle to use when connecting to the registry.
+	// The object is looked up in the Registry namespace, or in the installation namespace for workloadscan-managed registries.
+	// Mutually exclusive with CABundle.
+	// +optional
+	CABundleRef *CABundleSource `json:"caBundleRef,omitempty"`
 	// Insecure allows insecure connections to the registry when set to true.
 	Insecure bool `json:"insecure,omitempty"`
 	// Platforms allows to specify the list of platform to scan.
@@ -167,6 +175,13 @@ type Registry struct {
 // IsPrivate returns true when the registry requires authentication.
 func (r *Registry) IsPrivate() bool {
 	return r.Spec.AuthSecret != ""
+}
+
+// IsWorkloadScanManaged returns true when the registry is managed by the workload scan feature.
+// Objects referenced by a managed registry (auth secret, CA bundle) live in the installation namespace
+// rather than in the registry namespace.
+func (r *Registry) IsWorkloadScanManaged() bool {
+	return r.Labels[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue
 }
 
 // RescanRequest is the JSON payload of a rescan-requested annotation on a Registry.

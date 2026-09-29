@@ -720,6 +720,7 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 		name         string
 		registryName string
 		registrySpec v1alpha1.RegistrySpec
+		objects      []runtime.Object
 		scanJobName  string
 		scanJobUID   string
 	}{
@@ -732,6 +733,25 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 			},
 			scanJobName: "test-scanjob-ca",
 			scanJobUID:  "test-scanjob-ca-uid",
+		},
+		{
+			name:         "with CA bundle from ConfigMap",
+			registryName: "test-ca-ref-registry",
+			registrySpec: v1alpha1.RegistrySpec{
+				URI: testRegistry.RegistryName,
+				CABundleRef: &v1alpha1.CABundleSource{
+					ConfigMap: &v1alpha1.CABundleKeySelector{Name: "trust-bundle", Key: "root-certs.pem"},
+				},
+			},
+			objects: []runtime.Object{
+				&corev1.ConfigMap{
+					Name:      "trust-bundle",
+					Namespace: "default",
+					Data:      map[string]string{"root-certs.pem": string(certContent)},
+				},
+			},
+			scanJobName: "test-scanjob-ca-ref",
+			scanJobUID:  "test-scanjob-ca-ref-uid",
 		},
 		{
 			name:         "insecure",
@@ -789,7 +809,7 @@ func TestGenerateSBOMHandler_Handle_Certificates(t *testing.T) {
 			require.NoError(t, err)
 			k8sClient := fake.NewClientBuilder().
 				WithScheme(scheme).
-				WithRuntimeObjects(image, registry, scanJob).
+				WithRuntimeObjects(append([]runtime.Object{image, registry, scanJob}, tc.objects...)...).
 				WithIndex(&storagev1alpha1.SBOM{}, storagev1alpha1.IndexImageMetadataDigest, func(obj client.Object) []string {
 					sbom, ok := obj.(*storagev1alpha1.SBOM)
 					if !ok {
