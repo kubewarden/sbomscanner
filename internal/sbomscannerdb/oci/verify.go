@@ -20,11 +20,11 @@ import (
 // Hardcoded keyless trust policy for the officially published sbomscanner DB.
 // The identity is matched by regexp so any branch or tag ref of the publishing
 // workflow verifies. A later iteration replaces these constants with CRD/flag
-// configuration (see docs/rfc/0010).
+// configuration (see RFC 10).
 // TODO: pin the exact publishing workflow file name once CI signing lands.
 const (
 	dbCertOIDCIssuer     = "https://token.actions.githubusercontent.com"
-	dbCertIdentityRegexp = `^https://github\.com/alegrey91/sbomscanner/\.github/workflows/.+@refs/.+$`
+	dbCertIdentityRegexp = `^https://github\.com/kubewarden/sbomscanner/\.github/workflows/.+@refs/.+$`
 )
 
 // ErrVerification is returned when the artifact fails signature verification.
