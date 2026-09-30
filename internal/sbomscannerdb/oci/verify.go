@@ -11,9 +11,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	gcrname "github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/sigstore/cosign/v2/pkg/cosign"
-	ociremote "github.com/sigstore/cosign/v2/pkg/oci/remote"
-	"github.com/sigstore/sigstore/pkg/fulcioroots"
+	"github.com/sigstore/cosign/v3/pkg/cosign"
+	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
 )
 
 // Hardcoded keyless trust policy for the officially published sbomscanner DB.
@@ -23,7 +24,7 @@ import (
 // TODO: pin the exact publishing workflow file name once CI signing lands.
 const (
 	dbCertOIDCIssuer     = "https://token.actions.githubusercontent.com"
-	dbCertIdentityRegexp = `^https://github\.com/kubewarden/sbomscanner/\.github/workflows/.+@refs/.+$`
+	dbCertIdentityRegexp = `^https://github\.com/alegrey91/sbomscanner/\.github/workflows/.+@refs/.+$`
 )
 
 // ErrVerification is returned when the artifact fails signature verification.
@@ -42,9 +43,10 @@ func NewVerifier(config Config, logger *slog.Logger) *Verifier {
 	return &Verifier{config: config, logger: logger}
 }
 
-// Verify checks the cosign signatures attached to the resolved digest of ref
-// (never the mutable tag) against the hardcoded issuer and identity. It returns
-// nil on a valid signature and a wrapped ErrVerification otherwise.
+// Verify checks the cosign new-bundle (sigstore) signature attached to the
+// resolved digest of ref (never the mutable tag) against the hardcoded issuer
+// and identity. It returns nil on a valid signature and a wrapped
+// ErrVerification otherwise.
 func (v *Verifier) Verify(ctx context.Context, ref, digest string) error {
 	parsed, err := parseTagReference(ref)
 	if err != nil {
@@ -63,49 +65,48 @@ func (v *Verifier) Verify(ctx context.Context, ref, digest string) error {
 		return err
 	}
 
-	_, bundleVerified, err := cosign.VerifyImageSignatures(ctx, nameRef, checkOpts)
+	_, bundleVerified, err := cosign.VerifyImageAttestations(ctx, nameRef, checkOpts)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrVerification, err)
 	}
 	if !bundleVerified {
-		return fmt.Errorf("%w: transparency-log bundle not verified", ErrVerification)
+		return fmt.Errorf("%w: sigstore bundle not verified", ErrVerification)
 	}
 	v.logger.InfoContext(ctx, "sbomscanner DB signature verified", "digest", digest, "issuer", dbCertOIDCIssuer)
 	return nil
 }
 
-// checkOpts assembles the cosign keyless verification policy: Fulcio roots plus
-// Rekor and CT log keys (from the embedded TUF defaults), the hardcoded identity,
-// and registry access mirroring the Remote's credentials and TLS settings.
-func (v *Verifier) checkOpts(ctx context.Context) (*cosign.CheckOpts, error) {
-	roots, err := fulcioroots.Get()
+// checkOpts assembles the cosign keyless verification policy for the new-bundle
+// (cosign v3) signature format: the Sigstore trusted root (Fulcio, Rekor, and CT
+// log keys from TUF), the hardcoded identity, and registry access mirroring the
+// Remote's credentials and TLS settings.
+func (v *Verifier) checkOpts(_ context.Context) (*cosign.CheckOpts, error) {
+	trustedMaterial, err := trustedRoot()
 	if err != nil {
-		return nil, fmt.Errorf("load fulcio roots: %w", err)
-	}
-	intermediates, err := fulcioroots.GetIntermediates()
-	if err != nil {
-		return nil, fmt.Errorf("load fulcio intermediates: %w", err)
-	}
-	rekorPubs, err := cosign.GetRekorPubs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("load rekor keys: %w", err)
-	}
-	ctPubs, err := cosign.GetCTLogPubs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("load ct log keys: %w", err)
+		return nil, fmt.Errorf("load sigstore trusted root: %w", err)
 	}
 
 	return &cosign.CheckOpts{
-		RootCerts:          roots,
-		IntermediateCerts:  intermediates,
-		RekorPubKeys:       rekorPubs,
-		CTLogPubKeys:       ctPubs,
+		TrustedMaterial:    trustedMaterial,
+		NewBundleFormat:    true,
+		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
 		RegistryClientOpts: v.registryClientOpts(),
 		Identities: []cosign.Identity{{
 			Issuer:        dbCertOIDCIssuer,
 			SubjectRegExp: dbCertIdentityRegexp,
 		}},
 	}, nil
+}
+
+// trustedRoot fetches the Sigstore trusted root from TUF with the local cache
+// disabled, so verification works on a read-only root filesystem (the default
+// cache path $HOME/.sigstore is not writable in the worker container).
+func trustedRoot() (root.TrustedMaterial, error) {
+	client, err := tuf.New(tuf.DefaultOptions().WithDisableLocalCache())
+	if err != nil {
+		return nil, fmt.Errorf("create TUF client: %w", err)
+	}
+	return root.GetTrustedRoot(client)
 }
 
 // registryClientOpts builds the go-containerregistry options cosign uses to
