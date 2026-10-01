@@ -39,6 +39,9 @@ spec:
       containers:
         - name: worker
           image: '{{ template "system_default_registry" . }}{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}'
+          env:
+            - name: SIGSTORE_NO_CACHE
+              value: "true"
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           securityContext:
             {{ include "sbomscanner.securityContext" . | nindent 12 }}

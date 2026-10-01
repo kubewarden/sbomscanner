@@ -40,6 +40,8 @@ spec:
         - name: worker
           image: '{{ template "system_default_registry" . }}{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}'
           env:
+            - name: SIGSTORE_NO_CACHE
+              value: "true"
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

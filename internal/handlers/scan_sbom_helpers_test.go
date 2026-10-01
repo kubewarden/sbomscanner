@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -111,8 +112,10 @@ func TestEnrichResults_NilStoreLeavesResultsUnchanged(t *testing.T) {
 	assert.Nil(t, results[0].Vulnerabilities[0].EPSS)
 }
 
-func TestEnrichResults_FailsWhenDBCannotUpdate(t *testing.T) {
+func TestEnrichResults_SkipsWhenDBCannotUpdate(t *testing.T) {
 	// An empty run dir and an unreachable registry, so the DB cannot be updated.
+	// Enrichment is additive, so a failed update must not fail the scan: the
+	// results are returned unenriched instead of erroring.
 	base := &scanSBOMBase{
 		sbomscannerDB: sbomscannerdb.Open(testDBRepository, t.TempDir(), oci.Config{}, slog.New(slog.DiscardHandler)),
 		logger:        slog.New(slog.DiscardHandler),
@@ -121,8 +124,26 @@ func TestEnrichResults_FailsWhenDBCannotUpdate(t *testing.T) {
 		{Vulnerabilities: []storagev1alpha1.Vulnerability{{CVE: "CVE-2021-44228"}}},
 	}
 
-	require.Error(t, base.enrichResults(context.Background(), results))
+	require.NoError(t, base.enrichResults(context.Background(), results))
 
 	assert.Nil(t, results[0].Vulnerabilities[0].KEV)
 	assert.Nil(t, results[0].Vulnerabilities[0].EPSS)
+}
+
+func TestEnrichResults_LogsWarningWhenDBCannotUpdate(t *testing.T) {
+	// A failed update must surface a WARN log so the skipped enrichment is visible.
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	base := &scanSBOMBase{
+		sbomscannerDB: sbomscannerdb.Open(testDBRepository, t.TempDir(), oci.Config{}, logger),
+		logger:        logger,
+	}
+	results := []storagev1alpha1.Result{
+		{Vulnerabilities: []storagev1alpha1.Vulnerability{{CVE: "CVE-2021-44228"}}},
+	}
+
+	require.NoError(t, base.enrichResults(context.Background(), results))
+
+	assert.Contains(t, buf.String(), "skipping enrichment")
+	assert.Contains(t, buf.String(), `"level":"WARN"`)
 }
