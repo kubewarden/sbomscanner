@@ -29,6 +29,8 @@ type Config struct {
 	SkipTLSVerify bool
 	// PlainHTTP uses HTTP instead of HTTPS.
 	PlainHTTP bool
+	// SkipVerify disables cosign signature verification of the pulled artifact.
+	SkipVerify bool
 }
 
 // Remote performs push and pull operations against OCI registries.
