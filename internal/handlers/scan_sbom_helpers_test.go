@@ -30,20 +30,34 @@ const testDBRef = testDBRepository + ":1"
 // converted from upstream feeds the same way build does.
 func seedFeeds(t *testing.T, dir string) {
 	t.Helper()
-	kev, err := json.Marshal(datafeed.KEVCatalog{
-		Title: "CISA KEV",
-		Count: 1,
-		Vulnerabilities: []datafeed.KEVVulnerability{
+	seedFeedsWith(t, dir,
+		[]datafeed.KEVVulnerability{
 			{CVEID: "CVE-2021-44228", DateAdded: "2021-12-10", DueDate: "2021-12-24", KnownRansomwareCampaignUse: "Known"},
 		},
+		[]datafeed.EPSSScore{
+			{CVE: "CVE-2021-44228", EPSS: 0.97, Percentile: 0.999},
+		},
+	)
+}
+
+// seedFeedsWith writes KEV and EPSS feeds holding the given entries into dir and
+// converts them to SQLite the same way build does. The EPSS feed requires at
+// least one row, so pass a non-empty epss slice even when testing KEV-only CVEs.
+func seedFeedsWith(t *testing.T, dir string, kevs []datafeed.KEVVulnerability, scores []datafeed.EPSSScore) {
+	t.Helper()
+	kev, err := json.Marshal(datafeed.KEVCatalog{
+		Title:           "CISA KEV",
+		Count:           len(kevs),
+		Vulnerabilities: kevs,
 	})
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.KEVSourceFileName), kev, 0o600))
 
-	score := datafeed.EPSSScore{CVE: "CVE-2021-44228", EPSS: 0.97, Percentile: 0.999}
 	epss := "#model_version:v1,score_date:" + scoreDate().Format(time.RFC3339) + "\n" +
-		"cve,epss,percentile\n" +
-		fmt.Sprintf("%s,%g,%g\n", score.CVE, score.EPSS, score.Percentile)
+		"cve,epss,percentile\n"
+	for _, score := range scores {
+		epss += fmt.Sprintf("%s,%g,%g\n", score.CVE, score.EPSS, score.Percentile)
+	}
 	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.EPSSSourceFileName), []byte(epss), 0o600))
 
 	logger := slog.New(slog.DiscardHandler)
@@ -62,9 +76,16 @@ func scoreDate() time.Time {
 // so Update never contacts the registry.
 func seededDB(t *testing.T) *sbomscannerdb.DB {
 	t.Helper()
-	logger := slog.New(slog.DiscardHandler)
 	dataDir := t.TempDir()
 	seedFeeds(t, dataDir)
+	return buildSeededDB(t, dataDir)
+}
+
+// buildSeededDB packs the feeds already written into dataDir as a fresh local
+// artifact and returns a DB that serves it without contacting the registry.
+func buildSeededDB(t *testing.T, dataDir string) *sbomscannerdb.DB {
+	t.Helper()
+	logger := slog.New(slog.DiscardHandler)
 	layers := []oci.Layer{
 		{Name: "kev", FileName: datafeed.KEVDBFileName, MediaType: oci.DataLayerMediaType("kev")},
 		{Name: "epss", FileName: datafeed.EPSSDBFileName, MediaType: oci.DataLayerMediaType("epss")},
@@ -98,6 +119,41 @@ func TestEnrichResults_PopulatesKEVAndEPSS(t *testing.T) {
 	unknown := results[0].Vulnerabilities[1]
 	assert.Nil(t, unknown.KEV)
 	assert.Nil(t, unknown.EPSS)
+}
+
+func TestEnrichResults_PartialDataPerFeed(t *testing.T) {
+	// A CVE may appear in only one feed. Enrichment must set only the field
+	// backed by a matching record and leave the other nil, rather than
+	// fabricating an empty struct.
+	dataDir := t.TempDir()
+	seedFeedsWith(t, dataDir,
+		[]datafeed.KEVVulnerability{
+			{CVEID: "CVE-1111-1111", DateAdded: "2022-01-01", DueDate: "2022-01-15", KnownRansomwareCampaignUse: "Unknown"},
+		},
+		[]datafeed.EPSSScore{
+			{CVE: "CVE-2222-2222", EPSS: 0.5, Percentile: 0.8},
+		},
+	)
+	base := &scanSBOMBase{
+		sbomscannerDB: buildSeededDB(t, dataDir),
+		logger:        slog.New(slog.DiscardHandler),
+	}
+	results := []storagev1alpha1.Result{
+		{Vulnerabilities: []storagev1alpha1.Vulnerability{
+			{CVE: "CVE-1111-1111"},
+			{CVE: "CVE-2222-2222"},
+		}},
+	}
+
+	require.NoError(t, base.enrichResults(context.Background(), results))
+
+	kevOnly := results[0].Vulnerabilities[0]
+	assert.Equal(t, &storagev1alpha1.KEV{DateAdded: "2022-01-01", DueDate: "2022-01-15", KnownRansomwareCampaignUse: storagev1alpha1.RansomwareCampaignUseUnknown}, kevOnly.KEV)
+	assert.Nil(t, kevOnly.EPSS, "a KEV-only CVE must not get a fabricated EPSS")
+
+	epssOnly := results[0].Vulnerabilities[1]
+	assert.Nil(t, epssOnly.KEV, "an EPSS-only CVE must not get a fabricated KEV")
+	assert.Equal(t, &storagev1alpha1.EPSS{Score: "0.5", Percentile: "0.8", Date: metav1.NewTime(scoreDate())}, epssOnly.EPSS)
 }
 
 func TestEnrichResults_NilStoreLeavesResultsUnchanged(t *testing.T) {
