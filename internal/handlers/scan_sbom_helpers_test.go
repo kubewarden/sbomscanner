@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,12 +54,13 @@ func seedFeedsWith(t *testing.T, dir string, kevs []datafeed.KEVVulnerability, s
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.KEVSourceFileName), kev, 0o600))
 
-	epss := "#model_version:v1,score_date:" + scoreDate().Format(time.RFC3339) + "\n" +
-		"cve,epss,percentile\n"
+	var epss strings.Builder
+	epss.WriteString("#model_version:v1,score_date:" + scoreDate().Format(time.RFC3339) + "\n")
+	epss.WriteString("cve,epss,percentile\n")
 	for _, score := range scores {
-		epss += fmt.Sprintf("%s,%g,%g\n", score.CVE, score.EPSS, score.Percentile)
+		fmt.Fprintf(&epss, "%s,%g,%g\n", score.CVE, score.EPSS, score.Percentile)
 	}
-	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.EPSSSourceFileName), []byte(epss), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, datafeed.EPSSSourceFileName), []byte(epss.String()), 0o600))
 
 	logger := slog.New(slog.DiscardHandler)
 	for _, source := range datafeed.AllSources(datafeed.NewHTTPDownloader(), logger) {

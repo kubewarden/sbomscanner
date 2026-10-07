@@ -123,7 +123,10 @@ func (v *Verifier) registryClientOpts() []ociremote.Option {
 	if v.config.SkipTLSVerify {
 		baseTransport, ok := gcrremote.DefaultTransport.(*http.Transport)
 		if !ok {
-			baseTransport = http.DefaultTransport.(*http.Transport) //nolint:forcetypeassert // stdlib default is always *http.Transport
+			baseTransport, ok = http.DefaultTransport.(*http.Transport)
+			if !ok {
+				baseTransport = &http.Transport{}
+			}
 		}
 		transport := baseTransport.Clone()
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // opt-in by --skip-tls-verify
