@@ -2,7 +2,6 @@ package oci
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -45,5 +44,5 @@ func TestVerify_RejectsDigestReference(t *testing.T) {
 		"sha256:0000000000000000000000000000000000000000000000000000000000000000",
 	)
 	require.Error(t, err)
-	assert.False(t, errors.Is(err, ErrVerification), "should fail while parsing the reference, not during verification")
+	assert.NotErrorIs(t, err, ErrVerification, "should fail while parsing the reference, not during verification")
 }

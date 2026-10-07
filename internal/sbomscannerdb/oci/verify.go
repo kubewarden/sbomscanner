@@ -106,7 +106,11 @@ func trustedRoot() (root.TrustedMaterial, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create TUF client: %w", err)
 	}
-	return root.GetTrustedRoot(client)
+	trustedRoot, err := root.GetTrustedRoot(client)
+	if err != nil {
+		return nil, fmt.Errorf("get sigstore trusted root: %w", err)
+	}
+	return trustedRoot, nil
 }
 
 // registryClientOpts builds the go-containerregistry options cosign uses to
@@ -117,7 +121,11 @@ func (v *Verifier) registryClientOpts() []ociremote.Option {
 		gcrremote.WithAuthFromKeychain(authn.DefaultKeychain),
 	}
 	if v.config.SkipTLSVerify {
-		transport := gcrremote.DefaultTransport.(*http.Transport).Clone()
+		baseTransport, ok := gcrremote.DefaultTransport.(*http.Transport)
+		if !ok {
+			baseTransport = http.DefaultTransport.(*http.Transport) //nolint:forcetypeassert // stdlib default is always *http.Transport
+		}
+		transport := baseTransport.Clone()
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // opt-in by --skip-tls-verify
 		remoteOpts = append(remoteOpts, gcrremote.WithTransport(transport))
 	}
