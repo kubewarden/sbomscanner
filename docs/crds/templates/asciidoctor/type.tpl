@@ -38,13 +38,16 @@
 | *`kind`* __string__ | `{{ $type.GVK.Kind }}` | |
 {{ end -}}
 
+{{- /* crd-ref-docs emits valueless markers as "Optional: {}", which the renderer
+       then escapes into "Optional: \{}". Trim the empty value until the upstream
+       fix lands: https://github.com/elastic/crd-ref-docs/issues/198 */ -}}
 {{ range $type.Members -}}
 | *`{{ .Name }}`* __{{ asciidocRenderType .Type }}__
 | {{ template "type_members" . }}
 | {{ .Default }}
 |{{- if .Validation }}
 {{- range .Validation }}
-{{ asciidocRenderValidation . }} +
+{{ asciidocRenderValidation (trimSuffix ": {}" .) }} +
 {{- end }}
 {{- end }}
 {{ end -}}
