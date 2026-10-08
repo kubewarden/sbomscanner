@@ -270,7 +270,7 @@ func imageDetails(img cranev1.Image, platform *cranev1.Platform, label string) (
 // GetImageDetailsFromIndex fetches details for a specific image within a multi-arch index,
 // identified by its digest.
 func (c *Client) GetImageDetailsFromIndex(ctx context.Context, imageIndex cranev1.ImageIndex, digest cranev1.Hash, platform *cranev1.Platform) (ImageDetails, error) {
-	c.logger.DebugContext(ctx, "GetImageDetailsFromIndex called", "digest", digest, "platform", platform)
+	c.logger.DebugContext(ctx, "GetImageDetailsFromIndex called", "digest", digest, "platform", *platform)
 
 	img, err := imageIndex.Image(digest)
 	if err != nil {
@@ -281,7 +281,11 @@ func (c *Client) GetImageDetailsFromIndex(ctx context.Context, imageIndex cranev
 }
 
 func (c *Client) GetImageDetails(ctx context.Context, ref name.Reference, multiArchPlatform *cranev1.Platform) (ImageDetails, error) {
-	c.logger.DebugContext(ctx, "GetImageDetails called", "image", ref.Name(), "multiArchPlatform", multiArchPlatform)
+	platformValue := "<nil>"
+	if multiArchPlatform != nil {
+		platformValue = multiArchPlatform.String()
+	}
+	c.logger.DebugContext(ctx, "GetImageDetails called", "image", ref.Name(), "multiArchPlatform", platformValue)
 
 	options := []remote.Option{
 		remote.WithContext(ctx),

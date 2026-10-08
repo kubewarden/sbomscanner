@@ -588,7 +588,7 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 			h.logger.DebugContext(ctx, "Skipping index entry, platform not allowed",
 				"ref", ref.Name(),
 				"digest", m.Digest,
-				"platform", m.Platform,
+				"platform", *m.Platform,
 				"artifactType", m.ArtifactType,
 			)
 			continue
@@ -602,7 +602,7 @@ func (h *CreateCatalogHandler) multiArchRefToImages(
 				h.logger.DebugContext(ctx, "Skipping non-image index entry",
 					"ref", ref.Name(),
 					"digest", m.Digest,
-					"platform", m.Platform,
+					"platform", *m.Platform,
 				)
 				continue
 			}
