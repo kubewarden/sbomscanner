@@ -170,12 +170,12 @@ NodeScanConfigurationSpec defines the desired configuration for node scanning.
 If not specified, all the nodes are scanned. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__
 | ScanInterval is the interval at which nodes are scanned. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`skipPatterns`* __string__
 | SkipPatterns specifies gitignore-style patterns for directories and files to skip during node scanning. +
 Patterns ending with "/" are treated as directories. +
@@ -193,13 +193,13 @@ If unset, container-runtime state is skipped by default: +
 Set to an empty list to scan everything, including the paths above. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__
 | Platforms allows to specify the list of platforms to scan. +
 If not set, all nodes are scanned regardless of their platform. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -311,17 +311,17 @@ NodeScanJobStatus defines the observed state of NodeScanJob.
 | Conditions represent the latest available observations of ScanJob state +
 | 
 |
-Optional: \{} +
+Optional +
 | *`startTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__
 | StartTime is when the job started processing. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`completionTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__
 | CompletionTime is when the job completed or failed. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -538,7 +538,7 @@ When set to "Or", at least one condition must pass for the filter to match. +
 | And
 |
 Enum: [And Or] +
-Optional: \{} +
+Optional +
 |===
 
 
@@ -629,14 +629,14 @@ ScanJobRepository selects a Registry repository (and optionally a subset of its 
 | Name is the name of a repository declared on the Registry. +
 | 
 |
-Required: \{} +
+Required +
 | *`matchConditions`* __string array__
 | MatchConditions optionally narrows the scan to a subset of the MatchConditions declared on the targeted repository. +
 Each entry must reference an existing MatchCondition by name. +
 When empty, all MatchConditions of the repository apply. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -661,13 +661,13 @@ ScanJobSpec defines the desired state of ScanJob.
 | Registry is the registry in the same namespace to scan. +
 | 
 |
-Required: \{} +
+Required +
 | *`repositories`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-scanjobrepository[$$ScanJobRepository$$] array__
 | Repositories optionally narrows the scan to a subset of the repositories configured on the targeted Registry. +
 When empty, all repositories of the Registry are scanned. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -692,7 +692,7 @@ ScanJobStatus defines the observed state of ScanJob.
 | Conditions represent the latest available observations of ScanJob state +
 | 
 |
-Optional: \{} +
+Optional +
 | *`imagesCount`* __integer__
 | ImagesCount is the number of images in the registry. +
 | 
@@ -705,12 +705,12 @@ Optional: \{} +
 | StartTime is when the job started processing. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`completionTime`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#time-v1-meta[$$Time$$]__
 | CompletionTime is when the job completed or failed. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -738,17 +738,17 @@ VEXHub is the Schema for the vexhubs API
 
 | 
 |
-Optional: \{} +
+Optional +
 | *`spec`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhubspec[$$VEXHubSpec$$]__
 | spec defines the desired state of VEXHub +
 | 
 |
-Required: \{} +
+Required +
 | *`status`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-vexhubstatus[$$VEXHubStatus$$]__
 | status defines the observed state of VEXHub +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -910,7 +910,7 @@ WorkloadScanConfigurationSpec defines the desired configuration for workload sca
 If not specified, workloads in all namespaces are scanned. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`artifactsNamespace`* __string__
 | ArtifactsNamespace is the namespace where scan artifacts (Registry, ScanJob, SBOM, VulnerabilityReport) are created. +
 When empty, artifacts are created in the workload's own namespace. +
@@ -918,40 +918,40 @@ Can only be changed when Enabled is false. +
 Note: WorkloadScanReport resources are always created in the workload's namespace, regardless of this setting. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`scanInterval`* __link:https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#duration-v1-meta[$$Duration$$]__
 | ScanInterval is the interval at which discovered registries are scanned. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`scanOnChange`* __boolean__
 | ScanOnChange triggers a scan when a managed Registry resource is created or updated. +
 Defaults to true. +
 | true
 |
-Optional: \{} +
+Optional +
 | *`authSecret`* __string__
 | AuthSecret is the name of a secret in the installation namespace containing credentials to access registries. +
 The secret must be in dockerconfigjson format. See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ +
 | 
 |
-Optional: \{} +
+Optional +
 | *`caBundle`* __string__
 | CABundle is the CA bundle to use when connecting to registries. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`insecure`* __boolean__
 | Insecure allows insecure connections to registries when set to true. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`platforms`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-platform[$$Platform$$] array__
 | Platforms specifies which platforms to scan for container images. +
 If not specified, all platforms available in the image manifest will be scanned. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -1061,7 +1061,7 @@ ContainerResult contains the vulnerability scan results for a single container.
 Multiple reports may exist for multi-arch images (one per platform). +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -1761,7 +1761,7 @@ WorkloadScanReport represents the vulnerability scan results for a workload's co
 Populated at read time. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`summary`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-summary[$$Summary$$]__
 | Summary provides aggregated vulnerability counts across all containers. +
 Vulnerabilities are deduplicated per container (same CVE across platforms counts as 1), +
@@ -1769,13 +1769,13 @@ then summed across all containers. +
 Populated at read time. +
 | 
 |
-Optional: \{} +
+Optional +
 | *`containers`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-storage-v1alpha1-containerresult[$$ContainerResult$$] array__
 | Containers contains the vulnerability reports for each container. +
 Populated at read time by joining with VulnerabilityReport data. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
@@ -1826,7 +1826,7 @@ WorkloadScanReportStatus contains the observed scan state for the workload.
 | ContainerStatuses contains the scan status for each container. +
 | 
 |
-Optional: \{} +
+Optional +
 |===
 
 
