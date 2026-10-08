@@ -54,6 +54,9 @@ spec:
             {{- if .Values.worker.sbomscannerDBRepository }}
             - -sbomscanner-db-repository={{ .Values.worker.sbomscannerDBRepository }}
             {{- end }}
+            {{- if .Values.worker.sbomscannerDBSkipVerify }}
+            - -sbomscanner-db-skip-verify
+            {{- end }}
             - -installation-namespace={{ .Release.Namespace }}
             {{- if .Values.worker.logLevel }}
             - -log-level={{ .Values.worker.logLevel }}

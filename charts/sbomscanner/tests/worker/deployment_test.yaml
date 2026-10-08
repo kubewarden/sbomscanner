@@ -45,6 +45,9 @@ tests:
       - notContains:
           path: "spec.template.spec.containers[0].args"
           content: "-sbomscanner-db-repository="
+      - notContains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-sbomscanner-db-skip-verify"
       - equal:
           path: "spec.template.spec.containers[0].resources.limits.cpu"
           value: "500m"
@@ -66,3 +69,12 @@ tests:
       - contains:
           path: "spec.template.spec.containers[0].args"
           content: "-sbomscanner-db-repository=ghcr.io/example/sbomscannerdb"
+
+  - it: "should pass the sbomscanner DB skip-verify flag to the worker when set"
+    set:
+      worker:
+        sbomscannerDBSkipVerify: true
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-sbomscanner-db-skip-verify"
