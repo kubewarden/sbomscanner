@@ -18,13 +18,15 @@ import (
 )
 
 // Hardcoded keyless trust policy for the officially published sbomscanner DB.
-// The identity is matched by regexp so any branch or tag ref of the publishing
-// workflow verifies. A later iteration replaces these constants with CRD/flag
-// configuration (see RFC 10).
+// The identity is the exact publishing workflow on the protected default branch
+// (sbomscannerdb-build.yml signs only when github.ref is refs/heads/main), so a
+// workflow added on any other branch or tag cannot mint a certificate workers
+// accept. A later iteration replaces these constants with CRD/flag configuration
+// (see RFC 10).
 const (
 	// TODO: Make this configurable via CLI flag (see RFC 10).
-	dbCertOIDCIssuer     = "https://token.actions.githubusercontent.com"
-	dbCertIdentityRegexp = `^https://github\.com/kubewarden/sbomscanner/\.github/workflows/.+@refs/.+$`
+	dbCertOIDCIssuer  = "https://token.actions.githubusercontent.com"
+	dbCertIdentitySAN = "https://github.com/kubewarden/sbomscanner/.github/workflows/sbomscannerdb-build.yml@refs/heads/main"
 )
 
 // ErrVerification is returned when the artifact fails signature verification.
@@ -92,8 +94,8 @@ func (v *Verifier) checkOpts(_ context.Context) (*cosign.CheckOpts, error) {
 		ClaimVerifier:      cosign.IntotoSubjectClaimVerifier,
 		RegistryClientOpts: v.registryClientOpts(),
 		Identities: []cosign.Identity{{
-			Issuer:        dbCertOIDCIssuer,
-			SubjectRegExp: dbCertIdentityRegexp,
+			Issuer:  dbCertOIDCIssuer,
+			Subject: dbCertIdentitySAN,
 		}},
 	}, nil
 }
