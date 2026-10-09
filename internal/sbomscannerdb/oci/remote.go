@@ -29,6 +29,8 @@ type Config struct {
 	SkipTLSVerify bool
 	// PlainHTTP uses HTTP instead of HTTPS.
 	PlainHTTP bool
+	// SkipVerify disables cosign signature verification of the pulled artifact.
+	SkipVerify bool
 }
 
 // Remote performs push and pull operations against OCI registries.
@@ -96,8 +98,27 @@ func (r *Remote) Pull(ctx context.Context, store *Store, ref string) (Artifact, 
 	if err != nil {
 		return Artifact{}, err
 	}
+	return r.pull(ctx, store, srcRef, srcRef.Reference, ref)
+}
 
-	repo, err := r.newRepository(srcRef)
+// PullByDigest copies the artifact pinned by digest from the registry into store,
+// tagging the local copy as ref. Unlike Pull, the source is resolved by the
+// immutable digest rather than the mutable tag, so the bytes copied are exactly
+// the ones already verified: a tag that moves between verification and pull
+// cannot slip an unverified manifest in. The digest must be a "sha256:..."
+// manifest digest; ref supplies the registry/repository and the local tag.
+func (r *Remote) PullByDigest(ctx context.Context, store *Store, ref, digest string) (Artifact, error) {
+	tagRef, err := parseTagReference(ref)
+	if err != nil {
+		return Artifact{}, err
+	}
+	return r.pull(ctx, store, tagRef, digest, ref)
+}
+
+// pull copies srcReference (a tag or digest) from the repository identified by
+// repoRef into store, tagging the local copy as localTag.
+func (r *Remote) pull(ctx context.Context, store *Store, repoRef registry.Reference, srcReference, localTag string) (Artifact, error) {
+	repo, err := r.newRepository(repoRef)
 	if err != nil {
 		return Artifact{}, err
 	}
@@ -120,18 +141,18 @@ func (r *Remote) Pull(ctx context.Context, store *Store, ref string) (Artifact, 
 		r.logger.DebugContext(ctx, "skipped blob, already in local store", "mediaType", desc.MediaType, "digest", desc.Digest)
 		return nil
 	}
-	pulledDesc, err := oras.Copy(ctx, repo, srcRef.Reference, layout, ref, copyOpts)
+	pulledDesc, err := oras.Copy(ctx, repo, srcReference, layout, localTag, copyOpts)
 	if err != nil {
 		return Artifact{}, fmt.Errorf("copy from remote: %w", err)
 	}
 	if fetched.Load() == 0 {
-		r.logger.InfoContext(ctx, "artifact unchanged, already in local store", "ref", srcRef.String(), "digest", pulledDesc.Digest, "cachedBlobs", skipped.Load())
+		r.logger.InfoContext(ctx, "artifact unchanged, already in local store", "ref", repoRef.String(), "digest", pulledDesc.Digest, "cachedBlobs", skipped.Load())
 	} else {
-		r.logger.InfoContext(ctx, "pulled artifact", "ref", srcRef.String(), "digest", pulledDesc.Digest, "fetchedBlobs", fetched.Load(), "cachedBlobs", skipped.Load())
+		r.logger.InfoContext(ctx, "pulled artifact", "ref", repoRef.String(), "digest", pulledDesc.Digest, "fetchedBlobs", fetched.Load(), "cachedBlobs", skipped.Load())
 	}
 
 	return Artifact{
-		Ref:    ref,
+		Ref:    localTag,
 		Digest: pulledDesc.Digest.String(),
 		Size:   pulledDesc.Size,
 	}, nil

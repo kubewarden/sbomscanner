@@ -100,10 +100,16 @@ func newTestDB(runDir string) *DB {
 	return Open(testRepository, runDir, oci.Config{}, slog.New(slog.DiscardHandler))
 }
 
+// newTestDBSkipVerify opens a DB with signature verification disabled, so tests
+// that exercise the pull path reach the registry without a verify step in front.
+func newTestDBSkipVerify(runDir string) *DB {
+	return Open(testRepository, runDir, oci.Config{SkipVerify: true}, slog.New(slog.DiscardHandler))
+}
+
 func TestLookup(t *testing.T) {
 	dir := t.TempDir()
 	buildArtifact(t, dir, 24*time.Hour)
-	db := newTestDB(dir)
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	tests := []struct {
@@ -163,8 +169,9 @@ func TestUpdate_LoadsFromLocalStoreWhileFresh(t *testing.T) {
 	dir := t.TempDir()
 	built := buildArtifact(t, dir, 24*time.Hour)
 
-	// The artifact is fresh for a day, so Update never contacts the registry.
-	db := newTestDB(dir)
+	// With verification skipped, a fresh artifact is served without contacting
+	// the registry.
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	assert.Equal(t, built.Digest, db.digest)
@@ -192,9 +199,9 @@ func TestUpdate_StaleBrokenLocalCopyIsPulledAgain(t *testing.T) {
 	cacheDir := filepath.Join(dir, cacheDirName)
 	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, datafeed.KEVDBFileName), []byte("not sqlite"), 0o600))
 
-	// The local copy is stale and broken. Update must reach the pull
-	// instead of failing on the local parse.
-	db := newTestDB(dir)
+	// The local copy is stale and broken. With verification skipped, Update must
+	// reach the pull instead of failing on the local parse.
+	db := newTestDBSkipVerify(dir)
 	err := db.Update(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pull sbomscanner DB")
@@ -214,7 +221,7 @@ func TestUpdate_FailsWithoutLocalStore(t *testing.T) {
 func TestReload_FailsWhenOneFeedIsMissing(t *testing.T) {
 	dir := t.TempDir()
 	built := buildArtifact(t, dir, 24*time.Hour)
-	db := newTestDB(dir)
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	// A broken artifact must not replace the databases that are open.
@@ -227,7 +234,7 @@ func TestReload_FailsWhenOneFeedIsMissing(t *testing.T) {
 func TestClose_ReleasesTheDatabases(t *testing.T) {
 	dir := t.TempDir()
 	buildArtifact(t, dir, 24*time.Hour)
-	db := newTestDB(dir)
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	require.NoError(t, db.Close())

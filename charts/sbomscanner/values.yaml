@@ -111,6 +111,9 @@ worker:
   # OCI repository of the sbomscanner vulnerability database (KEV, EPSS, …).
   # Empty disables the enrichment of vulnerability reports.
   sbomscannerDBRepository: ""
+  # Skip cosign signature verification of the sbomscanner vulnerability database.
+  # Only for debugging or consuming an unsigned custom database.
+  sbomscannerDBSkipVerify: false
 
 mcp:
   enabled: false
