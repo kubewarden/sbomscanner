@@ -85,6 +85,7 @@ func seededDB(t *testing.T) *sbomscannerdb.DB {
 
 // buildSeededDB packs the feeds already written into dataDir as a fresh local
 // artifact and returns a DB that serves it without contacting the registry.
+// Verification is skipped so the test exercises enrichment, not signing.
 func buildSeededDB(t *testing.T, dataDir string) *sbomscannerdb.DB {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
@@ -97,7 +98,7 @@ func buildSeededDB(t *testing.T, dataDir string) *sbomscannerdb.DB {
 	localStore := oci.NewStore(filepath.Join(runDir, "sbomscannerdb", "oci"), logger)
 	_, err := oci.NewBuilder(localStore, logger, "").Build(context.Background(), testDBRef, dataDir, layers, 24*time.Hour)
 	require.NoError(t, err)
-	return sbomscannerdb.Open(testDBRepository, runDir, oci.Config{}, logger)
+	return sbomscannerdb.Open(testDBRepository, runDir, oci.Config{SkipVerify: true}, logger)
 }
 
 func TestEnrichResults_PopulatesKEVAndEPSS(t *testing.T) {

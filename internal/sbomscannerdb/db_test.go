@@ -109,7 +109,7 @@ func newTestDBSkipVerify(runDir string) *DB {
 func TestLookup(t *testing.T) {
 	dir := t.TempDir()
 	buildArtifact(t, dir, 24*time.Hour)
-	db := newTestDB(dir)
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	tests := []struct {
@@ -169,8 +169,9 @@ func TestUpdate_LoadsFromLocalStoreWhileFresh(t *testing.T) {
 	dir := t.TempDir()
 	built := buildArtifact(t, dir, 24*time.Hour)
 
-	// The artifact is fresh for a day, so Update never contacts the registry.
-	db := newTestDB(dir)
+	// With verification skipped, a fresh artifact is served without contacting
+	// the registry.
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	assert.Equal(t, built.Digest, db.digest)
@@ -220,7 +221,7 @@ func TestUpdate_FailsWithoutLocalStore(t *testing.T) {
 func TestReload_FailsWhenOneFeedIsMissing(t *testing.T) {
 	dir := t.TempDir()
 	built := buildArtifact(t, dir, 24*time.Hour)
-	db := newTestDB(dir)
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	// A broken artifact must not replace the databases that are open.
@@ -233,7 +234,7 @@ func TestReload_FailsWhenOneFeedIsMissing(t *testing.T) {
 func TestClose_ReleasesTheDatabases(t *testing.T) {
 	dir := t.TempDir()
 	buildArtifact(t, dir, 24*time.Hour)
-	db := newTestDB(dir)
+	db := newTestDBSkipVerify(dir)
 	require.NoError(t, db.Update(context.Background()))
 
 	require.NoError(t, db.Close())

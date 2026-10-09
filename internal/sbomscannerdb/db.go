@@ -70,11 +70,20 @@ func Open(repository, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
 	}
 }
 
-// Update refreshes the local copy when it is missing or past its nextUpdate.
-// Before pulling, it verifies the cosign signature of the resolved remote digest
-// so no untrusted bytes are unpacked. A verification failure degrades to the last
-// known-good local copy when one exists (stale-but-trusted); with no local copy
-// it fails the scan. Registry and pull failures fail the scan as before.
+// Update refreshes the local copy when it is missing or does not match the
+// current, freshly verified remote manifest.
+//
+// When verification is enabled (the default) it inspects and verifies the
+// remote manifest's cosign signature on every call, then trusts the local copy
+// only when its digest equals the digest just verified. A local copy is never
+// trusted because it merely exists or looks fresh, so a cache left by an older
+// worker, a SkipVerify run, or another writer carries no weight. A verification
+// failure (bad signature, or Sigstore/registry unreachable) returns an error;
+// the caller treats that as "skip enrichment", so scans still succeed without
+// KEV/EPSS rather than serving unverified data.
+//
+// With SkipVerify the signature checks are bypassed: a fresh local copy is
+// served as-is and a stale one is pulled by tag.
 func (db *DB) Update(ctx context.Context) error {
 	if db == nil {
 		return nil
@@ -85,37 +94,44 @@ func (db *DB) Update(ctx context.Context) error {
 		db.logger.WarnContext(ctx, "cannot read the local sbomscanner DB, pulling", "ref", db.ref, "error", localErr)
 	}
 	haveLocal := localErr == nil
-	if haveLocal && time.Now().Before(nextHorizon(local)) {
-		// Fresh local copy: serve it, nothing to pull or verify.
-		return db.ensureLoaded(ctx, local)
-	}
 
-	// Stale or missing: resolve the remote manifest digest without copying blobs,
-	// then verify it before anything is pulled or unpacked. The verified digest is
-	// what we pull, so a tag moved after verification cannot swap in other bytes.
 	if db.config.SkipVerify {
+		if haveLocal && time.Now().Before(nextHorizon(local)) {
+			// Fresh local copy and verification disabled: serve it as-is.
+			return db.ensureLoaded(ctx, local)
+		}
 		if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
 			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
 		}
-	} else {
-		remote, err := db.remote.Inspect(ctx, db.ref)
-		if err != nil {
-			return fmt.Errorf("inspect remote sbomscanner DB %s: %w", db.ref, err)
-		}
-		if err := db.verifier.Verify(ctx, db.ref, remote.Digest); err != nil {
-			// Degrade to stale-but-trusted when a known-good local copy exists.
-			if haveLocal {
-				db.logger.WarnContext(ctx, "sbomscanner DB verification failed, serving last known-good copy",
-					"ref", db.ref, "error", err)
-				return db.ensureLoaded(ctx, local)
-			}
-			return fmt.Errorf("verify sbomscanner DB %s: %w", db.ref, err)
-		}
-		if _, err := db.remote.PullByDigest(ctx, db.local, db.ref, remote.Digest); err != nil {
-			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
-		}
+		return db.loadLocal(ctx)
 	}
 
+	// Verified path: resolve the remote manifest and verify its signature on every
+	// update, so trust always comes from a signature proven now. A tag that moves
+	// after verification cannot swap in other bytes, because we pull by the exact
+	// verified digest.
+	remote, err := db.remote.Inspect(ctx, db.ref)
+	if err != nil {
+		return fmt.Errorf("inspect remote sbomscanner DB %s: %w", db.ref, err)
+	}
+	if err := db.verifier.Verify(ctx, db.ref, remote.Digest); err != nil {
+		return fmt.Errorf("verify sbomscanner DB %s: %w", db.ref, err)
+	}
+
+	// The just-verified digest already matches the local copy: nothing new to
+	// pull, serve what we have (now proven good this run).
+	if haveLocal && local.Digest == remote.Digest {
+		return db.ensureLoaded(ctx, local)
+	}
+
+	if _, err := db.remote.PullByDigest(ctx, db.local, db.ref, remote.Digest); err != nil {
+		return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
+	}
+	return db.loadLocal(ctx)
+}
+
+// loadLocal inspects the just-pulled local copy and loads its feed databases.
+func (db *DB) loadLocal(ctx context.Context) error {
 	view, err := db.local.Inspect(ctx, db.ref)
 	if err != nil {
 		return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
