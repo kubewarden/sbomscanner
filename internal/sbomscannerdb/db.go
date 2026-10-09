@@ -91,8 +91,13 @@ func (db *DB) Update(ctx context.Context) error {
 	}
 
 	// Stale or missing: resolve the remote manifest digest without copying blobs,
-	// then verify it before anything is pulled or unpacked.
-	if !db.config.SkipVerify {
+	// then verify it before anything is pulled or unpacked. The verified digest is
+	// what we pull, so a tag moved after verification cannot swap in other bytes.
+	if db.config.SkipVerify {
+		if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
+			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
+		}
+	} else {
 		remote, err := db.remote.Inspect(ctx, db.ref)
 		if err != nil {
 			return fmt.Errorf("inspect remote sbomscanner DB %s: %w", db.ref, err)
@@ -106,11 +111,11 @@ func (db *DB) Update(ctx context.Context) error {
 			}
 			return fmt.Errorf("verify sbomscanner DB %s: %w", db.ref, err)
 		}
+		if _, err := db.remote.PullByDigest(ctx, db.local, db.ref, remote.Digest); err != nil {
+			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
+		}
 	}
 
-	if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
-		return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
-	}
 	view, err := db.local.Inspect(ctx, db.ref)
 	if err != nil {
 		return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
