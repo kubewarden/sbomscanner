@@ -11,6 +11,14 @@
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?\\s*\\n\\s*[A-Za-z0-9_]+:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
       ],
       "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update tool versions in the Makefile annotated with `# renovate: datasource=... depName=...`",
+      "fileMatch": ["^Makefile$"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?\\s*\\n[A-Za-z0-9_]+\\s*[?:]?=\\s*(?<currentValue>\\S+)"
+      ]
     }
   ],
   "packageRules": [
