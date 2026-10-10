@@ -366,8 +366,10 @@ var _ = Describe("WorkloadScan Controller", func() {
 						},
 					},
 					AuthSecret: "auth-secret",
-					CABundle:   "ca-bundle",
-					Insecure:   true,
+					CABundleRef: &v1alpha1.CABundleSource{
+						ConfigMap: &v1alpha1.CABundleKeySelector{Name: "trust-bundle", Key: "root-certs.pem"},
+					},
+					Insecure: true,
 					Platforms: []v1alpha1.Platform{
 						{Architecture: "amd64", OS: "linux"},
 						{Architecture: "arm64", OS: "linux"},
@@ -541,6 +543,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				Expect(registry.Spec.URI).To(Equal("ghcr.io"))
 				Expect(registry.Spec.AuthSecret).To(Equal(configuration.Spec.AuthSecret))
 				Expect(registry.Spec.CABundle).To(Equal(configuration.Spec.CABundle))
+				Expect(registry.Spec.CABundleRef).To(Equal(configuration.Spec.CABundleRef))
 				Expect(registry.Spec.Insecure).To(Equal(configuration.Spec.Insecure))
 				Expect(registry.Spec.Platforms).To(Equal(configuration.Spec.Platforms))
 

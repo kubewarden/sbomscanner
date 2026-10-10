@@ -33,6 +33,7 @@ import (
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	"github.com/kubewarden/sbomscanner/internal/cel"
 	"github.com/kubewarden/sbomscanner/internal/filters"
+	"github.com/kubewarden/sbomscanner/internal/handlers/cabundle"
 	"github.com/kubewarden/sbomscanner/internal/handlers/dockerauth"
 	registryclient "github.com/kubewarden/sbomscanner/internal/handlers/registry"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
@@ -148,7 +149,7 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 			"scanjob", scanJob.Name, "repositories", len(registry.Spec.Repositories))
 	}
 
-	transport, err := h.transportFromRegistry(registry)
+	transport, err := h.transportFromRegistry(ctx, registry)
 	if err != nil {
 		return fmt.Errorf("cannot create transport for registry %s: %w", registry.Name, err)
 	}
@@ -659,7 +660,7 @@ func applyTargetsToRegistry(registry *v1alpha1.Registry, scanJob *v1alpha1.ScanJ
 }
 
 // transportFromRegistry creates a new [http.RoundTripper] from the options specified in the Registry spec.
-func (h *CreateCatalogHandler) transportFromRegistry(registry *v1alpha1.Registry) (http.RoundTripper, error) {
+func (h *CreateCatalogHandler) transportFromRegistry(ctx context.Context, registry *v1alpha1.Registry) (http.RoundTripper, error) {
 	transport, ok := remote.DefaultTransport.(*http.Transport)
 	if !ok {
 		// should not happen
@@ -671,21 +672,19 @@ func (h *CreateCatalogHandler) transportFromRegistry(registry *v1alpha1.Registry
 		InsecureSkipVerify: registry.Spec.Insecure, //nolint:gosec // this a user provided option
 	}
 
-	if len(registry.Spec.CABundle) > 0 {
+	caBundle, err := cabundle.Resolve(ctx, h.k8sClient, registry, h.installationNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve CA bundle: %w", err)
+	}
+	if len(caBundle) > 0 {
 		rootCAs, err := x509.SystemCertPool()
 		if err != nil {
-			h.logger.Error("cannot load system cert pool, using empty pool", "error", err)
+			h.logger.ErrorContext(ctx, "cannot load system cert pool, using empty pool", "error", err)
 			rootCAs = x509.NewCertPool()
 		}
 
-		ok = rootCAs.AppendCertsFromPEM([]byte(registry.Spec.CABundle))
-		if ok {
-			transport.TLSClientConfig.RootCAs = rootCAs
-		} else {
-			h.logger.Info("cannot load the given CA bundle",
-				"registry", registry.Name,
-				"namespace", registry.Namespace)
-		}
+		rootCAs.AppendCertsFromPEM(caBundle)
+		transport.TLSClientConfig.RootCAs = rootCAs
 	}
 
 	return transport, nil

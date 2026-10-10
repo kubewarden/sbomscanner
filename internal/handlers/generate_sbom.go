@@ -19,6 +19,7 @@ import (
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/handlers/cabundle"
 	"github.com/kubewarden/sbomscanner/internal/handlers/dockerauth"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 )
@@ -292,7 +293,11 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		args = append(args, "--insecure")
 	}
 	// Handle custom CA bundle
-	if registry.Spec.CABundle != "" {
+	caBundle, err := cabundle.Resolve(ctx, h.k8sClient, registry, h.installationNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve CA bundle for registry %s: %w", registry.Name, err)
+	}
+	if len(caBundle) > 0 {
 		// Write CA bundle to a temp file
 		caBundleFile, err := os.CreateTemp(h.workDir, "trivy.cabundle.*.crt")
 		if err != nil {
@@ -303,7 +308,7 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 				h.logger.ErrorContext(ctx, "failed to remove CA bundle file", "error", err)
 			}
 		}(caBundleFile.Name())
-		if _, err := caBundleFile.WriteString(registry.Spec.CABundle); err != nil {
+		if _, err := caBundleFile.Write(caBundle); err != nil {
 			return nil, fmt.Errorf("failed to write CA bundle content: %w", err)
 		}
 		if err := caBundleFile.Close(); err != nil {
