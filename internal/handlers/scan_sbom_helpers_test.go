@@ -172,25 +172,12 @@ func TestEnrichResults_NilStoreLeavesResultsUnchanged(t *testing.T) {
 }
 
 func TestEnrichResults_SkipsWhenDBCannotUpdate(t *testing.T) {
-	// An empty run dir and an unreachable registry, so the DB cannot be updated.
 	// Enrichment is additive, so a failed update must not fail the scan: the
-	// results are returned unenriched instead of erroring.
-	base := &scanSBOMBase{
-		sbomscannerDB: sbomscannerdb.Open(testDBRepository, t.TempDir(), oci.Config{}, slog.New(slog.DiscardHandler)),
-		logger:        slog.New(slog.DiscardHandler),
-	}
-	results := []storagev1alpha1.Result{
-		{Vulnerabilities: []storagev1alpha1.Vulnerability{{CVE: "CVE-2021-44228"}}},
-	}
-
-	require.NoError(t, base.enrichResults(context.Background(), results))
-
-	assert.Nil(t, results[0].Vulnerabilities[0].KEV)
-	assert.Nil(t, results[0].Vulnerabilities[0].EPSS)
-}
-
-func TestEnrichResults_LogsWarningWhenDBCannotUpdate(t *testing.T) {
-	// A failed update must surface a WARN log so the skipped enrichment is visible.
+	// results are returned unenriched and a WARN log surfaces the skip.
+	//
+	// The update always fails here: the run dir is empty (no local copy to fall
+	// back to) and testDBRepository points at registry.invalid, a reserved TLD
+	// that never resolves, so the remote inspect/verify cannot succeed.
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	base := &scanSBOMBase{
@@ -203,6 +190,8 @@ func TestEnrichResults_LogsWarningWhenDBCannotUpdate(t *testing.T) {
 
 	require.NoError(t, base.enrichResults(context.Background(), results))
 
+	assert.Nil(t, results[0].Vulnerabilities[0].KEV)
+	assert.Nil(t, results[0].Vulnerabilities[0].EPSS)
 	assert.Contains(t, buf.String(), "skipping enrichment")
 	assert.Contains(t, buf.String(), `"level":"WARN"`)
 }
