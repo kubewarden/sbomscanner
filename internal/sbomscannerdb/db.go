@@ -100,10 +100,11 @@ func (db *DB) Update(ctx context.Context) error {
 			// Fresh local copy and verification disabled: serve it as-is.
 			return db.ensureLoaded(ctx, local)
 		}
-		if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
+		pulled, err := db.remote.Pull(ctx, db.local, db.ref)
+		if err != nil {
 			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
 		}
-		return db.loadLocal(ctx)
+		return db.loadLocal(ctx, pulled.Digest)
 	}
 
 	// Verified path: resolve the remote manifest and verify its signature on every
@@ -114,7 +115,11 @@ func (db *DB) Update(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("inspect remote sbomscanner DB %s: %w", db.ref, err)
 	}
-	if err := db.verifier.Verify(ctx, db.ref, remote.Digest); err != nil {
+	pinned, err := oci.PinDigest(db.ref, remote.Digest)
+	if err != nil {
+		return fmt.Errorf("pin sbomscanner DB %s: %w", db.ref, err)
+	}
+	if err := db.verifier.Verify(ctx, pinned); err != nil {
 		return fmt.Errorf("verify sbomscanner DB %s: %w", db.ref, err)
 	}
 
@@ -124,17 +129,23 @@ func (db *DB) Update(ctx context.Context) error {
 		return db.ensureLoaded(ctx, local)
 	}
 
-	if _, err := db.remote.PullByDigest(ctx, db.local, db.ref, remote.Digest); err != nil {
+	pulled, err := db.remote.PullByDigest(ctx, db.local, pinned, db.ref)
+	if err != nil {
 		return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
 	}
-	return db.loadLocal(ctx)
+	return db.loadLocal(ctx, pulled.Digest)
 }
 
 // loadLocal inspects the just-pulled local copy and loads its feed databases.
-func (db *DB) loadLocal(ctx context.Context) error {
+// It fails unless the local copy has the digest want, so the data loaded is
+// the data that was pulled (and, on the verified path, verified).
+func (db *DB) loadLocal(ctx context.Context, want string) error {
 	view, err := db.local.Inspect(ctx, db.ref)
 	if err != nil {
 		return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
+	}
+	if view.Digest != want {
+		return fmt.Errorf("local sbomscanner DB %s resolves to %s, expected %s", db.ref, view.Digest, want)
 	}
 	return db.ensureLoaded(ctx, view)
 }
@@ -194,10 +205,11 @@ func (db *DB) Close() error {
 	return db.closeFeeds()
 }
 
-// reload exports the artifact in view from the local store and opens its databases.
+// reload exports the artifact in view from the local store, addressed by its
+// digest rather than the mutable local tag, and opens its databases.
 // On failure the previously opened databases stay in use.
 func (db *DB) reload(ctx context.Context, view oci.ManifestView) error {
-	if _, err := db.local.Export(ctx, db.ref, db.cacheDir); err != nil {
+	if _, err := db.local.Export(ctx, view.Digest, db.cacheDir); err != nil {
 		return fmt.Errorf("export sbomscanner DB: %w", err)
 	}
 	kev, err := datafeed.OpenDatabase(ctx, filepath.Join(db.cacheDir, datafeed.KEVDBFileName))

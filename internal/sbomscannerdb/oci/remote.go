@@ -98,27 +98,31 @@ func (r *Remote) Pull(ctx context.Context, store *Store, ref string) (Artifact, 
 	if err != nil {
 		return Artifact{}, err
 	}
-	return r.pull(ctx, store, srcRef, srcRef.Reference, ref)
+	return r.pull(ctx, store, srcRef, ref)
 }
 
-// PullByDigest copies the artifact pinned by digest from the registry into store,
-// tagging the local copy as ref. Unlike Pull, the source is resolved by the
-// immutable digest rather than the mutable tag, so the bytes copied are exactly
-// the ones already verified: a tag that moves between verification and pull
-// cannot slip an unverified manifest in. The digest must be a "sha256:..."
-// manifest digest; ref supplies the registry/repository and the local tag.
-func (r *Remote) PullByDigest(ctx context.Context, store *Store, ref, digest string) (Artifact, error) {
-	tagRef, err := parseTagReference(ref)
+// PullByDigest copies the artifact pinned by digestRef from the registry into
+// store, tagging the local copy as localTag. Unlike Pull, the source is resolved
+// by the immutable digest rather than a mutable tag, so the bytes copied are
+// exactly the ones already verified: a tag that moves between verification and
+// pull cannot slip an unverified manifest in.
+// digestRef must be a "registry/repository@sha256:..." reference, as built by
+// PinDigest, and localTag a "registry/repository:tag" reference.
+func (r *Remote) PullByDigest(ctx context.Context, store *Store, digestRef, localTag string) (Artifact, error) {
+	srcRef, err := parseDigestReference(digestRef)
 	if err != nil {
 		return Artifact{}, err
 	}
-	return r.pull(ctx, store, tagRef, digest, ref)
+	if _, err := parseTagReference(localTag); err != nil {
+		return Artifact{}, fmt.Errorf("local tag: %w", err)
+	}
+	return r.pull(ctx, store, srcRef, localTag)
 }
 
-// pull copies srcReference (a tag or digest) from the repository identified by
-// repoRef into store, tagging the local copy as localTag.
-func (r *Remote) pull(ctx context.Context, store *Store, repoRef registry.Reference, srcReference, localTag string) (Artifact, error) {
-	repo, err := r.newRepository(repoRef)
+// pull copies src (a tag or digest reference) into store, tagging the local copy as localTag.
+// For a digest reference it fails unless the copied manifest has exactly that digest.
+func (r *Remote) pull(ctx context.Context, store *Store, src registry.Reference, localTag string) (Artifact, error) {
+	repo, err := r.newRepository(src)
 	if err != nil {
 		return Artifact{}, err
 	}
@@ -141,14 +145,17 @@ func (r *Remote) pull(ctx context.Context, store *Store, repoRef registry.Refere
 		r.logger.DebugContext(ctx, "skipped blob, already in local store", "mediaType", desc.MediaType, "digest", desc.Digest)
 		return nil
 	}
-	pulledDesc, err := oras.Copy(ctx, repo, srcReference, layout, localTag, copyOpts)
+	pulledDesc, err := oras.Copy(ctx, repo, src.Reference, layout, localTag, copyOpts)
 	if err != nil {
 		return Artifact{}, fmt.Errorf("copy from remote: %w", err)
 	}
+	if want, digestErr := src.Digest(); digestErr == nil && pulledDesc.Digest != want {
+		return Artifact{}, fmt.Errorf("pulled manifest %s, expected %s", pulledDesc.Digest, want)
+	}
 	if fetched.Load() == 0 {
-		r.logger.InfoContext(ctx, "artifact unchanged, already in local store", "ref", repoRef.String(), "digest", pulledDesc.Digest, "cachedBlobs", skipped.Load())
+		r.logger.InfoContext(ctx, "artifact unchanged, already in local store", "ref", src.String(), "digest", pulledDesc.Digest, "cachedBlobs", skipped.Load())
 	} else {
-		r.logger.InfoContext(ctx, "pulled artifact", "ref", repoRef.String(), "digest", pulledDesc.Digest, "fetchedBlobs", fetched.Load(), "cachedBlobs", skipped.Load())
+		r.logger.InfoContext(ctx, "pulled artifact", "ref", src.String(), "digest", pulledDesc.Digest, "fetchedBlobs", fetched.Load(), "cachedBlobs", skipped.Load())
 	}
 
 	return Artifact{
@@ -156,6 +163,22 @@ func (r *Remote) pull(ctx context.Context, store *Store, repoRef registry.Refere
 		Digest: pulledDesc.Digest.String(),
 		Size:   pulledDesc.Size,
 	}, nil
+}
+
+// PinDigest returns the immutable reference "registry/repository@digest" for the
+// repository of ref, which must be a tag reference. The tag is dropped: only the
+// registry and repository are taken from ref. Callers resolve the tag to digest
+// once (see Remote.Inspect) and use the pinned reference for every later step.
+func PinDigest(ref, digest string) (string, error) {
+	parsed, err := parseTagReference(ref)
+	if err != nil {
+		return "", err
+	}
+	parsed.Reference = digest
+	if err := parsed.ValidateReferenceAsDigest(); err != nil {
+		return "", fmt.Errorf("pin %q: %w", ref, err)
+	}
+	return parsed.String(), nil
 }
 
 // resolveDataLayers fetches the manifest at tag from target
@@ -228,6 +251,18 @@ func (r *Remote) newRepository(ref registry.Reference) (*orasremote.Repository, 
 	repo.PlainHTTP = r.config.PlainHTTP
 	repo.Client = buildAuthClient(credStore, r.config.SkipTLSVerify)
 	return repo, nil
+}
+
+// parseDigestReference parses ref and requires it to be a digest reference.
+func parseDigestReference(ref string) (registry.Reference, error) {
+	parsed, err := registry.ParseReference(ref)
+	if err != nil {
+		return registry.Reference{}, fmt.Errorf("parse reference %q: %w", ref, err)
+	}
+	if err := parsed.ValidateReferenceAsDigest(); err != nil {
+		return registry.Reference{}, fmt.Errorf("reference must be a digest (not a tag): %w", err)
+	}
+	return parsed, nil
 }
 
 // parseTagReference parses ref and requires it to be a tag (not digest) reference.

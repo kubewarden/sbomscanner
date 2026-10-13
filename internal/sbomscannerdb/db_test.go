@@ -218,6 +218,22 @@ func TestUpdate_FailsWithoutLocalStore(t *testing.T) {
 	assert.Equal(t, Record{}, lookupRecord(t, db, "CVE-2021-44228"))
 }
 
+func TestLoadLocal_FailsOnDigestMismatch(t *testing.T) {
+	dir := t.TempDir()
+	built := buildArtifact(t, dir, 24*time.Hour)
+	db := newTestDBSkipVerify(dir)
+
+	// The local copy is not the one the caller expects: nothing is loaded.
+	err := db.loadLocal(context.Background(), "sha256:"+strings.Repeat("0", 64))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expected sha256:")
+	assert.Empty(t, db.digest)
+	assert.Equal(t, Record{}, lookupRecord(t, db, "CVE-2021-44228"))
+
+	require.NoError(t, db.loadLocal(context.Background(), built.Digest))
+	assert.Equal(t, built.Digest, db.digest)
+}
+
 func TestReload_FailsWhenOneFeedIsMissing(t *testing.T) {
 	dir := t.TempDir()
 	built := buildArtifact(t, dir, 24*time.Hour)

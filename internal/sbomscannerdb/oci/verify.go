@@ -46,18 +46,16 @@ func NewVerifier(config Config, logger *slog.Logger) *Verifier {
 }
 
 // Verify checks the cosign new-bundle (sigstore) signature attached to the
-// resolved digest of ref (never the mutable tag) against the hardcoded issuer
-// and identity. It returns nil on a valid signature and a wrapped
-// ErrVerification otherwise.
-func (v *Verifier) Verify(ctx context.Context, ref, digest string) error {
-	parsed, err := parseTagReference(ref)
+// manifest digest in digestRef against the hardcoded issuer and identity.
+// digestRef must be a "registry/repository@sha256:..." reference, as built by
+// PinDigest; a tag reference is rejected, so the signature always covers
+// immutable content.
+func (v *Verifier) Verify(ctx context.Context, digestRef string) error {
+	parsed, err := parseDigestReference(digestRef)
 	if err != nil {
 		return err
 	}
-	// Pin the exact bytes: verify by digest so the signature covers the content
-	// we are about to unpack, not whatever the tag points to now.
-	digestRef := parsed.Registry + "/" + parsed.Repository + "@" + digest
-	nameRef, err := gcrname.ParseReference(digestRef)
+	nameRef, err := gcrname.ParseReference(parsed.String())
 	if err != nil {
 		return fmt.Errorf("parse digest reference %q: %w", digestRef, err)
 	}
@@ -74,7 +72,7 @@ func (v *Verifier) Verify(ctx context.Context, ref, digest string) error {
 	if !bundleVerified {
 		return fmt.Errorf("%w: sigstore bundle not verified", ErrVerification)
 	}
-	v.logger.InfoContext(ctx, "sbomscanner DB signature verified", "digest", digest, "issuer", dbCertOIDCIssuer)
+	v.logger.InfoContext(ctx, "sbomscanner DB signature verified", "digest", parsed.Reference, "issuer", dbCertOIDCIssuer)
 	return nil
 }
 

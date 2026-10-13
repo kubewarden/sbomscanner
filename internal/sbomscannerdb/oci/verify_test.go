@@ -29,19 +29,19 @@ func TestVerify_UnsignedArtifactFails(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, built.Digest, pushed.Digest)
 
-	err = NewVerifier(cfg, slog.New(slog.DiscardHandler)).Verify(ctx, ref, pushed.Digest)
+	pinned, err := PinDigest(ref, pushed.Digest)
+	require.NoError(t, err)
+	err = NewVerifier(cfg, slog.New(slog.DiscardHandler)).Verify(ctx, pinned)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrVerification)
 }
 
-// TestVerify_RejectsDigestReference guards the tag-only contract: Verify parses
-// its ref as a tag, so a digest reference is rejected before any registry call.
-func TestVerify_RejectsDigestReference(t *testing.T) {
+// TestVerify_RejectsTagReference guards the digest-only contract: Verify parses
+// its argument as a digest reference, so a tag is rejected before any registry call.
+func TestVerify_RejectsTagReference(t *testing.T) {
 	err := NewVerifier(Config{}, slog.New(slog.DiscardHandler)).Verify(
 		context.Background(),
-		"registry.example.com/kubewarden/sbomscannerdb@sha256:"+
-			"0000000000000000000000000000000000000000000000000000000000000000",
-		"sha256:0000000000000000000000000000000000000000000000000000000000000000",
+		"registry.example.com/kubewarden/sbomscannerdb:1",
 	)
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, ErrVerification, "should fail while parsing the reference, not during verification")
