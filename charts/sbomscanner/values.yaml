@@ -103,6 +103,27 @@ storage:
         storageClass: ""
         # Template to be used to generate the Persistent Volume Claim.
         pvcTemplate: {}
+      # Deep-merged into the CNPG Cluster `spec`. Use this to set fields the
+      # chart does not expose directly, such as `backup`, `plugins`,
+      # `postgresql.parameters` or `resources`. Keys set here override the
+      # chart-managed ones above; lists are replaced, not appended.
+      # See https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-ClusterSpec
+      #
+      # Example: enable backups with the Barman Cloud plugin. The plugin must be
+      # installed next to the CNPG operator, and the referenced `ObjectStore`
+      # resource and a `ScheduledBackup` targeting the
+      # `<release>-sbomscanner-cnpg-cluster` Cluster must be created separately.
+      # See https://cloudnative-pg.io/documentation/current/backup/
+      #
+      # merge:
+      #   plugins:
+      #     - name: barman-cloud.cloudnative-pg.io
+      #       isWALArchiver: true
+      #       parameters:
+      #         barmanObjectName: my-object-store
+      #   backup:
+      #     retentionPolicy: "30d"
+      merge: {}
 
 worker:
   image:
