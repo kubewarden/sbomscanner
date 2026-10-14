@@ -218,19 +218,62 @@ func TestUpdate_FailsWithoutLocalStore(t *testing.T) {
 	assert.Equal(t, Record{}, lookupRecord(t, db, "CVE-2021-44228"))
 }
 
+func TestUpdate_SkipsNetworkWhileVerifiedDigestFresh(t *testing.T) {
+	dir := t.TempDir()
+	built := buildArtifact(t, dir, 24*time.Hour)
+
+	// Simulate a prior successful verification this session: the digest was proven
+	// and its horizon is in the future. Update must serve it without contacting the
+	// (unreachable) registry at testRepository.
+	db := newTestDB(dir)
+	db.verifiedDigest = built.Digest
+	db.verifiedUntil = time.Now().Add(time.Hour)
+
+	require.NoError(t, db.Update(context.Background()))
+	assert.Equal(t, built.Digest, db.digest)
+	assert.Equal(t, log4jKEV(), lookupRecord(t, db, "CVE-2021-44228").KEV)
+}
+
+func TestUpdate_ReverifiesAfterHorizonPasses(t *testing.T) {
+	dir := t.TempDir()
+	built := buildArtifact(t, dir, 24*time.Hour)
+
+	// The remembered verification has expired, so Update can no longer short-circuit
+	// and must contact the registry, which is unreachable here.
+	db := newTestDB(dir)
+	db.verifiedDigest = built.Digest
+	db.verifiedUntil = time.Now().Add(-time.Hour)
+
+	require.Error(t, db.Update(context.Background()))
+}
+
+func TestUpdate_ReverifiesWhenDigestDiffers(t *testing.T) {
+	dir := t.TempDir()
+	buildArtifact(t, dir, 24*time.Hour)
+
+	// The local digest does not match the remembered verified one, so the fresh
+	// horizon cannot be trusted and Update must reverify over the network.
+	db := newTestDB(dir)
+	db.verifiedDigest = "sha256:" + strings.Repeat("0", 64)
+	db.verifiedUntil = time.Now().Add(time.Hour)
+
+	require.Error(t, db.Update(context.Background()))
+}
+
 func TestLoadLocal_FailsOnDigestMismatch(t *testing.T) {
 	dir := t.TempDir()
 	built := buildArtifact(t, dir, 24*time.Hour)
 	db := newTestDBSkipVerify(dir)
 
 	// The local copy is not the one the caller expects: nothing is loaded.
-	err := db.loadLocal(context.Background(), "sha256:"+strings.Repeat("0", 64))
+	_, err := db.loadLocal(context.Background(), "sha256:"+strings.Repeat("0", 64))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "expected sha256:")
 	assert.Empty(t, db.digest)
 	assert.Equal(t, Record{}, lookupRecord(t, db, "CVE-2021-44228"))
 
-	require.NoError(t, db.loadLocal(context.Background(), built.Digest))
+	_, err = db.loadLocal(context.Background(), built.Digest)
+	require.NoError(t, err)
 	assert.Equal(t, built.Digest, db.digest)
 }
 

@@ -56,6 +56,13 @@ type DB struct {
 	epss *datafeed.Database
 	// digest is the manifest digest of the loaded artifact, empty until the first load.
 	digest string
+	// verifiedDigest is the manifest digest proven by a signature in this process,
+	// and verifiedUntil is its nextUpdate horizon. While the fresh local copy still
+	// carries verifiedDigest and now is before verifiedUntil, Update skips the
+	// registry and Sigstore round-trip. Both are zero after Open, so the first
+	// Update after a restart always reverifies.
+	verifiedDigest string
+	verifiedUntil  time.Time
 }
 
 // Open returns a DB for the artifact at repository, tagged with the schema version.
@@ -97,6 +104,12 @@ func Open(repository, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
 //
 // With SkipVerify the signature checks are bypassed: a fresh local copy is
 // served as-is and a stale one is pulled by tag.
+//
+// To keep the registry and Sigstore off the critical path of every scan, a
+// digest verified in this process is remembered with its nextUpdate horizon:
+// while the fresh local copy still carries that digest and the horizon has not
+// passed, Update serves it without any network call. A restart clears this
+// memory (so trust is re-proven) and a passed horizon forces reverification.
 func (db *DB) Update(ctx context.Context) error {
 	if db == nil {
 		return nil
@@ -117,12 +130,19 @@ func (db *DB) Update(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
 		}
-		return db.loadLocal(ctx, pulled.Digest)
+		_, err = db.loadLocal(ctx, pulled.Digest)
+		return err
 	}
 
-	// Verified path: resolve the remote manifest and verify its signature on every
-	// update, so trust always comes from a signature proven now. A tag that moves
-	// after verification cannot swap in other bytes, because we pull by the exact
+	// Already verified this session and still fresh: skip the registry and
+	// Sigstore entirely and serve the local copy we proved good earlier.
+	if haveLocal && local.Digest == db.verifiedDigest && time.Now().Before(db.verifiedUntil) {
+		return db.ensureLoaded(ctx, local)
+	}
+
+	// Verified path: resolve the remote manifest and verify its signature, so
+	// trust always comes from a signature proven now. A tag that moves after
+	// verification cannot swap in other bytes, because we pull by the exact
 	// verified digest.
 	remote, err := db.remote.Inspect(ctx, db.ref)
 	if err != nil {
@@ -139,6 +159,7 @@ func (db *DB) Update(ctx context.Context) error {
 	// The just-verified digest already matches the local copy: nothing new to
 	// pull, serve what we have (now proven good this run).
 	if haveLocal && local.Digest == remote.Digest {
+		db.rememberVerified(local)
 		return db.ensureLoaded(ctx, local)
 	}
 
@@ -146,21 +167,34 @@ func (db *DB) Update(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
 	}
-	return db.loadLocal(ctx, pulled.Digest)
+	view, err := db.loadLocal(ctx, pulled.Digest)
+	if err != nil {
+		return err
+	}
+	db.rememberVerified(view)
+	return nil
 }
 
-// loadLocal inspects the just-pulled local copy and loads its feed databases.
-// It fails unless the local copy has the digest want, so the data loaded is
-// the data that was pulled (and, on the verified path, verified).
-func (db *DB) loadLocal(ctx context.Context, want string) error {
+// rememberVerified records view's digest and nextUpdate horizon so a later
+// Update can skip network verification while the same digest stays fresh.
+func (db *DB) rememberVerified(view oci.ManifestView) {
+	db.verifiedDigest = view.Digest
+	db.verifiedUntil = nextHorizon(view)
+}
+
+// loadLocal inspects the just-pulled local copy and loads its feed databases,
+// returning the loaded manifest view. It fails unless the local copy has the
+// digest want, so the data loaded is the data that was pulled (and, on the
+// verified path, verified).
+func (db *DB) loadLocal(ctx context.Context, want string) (oci.ManifestView, error) {
 	view, err := db.local.Inspect(ctx, db.ref)
 	if err != nil {
-		return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
+		return oci.ManifestView{}, fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
 	}
 	if view.Digest != want {
-		return fmt.Errorf("local sbomscanner DB %s resolves to %s, expected %s", db.ref, view.Digest, want)
+		return oci.ManifestView{}, fmt.Errorf("local sbomscanner DB %s resolves to %s, expected %s", db.ref, view.Digest, want)
 	}
-	return db.ensureLoaded(ctx, view)
+	return view, db.ensureLoaded(ctx, view)
 }
 
 // ensureLoaded reloads the feed databases when view differs from the loaded one.
