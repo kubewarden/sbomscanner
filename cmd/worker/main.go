@@ -43,6 +43,7 @@ func main() {
 	var trivyJavaDBRepository string
 	var installationNamespace string
 	var sbomscannerDBRepository string
+	var sbomscannerDBSkipVerify bool
 	var init bool
 	var logLevel string
 	var mode string
@@ -57,6 +58,7 @@ func main() {
 	flag.StringVar(&trivyJavaDBRepository, "trivy-java-db-repository", "public.ecr.aws/aquasecurity/trivy-java-db", "OCI repository to retrieve trivy-java-db.")
 	flag.StringVar(&installationNamespace, "installation-namespace", "sbomscanner", "The namespace where sbomscanner is installed.")
 	flag.StringVar(&sbomscannerDBRepository, "sbomscanner-db-repository", "", "OCI repository of the sbomscanner vulnerability database (KEV, EPSS, …). Empty disables the database.")
+	flag.BoolVar(&sbomscannerDBSkipVerify, "sbomscanner-db-skip-verify", false, "Skip cosign signature verification of the sbomscanner vulnerability database. Use for debugging or to consume an unsigned custom database from your own registry.")
 	flag.BoolVar(&init, "init", false, "Run initialization tasks and exit.")
 	flag.StringVar(&logLevel, "log-level", slog.LevelInfo.String(), "Log level.")
 	flag.StringVar(&mode, "mode", "registry", "Mode of operation ('registry' or 'node').")
@@ -154,7 +156,11 @@ func main() {
 
 	var sbomscannerDB *sbomscannerdb.DB
 	if sbomscannerDBRepository != "" {
-		sbomscannerDB = sbomscannerdb.Open(sbomscannerDBRepository, runDir, oci.Config{}, logger)
+		if sbomscannerDBSkipVerify {
+			logger.Warn("sbomscanner DB signature verification is DISABLED; the database will be consumed without verifying its cosign signature",
+				"repository", sbomscannerDBRepository)
+		}
+		sbomscannerDB = sbomscannerdb.Open(sbomscannerDBRepository, runDir, oci.Config{SkipVerify: sbomscannerDBSkipVerify}, logger)
 	}
 
 	var scanMode messaging.HandlerRegistry

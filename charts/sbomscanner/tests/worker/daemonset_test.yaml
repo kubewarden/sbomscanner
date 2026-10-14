@@ -24,3 +24,65 @@ tests:
       - contains:
           path: "spec.template.spec.containers[0].args"
           content: "-sbomscanner-db-repository=ghcr.io/example/sbomscannerdb"
+
+  - it: "should render a DaemonSet with the correct logging level, image, resources and imagePullPolicy"
+    set:
+      global:
+        cattle:
+          systemDefaultRegistry: kubewarden.io
+      worker:
+        logLevel: debug
+        image:
+          repository: kubewarden/sbomscanner/worker
+          tag: v0.1.0
+          pullPolicy: Always
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 250m
+            memory: 200Mi
+    asserts:
+      - equal:
+          path: "spec.template.spec.containers[0].image"
+          value: "kubewarden.io/kubewarden/sbomscanner/worker:v0.1.0"
+      - equal:
+          path: "spec.template.spec.containers[0].imagePullPolicy"
+          value: "Always"
+      - contains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-log-level=debug"
+      - contains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-trivy-db-repository=public.ecr.aws/aquasecurity/trivy-db"
+      - contains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-trivy-java-db-repository=public.ecr.aws/aquasecurity/trivy-java-db"
+      - notContains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-sbomscanner-db-repository="
+      - notContains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-sbomscanner-db-skip-verify"
+      - equal:
+          path: "spec.template.spec.containers[0].resources.limits.cpu"
+          value: "500m"
+      - equal:
+          path: "spec.template.spec.containers[0].resources.limits.memory"
+          value: "1Gi"
+      - equal:
+          path: "spec.template.spec.containers[0].resources.requests.cpu"
+          value: "250m"
+      - equal:
+          path: "spec.template.spec.containers[0].resources.requests.memory"
+          value: "200Mi"
+
+  - it: "should pass the sbomscanner DB skip-verify flag to the worker when set"
+    set:
+      worker:
+        sbomscannerDBSkipVerify: true
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].args"
+          content: "-sbomscanner-db-skip-verify"

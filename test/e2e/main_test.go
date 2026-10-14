@@ -106,6 +106,7 @@ func TestMain(m *testing.M) {
 					"--set", "storage.logLevel=debug",
 					"--set", "worker.logLevel=debug",
 					"--set", "worker.sbomscannerDBRepository="+sbomscannerDBRepository,
+					"--set", "worker.sbomscannerDBSkipVerify=true",
 				),
 				helm.WithTimeout("3m"))
 			if err != nil {

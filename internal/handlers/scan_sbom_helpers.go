@@ -159,13 +159,17 @@ func (b *scanSBOMBase) runTrivyScan(ctx context.Context, rawSPDX []byte, message
 }
 
 // enrichResults adds the KEV and EPSS data of the sbomscanner database to each vulnerability.
-// It fails when the database cannot be updated. A nil DB disables the enrichment.
+// Enrichment is additive: when the database cannot be updated (e.g. signature
+// verification failure) it logs a warning and skips enrichment rather than
+// failing the scan, so the vulnerability report is still produced. A nil DB
+// disables the enrichment.
 func (b *scanSBOMBase) enrichResults(ctx context.Context, results []storagev1alpha1.Result) error {
 	if b.sbomscannerDB == nil {
 		return nil
 	}
 	if err := b.sbomscannerDB.Update(ctx); err != nil {
-		return fmt.Errorf("failed to update sbomscanner DB: %w", err)
+		b.logger.WarnContext(ctx, "sbomscanner DB unavailable, skipping enrichment", "error", err)
+		return nil
 	}
 
 	for i := range results {

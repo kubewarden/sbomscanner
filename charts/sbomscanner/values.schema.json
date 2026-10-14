@@ -498,6 +498,9 @@
                 "sbomscannerDBRepository": {
                     "type": "string"
                 },
+                "sbomscannerDBSkipVerify": {
+                    "type": "boolean"
+                },
                 "trivyDBRepository": {
                     "type": "string"
                 },

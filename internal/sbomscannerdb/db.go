@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -27,6 +28,10 @@ const cacheDirName = "sbomscannerdb"
 // ociDirName is the OCI image layout under the cache dir that holds the pulled artifact.
 const ociDirName = "oci"
 
+// tufDirName is the Sigstore TUF cache under the cache dir, writable so the TUF
+// repository is not re-downloaded on every signature verification.
+const tufDirName = "tuf"
+
 // Record is the database entry of one CVE. The zero value means no data.
 type Record struct {
 	// KEV is the CISA KEV catalog entry, nil when the CVE is not in the catalog.
@@ -43,12 +48,21 @@ type DB struct {
 	cacheDir string
 	local    *oci.Store
 	remote   *oci.Remote
+	verifier *oci.Verifier
+	config   oci.Config
 	logger   *slog.Logger
 
 	kev  *datafeed.Database
 	epss *datafeed.Database
 	// digest is the manifest digest of the loaded artifact, empty until the first load.
 	digest string
+	// verifiedDigest is the manifest digest proven by a signature in this process,
+	// and verifiedUntil is its nextUpdate horizon. While the fresh local copy still
+	// carries verifiedDigest and now is before verifiedUntil, Update skips the
+	// registry and Sigstore round-trip. Both are zero after Open, so the first
+	// Update after a restart always reverifies.
+	verifiedDigest string
+	verifiedUntil  time.Time
 }
 
 // Open returns a DB for the artifact at repository, tagged with the schema version.
@@ -57,38 +71,136 @@ type DB struct {
 // and the databases stay open until Close.
 func Open(repository, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
 	cacheDir := filepath.Join(runDir, cacheDirName)
+	if cfg.TUFCacheDir == "" {
+		tufCacheDir := filepath.Join(cacheDir, tufDirName)
+		if err := os.MkdirAll(tufCacheDir, 0o700); err != nil {
+			logger.Warn("failed to create TUF cache dir, falling back to no cache", "dir", tufCacheDir, "error", err)
+		} else {
+			cfg.TUFCacheDir = tufCacheDir
+		}
+	}
 	return &DB{
 		ref:      repository + ":" + strconv.Itoa(schemaVersion),
 		cacheDir: cacheDir,
 		local:    oci.NewStore(filepath.Join(cacheDir, ociDirName), logger),
 		remote:   oci.NewRemote(cfg, logger),
+		verifier: oci.NewVerifier(cfg, logger),
+		config:   cfg,
 		logger:   logger,
 	}
 }
 
-// Update pulls the artifact when the local copy is missing or past its nextUpdate,
-// then loads it when it differs from the loaded one.
-// It returns an error when the database cannot be updated.
+// Update refreshes the local copy when it is missing or does not match the
+// current, freshly verified remote manifest.
+//
+// When verification is enabled (the default) it inspects and verifies the
+// remote manifest's cosign signature on every call, then trusts the local copy
+// only when its digest equals the digest just verified. A local copy is never
+// trusted because it merely exists or looks fresh, so a cache left by an older
+// worker, a SkipVerify run, or another writer carries no weight. A verification
+// failure (bad signature, or Sigstore/registry unreachable) returns an error;
+// the caller treats that as "skip enrichment", so scans still succeed without
+// KEV/EPSS rather than serving unverified data.
+//
+// With SkipVerify the signature checks are bypassed: a fresh local copy is
+// served as-is and a stale one is pulled by tag.
+//
+// To keep the registry and Sigstore off the critical path of every scan, a
+// digest verified in this process is remembered with its nextUpdate horizon:
+// while the fresh local copy still carries that digest and the horizon has not
+// passed, Update serves it without any network call. A restart clears this
+// memory (so trust is re-proven) and a passed horizon forces reverification.
 func (db *DB) Update(ctx context.Context) error {
 	if db == nil {
 		return nil
 	}
 
-	view, err := db.local.Inspect(ctx, db.ref)
-	if err != nil {
-		db.logger.WarnContext(ctx, "cannot read the local sbomscanner DB, pulling", "ref", db.ref, "error", err)
+	local, localErr := db.local.Inspect(ctx, db.ref)
+	if localErr != nil {
+		db.logger.WarnContext(ctx, "cannot read the local sbomscanner DB, pulling", "ref", db.ref, "error", localErr)
 	}
-	stale := err != nil || !time.Now().Before(nextHorizon(view))
-	if stale {
-		if _, err := db.remote.Pull(ctx, db.local, db.ref); err != nil {
+	haveLocal := localErr == nil
+
+	if db.config.SkipVerify {
+		if haveLocal && time.Now().Before(nextHorizon(local)) {
+			// Fresh local copy and verification disabled: serve it as-is.
+			return db.ensureLoaded(ctx, local)
+		}
+		pulled, err := db.remote.Pull(ctx, db.local, db.ref)
+		if err != nil {
 			return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
 		}
-		if view, err = db.local.Inspect(ctx, db.ref); err != nil {
-			return fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
-		}
+		_, err = db.loadLocal(ctx, pulled.Digest)
+		return err
 	}
 
-	if view.Digest == db.digest {
+	// Already verified this session and still fresh: skip the registry and
+	// Sigstore entirely and serve the local copy we proved good earlier.
+	if haveLocal && local.Digest == db.verifiedDigest && time.Now().Before(db.verifiedUntil) {
+		return db.ensureLoaded(ctx, local)
+	}
+
+	// Verified path: resolve the remote manifest and verify its signature, so
+	// trust always comes from a signature proven now. A tag that moves after
+	// verification cannot swap in other bytes, because we pull by the exact
+	// verified digest.
+	remote, err := db.remote.Inspect(ctx, db.ref)
+	if err != nil {
+		return fmt.Errorf("inspect remote sbomscanner DB %s: %w", db.ref, err)
+	}
+	pinned, err := oci.PinDigest(db.ref, remote.Digest)
+	if err != nil {
+		return fmt.Errorf("pin sbomscanner DB %s: %w", db.ref, err)
+	}
+	if err := db.verifier.Verify(ctx, pinned); err != nil {
+		return fmt.Errorf("verify sbomscanner DB %s: %w", db.ref, err)
+	}
+
+	// The just-verified digest already matches the local copy: nothing new to
+	// pull, serve what we have (now proven good this run).
+	if haveLocal && local.Digest == remote.Digest {
+		db.rememberVerified(local)
+		return db.ensureLoaded(ctx, local)
+	}
+
+	pulled, err := db.remote.PullByDigest(ctx, db.local, pinned, db.ref)
+	if err != nil {
+		return fmt.Errorf("pull sbomscanner DB %s: %w", db.ref, err)
+	}
+	view, err := db.loadLocal(ctx, pulled.Digest)
+	if err != nil {
+		return err
+	}
+	db.rememberVerified(view)
+	return nil
+}
+
+// rememberVerified records view's digest and nextUpdate horizon so a later
+// Update can skip network verification while the same digest stays fresh.
+func (db *DB) rememberVerified(view oci.ManifestView) {
+	db.verifiedDigest = view.Digest
+	db.verifiedUntil = nextHorizon(view)
+}
+
+// loadLocal inspects the just-pulled local copy and loads its feed databases,
+// returning the loaded manifest view. It fails unless the local copy has the
+// digest want, so the data loaded is the data that was pulled (and, on the
+// verified path, verified).
+func (db *DB) loadLocal(ctx context.Context, want string) (oci.ManifestView, error) {
+	view, err := db.local.Inspect(ctx, db.ref)
+	if err != nil {
+		return oci.ManifestView{}, fmt.Errorf("inspect sbomscanner DB %s: %w", db.ref, err)
+	}
+	if view.Digest != want {
+		return oci.ManifestView{}, fmt.Errorf("local sbomscanner DB %s resolves to %s, expected %s", db.ref, view.Digest, want)
+	}
+	return view, db.ensureLoaded(ctx, view)
+}
+
+// ensureLoaded reloads the feed databases when view differs from the loaded one.
+// An empty digest (no local copy at all) is a no-op.
+func (db *DB) ensureLoaded(ctx context.Context, view oci.ManifestView) error {
+	if view.Digest == "" || view.Digest == db.digest {
 		return nil
 	}
 	if err := db.reload(ctx, view); err != nil {
@@ -140,10 +252,11 @@ func (db *DB) Close() error {
 	return db.closeFeeds()
 }
 
-// reload exports the artifact in view from the local store and opens its databases.
+// reload exports the artifact in view from the local store, addressed by its
+// digest rather than the mutable local tag, and opens its databases.
 // On failure the previously opened databases stay in use.
 func (db *DB) reload(ctx context.Context, view oci.ManifestView) error {
-	if _, err := db.local.Export(ctx, db.ref, db.cacheDir); err != nil {
+	if _, err := db.local.Export(ctx, view.Digest, db.cacheDir); err != nil {
 		return fmt.Errorf("export sbomscanner DB: %w", err)
 	}
 	kev, err := datafeed.OpenDatabase(ctx, filepath.Join(db.cacheDir, datafeed.KEVDBFileName))

@@ -181,6 +181,16 @@ func TestStoreInspect_FailsForUnknownRef(t *testing.T) {
 	assert.Contains(t, err.Error(), "run `build` or `pull` first")
 }
 
+func TestStoreExport_ByDigest(t *testing.T) {
+	store, built := buildInStore(t)
+
+	// The digest of a tagged manifest is itself a valid reference in the store.
+	outDir := t.TempDir()
+	paths, err := store.Export(context.Background(), built.Digest, outDir)
+	require.NoError(t, err)
+	assert.NotEmpty(t, paths)
+}
+
 func TestStoreExport_WritesDataFiles(t *testing.T) {
 	dataDir, layers := writeTestData(t)
 	store := NewStore(filepath.Join(t.TempDir(), "store"), slog.New(slog.DiscardHandler))
