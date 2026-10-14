@@ -31,6 +31,10 @@ type Config struct {
 	PlainHTTP bool
 	// SkipVerify disables cosign signature verification of the pulled artifact.
 	SkipVerify bool
+	// TUFCacheDir is a writable directory for the Sigstore TUF cache. When empty,
+	// the local cache is disabled so verification works on a read-only filesystem,
+	// at the cost of re-downloading the TUF repository on every verification.
+	TUFCacheDir string
 }
 
 // Remote performs push and pull operations against OCI registries.

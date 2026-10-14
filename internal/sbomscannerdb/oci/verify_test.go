@@ -36,6 +36,19 @@ func TestVerify_UnsignedArtifactFails(t *testing.T) {
 	assert.ErrorIs(t, err, ErrVerification)
 }
 
+// TestVerifier_TUFOptions checks that a writable TUFCacheDir enables the local
+// cache at the given path, while an empty one disables it so verification works
+// on a read-only filesystem.
+func TestVerifier_TUFOptions(t *testing.T) {
+	cacheDir := filepath.Join(t.TempDir(), "tuf")
+	withCache := NewVerifier(Config{TUFCacheDir: cacheDir}, slog.New(slog.DiscardHandler)).tufOptions()
+	assert.False(t, withCache.DisableLocalCache)
+	assert.Equal(t, cacheDir, withCache.CachePath)
+
+	withoutCache := NewVerifier(Config{}, slog.New(slog.DiscardHandler)).tufOptions()
+	assert.True(t, withoutCache.DisableLocalCache)
+}
+
 // TestVerify_RejectsTagReference guards the digest-only contract: Verify parses
 // its argument as a digest reference, so a tag is rejected before any registry call.
 func TestVerify_RejectsTagReference(t *testing.T) {

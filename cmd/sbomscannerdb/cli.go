@@ -188,6 +188,7 @@ func registryFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.BoolFlag{Name: "skip-tls-verify", Usage: "skip TLS certificate verification"},
 		&cli.BoolFlag{Name: "plain-http", Usage: "use HTTP instead of HTTPS"},
+		&cli.StringFlag{Name: "tuf-cache-dir", Usage: "writable directory for the Sigstore TUF cache; empty disables the local cache"},
 	}
 }
 
@@ -196,6 +197,7 @@ func registryConfig(cmd *cli.Command) oci.Config {
 	return oci.Config{
 		SkipTLSVerify: cmd.Bool("skip-tls-verify"),
 		PlainHTTP:     cmd.Bool("plain-http"),
+		TUFCacheDir:   cmd.String("tuf-cache-dir"),
 	}
 }
 

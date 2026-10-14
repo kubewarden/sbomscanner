@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -26,6 +27,10 @@ const cacheDirName = "sbomscannerdb"
 
 // ociDirName is the OCI image layout under the cache dir that holds the pulled artifact.
 const ociDirName = "oci"
+
+// tufDirName is the Sigstore TUF cache under the cache dir, writable so the TUF
+// repository is not re-downloaded on every signature verification.
+const tufDirName = "tuf"
 
 // Record is the database entry of one CVE. The zero value means no data.
 type Record struct {
@@ -59,6 +64,14 @@ type DB struct {
 // and the databases stay open until Close.
 func Open(repository, runDir string, cfg oci.Config, logger *slog.Logger) *DB {
 	cacheDir := filepath.Join(runDir, cacheDirName)
+	if cfg.TUFCacheDir == "" {
+		tufCacheDir := filepath.Join(cacheDir, tufDirName)
+		if err := os.MkdirAll(tufCacheDir, 0o700); err != nil {
+			logger.Warn("failed to create TUF cache dir, falling back to no cache", "dir", tufCacheDir, "error", err)
+		} else {
+			cfg.TUFCacheDir = tufCacheDir
+		}
+	}
 	return &DB{
 		ref:      repository + ":" + strconv.Itoa(schemaVersion),
 		cacheDir: cacheDir,

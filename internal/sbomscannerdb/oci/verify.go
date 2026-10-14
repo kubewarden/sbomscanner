@@ -81,7 +81,7 @@ func (v *Verifier) Verify(ctx context.Context, digestRef string) error {
 // log keys from TUF), the hardcoded identity, and registry access mirroring the
 // Remote's credentials and TLS settings.
 func (v *Verifier) checkOpts(_ context.Context) (*cosign.CheckOpts, error) {
-	trustedMaterial, err := trustedRoot()
+	trustedMaterial, err := v.trustedRoot()
 	if err != nil {
 		return nil, fmt.Errorf("load sigstore trusted root: %w", err)
 	}
@@ -98,11 +98,13 @@ func (v *Verifier) checkOpts(_ context.Context) (*cosign.CheckOpts, error) {
 	}, nil
 }
 
-// trustedRoot fetches the Sigstore trusted root from TUF with the local cache
-// disabled, so verification works on a read-only root filesystem (the default
+// trustedRoot fetches the Sigstore trusted root from TUF. When the config
+// provides a writable TUFCacheDir, the TUF repository is cached there so it is
+// not re-downloaded on every verification. When it is empty, the local cache is
+// disabled so verification works on a read-only root filesystem (the default
 // cache path $HOME/.sigstore is not writable in the worker container).
-func trustedRoot() (root.TrustedMaterial, error) {
-	client, err := tuf.New(tuf.DefaultOptions().WithDisableLocalCache())
+func (v *Verifier) trustedRoot() (root.TrustedMaterial, error) {
+	client, err := tuf.New(v.tufOptions())
 	if err != nil {
 		return nil, fmt.Errorf("create TUF client: %w", err)
 	}
@@ -111,6 +113,16 @@ func trustedRoot() (root.TrustedMaterial, error) {
 		return nil, fmt.Errorf("get sigstore trusted root: %w", err)
 	}
 	return trustedRoot, nil
+}
+
+// tufOptions selects the TUF cache policy: a writable cache path when the config
+// provides TUFCacheDir, otherwise the disabled local cache.
+func (v *Verifier) tufOptions() *tuf.Options {
+	opts := tuf.DefaultOptions()
+	if v.config.TUFCacheDir != "" {
+		return opts.WithCachePath(v.config.TUFCacheDir)
+	}
+	return opts.WithDisableLocalCache()
 }
 
 // registryClientOpts builds the go-containerregistry options cosign uses to
