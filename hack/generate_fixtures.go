@@ -63,7 +63,10 @@ func main() {
 		log.Fatalf("failed to create cache dir: %v", err)
 	}
 	defer os.RemoveAll(cacheDir)
-	db := sbomscannerdb.Open(testSBOMScannerDBRepository, cacheDir, oci.Config{}, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	// The test asset at testSBOMScannerDBRepository is unsigned (the E2E setup also
+	// runs the worker with sbomscannerDBSkipVerify=true), so verification must be
+	// skipped here; otherwise db.Update rejects it and no enriched reports are built.
+	db := sbomscannerdb.Open(testSBOMScannerDBRepository, cacheDir, oci.Config{SkipVerify: true}, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 
 	for _, file := range files {
 		if err := generateReport(context.Background(), db, cacheDir, file); err != nil {
