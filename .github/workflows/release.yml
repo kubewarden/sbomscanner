@@ -1,5 +1,8 @@
 name: Create a new release for SBOMscanner stack
 
+# No default token permissions. Each job declares exactly what it needs.
+permissions: {}
+
 on:
   push:
     tags:
@@ -8,11 +11,17 @@ on:
 jobs:
   build:
     permissions:
+      contents: read # Checkout the source
       packages: write # Pushing images to ghcr.io
-      id-token: write # Signing images with cosign
-    uses: ./.github/workflows/container-build.yml
+      id-token: write # Signing images with cosign and actions/attest
+      attestations: write # actions/attest (SLSA L3 provenance)
+    # TODO: bump to the v8.0.0 SHA once kubewarden/github-actions tags the final release.
+    uses: kubewarden/github-actions/.github/workflows/container-release.yml@6e593b91207b28d6815843d72b1d3ad4dcf77268 # v8.0.0-rc.1
     with:
+      components: '["controller","worker","storage","mcp"]'
+      image-namespace: sbomscanner
       version: ${{ github.ref_name }}
+      artifact-prefix: SBOMscanner-
   create-release:
     needs: [build]
     permissions:
@@ -124,7 +133,7 @@ jobs:
 
   update-charts:
     needs: [create-release]
-    uses: ./.github/workflows/update-charts.yml
+    uses: $/.github/workflows/update-charts.yml
     permissions:
       contents: write # for updatecli to update the repository
       pull-requests: write # for updatecli to create a PR
