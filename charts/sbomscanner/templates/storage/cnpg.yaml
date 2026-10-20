@@ -22,6 +22,6 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-cnpg-cluster
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "sbomscanner.namespace" . }}
 spec: {{ $spec | toYaml | nindent 2 }}
 {{- end }}

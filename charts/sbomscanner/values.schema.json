@@ -312,6 +312,9 @@
         "nameOverride": {
             "type": "string"
         },
+        "namespaceOverride": {
+            "type": "string"
+        },
         "nats": {
             "type": "object",
             "properties": {
@@ -402,6 +405,9 @@
                             }
                         }
                     }
+                },
+                "namespaceOverride": {
+                    "type": "string"
                 },
                 "natsBox": {
                     "type": "object",

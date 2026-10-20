@@ -31,6 +31,20 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Namespace for all namespaced resources of the chart.
+It is namespaceOverride, or the release namespace when namespaceOverride is empty.
+The NATS chart reads nats.namespaceOverride, so the render fails when the two values are different.
+*/}}
+{{- define "sbomscanner.namespace" -}}
+{{- $override := .Values.namespaceOverride | default "" -}}
+{{- $natsOverride := (.Values.nats | default dict).namespaceOverride | default "" -}}
+{{- if ne $override $natsOverride -}}
+{{- fail (printf "namespaceOverride (%q) and nats.namespaceOverride (%q) must have the same value" $override $natsOverride) -}}
+{{- end -}}
+{{- $override | default .Release.Namespace -}}
+{{- end -}}
+
+{{/*
 Registry prefix for the chart images, with a trailing "/".
 It takes the workload context dict (see "Values of the workloads" below).
 The order is: the workload imageRegistry, common.imageRegistry,

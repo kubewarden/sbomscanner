@@ -4,7 +4,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "sbomscanner.fullname" $ }}-mcp
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ include "sbomscanner.namespace" $ }}
   labels:
     {{- include "sbomscanner.labels" $ | nindent 4 }}
     app.kubernetes.io/component: mcp

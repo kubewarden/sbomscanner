@@ -6,7 +6,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-worker-node
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "sbomscanner.namespace" . }}
   {{- include "sbomscanner.workloadLabels" $ctx | nindent 2 }}
   {{- with include "sbomscanner.workloadAnnotations" $ctx }}{{ . | nindent 2 }}{{ end }}
 spec:
@@ -40,7 +40,7 @@ spec:
           args:
             - --init
             - -nats-url
-            - {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local:4222
+            - {{ .Release.Name }}-nats.{{ include "sbomscanner.namespace" . }}.svc.cluster.local:4222
             {{- with include "sbomscanner.logLevel" $ctx }}
             - -log-level={{ . }}
             {{- end }}
@@ -78,14 +78,14 @@ spec:
           {{- end }}
           args:
             - -nats-url
-            - {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local:4222
+            - {{ .Release.Name }}-nats.{{ include "sbomscanner.namespace" . }}.svc.cluster.local:4222
             {{- if .Values.worker.trivyDBRepository }}
             - -trivy-db-repository={{ .Values.worker.trivyDBRepository | quote }}
             {{- end }}
             {{- if .Values.worker.trivyJavaDBRepository }}
             - -trivy-java-db-repository={{ .Values.worker.trivyJavaDBRepository | quote }}
             {{- end }}
-            - -installation-namespace={{ .Release.Namespace }}
+            - -installation-namespace={{ include "sbomscanner.namespace" . }}
             {{- with include "sbomscanner.logLevel" $ctx }}
             - -log-level={{ . }}
             {{- end }}
