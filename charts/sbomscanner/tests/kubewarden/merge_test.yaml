@@ -135,13 +135,74 @@ tests:
             name: OTEL_EXPORTER_OTLP_ENDPOINT
             value: "http://common:4317"
 
-  - it: "should prefer the deprecated top-level otel over common.otel"
+  - it: "should prefer the workload otel over common.otel"
     set:
-      otel:
-        endpoint: "http://legacy:4317"
       common:
         otel:
           endpoint: "http://common:4317"
+      controller:
+        otel:
+          endpoint: "http://workload:4317"
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "http://workload:4317"
+
+  - it: "should fall back to common.otel when the workload otel endpoint is empty"
+    set:
+      common:
+        otel:
+          endpoint: "http://common:4317"
+      controller:
+        otel:
+          endpoint: ""
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "http://common:4317"
+
+  - it: "should resolve each otel field on its own"
+    set:
+      global:
+        otel:
+          endpoint: "http://global:4317"
+          caSecretName: "global-ca"
+      common:
+        otel:
+          clientCertificateSecretName: "common-client"
+      controller:
+        otel:
+          caSecretName: "workload-ca"
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "http://global:4317"
+      - contains:
+          path: "spec.template.spec.volumes"
+          content:
+            name: otel-ca
+            secret:
+              secretName: workload-ca
+      - contains:
+          path: "spec.template.spec.volumes"
+          content:
+            name: otel-client-tls
+            secret:
+              secretName: common-client
+
+  - it: "should prefer the deprecated top-level otel over the workload otel"
+    set:
+      otel:
+        endpoint: "http://legacy:4317"
+      controller:
+        otel:
+          endpoint: "http://workload:4317"
     asserts:
       - contains:
           path: "spec.template.spec.containers[0].env"

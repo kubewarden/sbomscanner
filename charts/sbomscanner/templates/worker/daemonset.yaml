@@ -62,7 +62,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            {{- with include "sbomscanner.otelEnv" . }}
+            {{- with include "sbomscanner.otelEnv" $ctx }}
             {{- . | nindent 12 }}
             - name: K8S_NODE_NAME
               valueFrom:
@@ -115,10 +115,10 @@ spec:
             - mountPath: "/nats/tls"
               name: nats-tls
               readOnly: true
-            {{- with include "sbomscanner.otelVolumeMounts" . }}{{ . | nindent 12 }}{{ end }}
+            {{- with include "sbomscanner.otelVolumeMounts" $ctx }}{{ . | nindent 12 }}{{ end }}
             {{- with include "sbomscanner.extraVolumeMounts" $ctx }}{{ . | nindent 12 }}{{ end }}
       volumes:
-        {{- with include "sbomscanner.otelVolumes" . }}{{ . | nindent 8 }}{{ end }}
+        {{- with include "sbomscanner.otelVolumes" $ctx }}{{ . | nindent 8 }}{{ end }}
         - name: host-root
           hostPath:
             path: /

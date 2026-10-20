@@ -67,7 +67,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- $otelEnv := include "sbomscanner.otelEnv" . }}
+          {{- $otelEnv := include "sbomscanner.otelEnv" $ctx }}
           {{- $extraEnv := include "sbomscanner.extraEnv" $ctx }}
           {{- if or $otelEnv $extraEnv }}
           env:
@@ -102,7 +102,7 @@ spec:
             - mountPath: "/nats/tls"
               name: nats-tls
               readOnly: true
-            {{- with include "sbomscanner.otelVolumeMounts" . }}{{ . | nindent 12 }}{{ end }}
+            {{- with include "sbomscanner.otelVolumeMounts" $ctx }}{{ . | nindent 12 }}{{ end }}
             {{- with include "sbomscanner.extraVolumeMounts" $ctx }}{{ . | nindent 12 }}{{ end }}
           livenessProbe:
             httpGet:
@@ -115,7 +115,7 @@ spec:
               port: 443
               scheme: HTTPS
       volumes:
-        {{- with include "sbomscanner.otelVolumes" . }}{{ . | nindent 8 }}{{ end }}
+        {{- with include "sbomscanner.otelVolumes" $ctx }}{{ . | nindent 8 }}{{ end }}
         - name: storage-tls
           secret:
             secretName: {{ include "sbomscanner.fullname" . }}-storage-tls

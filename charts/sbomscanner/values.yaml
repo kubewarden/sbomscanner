@@ -84,7 +84,7 @@ common: {}
 
 # Deprecated: use common.otel or global.otel.
 # A later release removes this block.
-# When a key is set here, it wins over common.otel and global.otel.
+# When a key is set here, it wins over the workload otel, common.otel, and global.otel.
 otel:
   # OTLP gRPC endpoint to export telemetry to, e.g. https://otel-collector:4317.
   # TLS is enabled by the https:// scheme.
@@ -99,6 +99,7 @@ otel:
 
 # Each workload block also accepts every key of common.
 # A value in a workload block replaces the value in common and global.
+# The otel key has no effect in the mcp block, because MCP does not export telemetry.
 controller:
   image:
     repository: kubewarden/sbomscanner/controller
