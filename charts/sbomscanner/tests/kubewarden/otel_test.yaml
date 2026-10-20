@@ -1,0 +1,59 @@
+suite: "Values contract: telemetry"
+templates:
+  - "templates/controller/deployment.yaml"
+  - "templates/storage/deployment.yaml"
+  - "templates/worker/deployment.yaml"
+  - "templates/worker/daemonset.yaml"
+tests:
+  - it: "should render global.otel on every instrumented workload"
+    set:
+      global:
+        otel:
+          endpoint: "https://otel-collector:4317"
+          caSecretName: "otel-ca-secret"
+          clientCertificateSecretName: "otel-client-secret"
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "https://otel-collector:4317"
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: OTEL_EXPORTER_OTLP_CERTIFICATE
+            value: /otel/tls/ca/ca.crt
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE
+            value: /otel/tls/client/tls.crt
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: OTEL_EXPORTER_OTLP_CLIENT_KEY
+            value: /otel/tls/client/tls.key
+      - contains:
+          path: "spec.template.spec.containers[0].volumeMounts"
+          content:
+            name: otel-ca
+            mountPath: /otel/tls/ca
+            readOnly: true
+      - contains:
+          path: "spec.template.spec.containers[0].volumeMounts"
+          content:
+            name: otel-client-tls
+            mountPath: /otel/tls/client
+            readOnly: true
+      - contains:
+          path: "spec.template.spec.volumes"
+          content:
+            name: otel-ca
+            secret:
+              secretName: otel-ca-secret
+      - contains:
+          path: "spec.template.spec.volumes"
+          content:
+            name: otel-client-tls
+            secret:
+              secretName: otel-client-secret
