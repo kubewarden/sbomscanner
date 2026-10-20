@@ -13,5 +13,5 @@ spec:
   versionPriority: 15
   service:
     name: {{ include "sbomscanner.fullname" . }}-storage
-    namespace: {{ include "sbomscanner.namespace" . }}
+    namespace: {{ include "sbomscanner.namespace" . | quote }}
   version: v1alpha1

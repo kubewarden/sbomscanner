@@ -2,7 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-storage-issuer
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
   labels:
     {{- include "sbomscanner.labels" . | nindent 4 }}
     app.kubernetes.io/component: storage
@@ -13,7 +13,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-storage-tls
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
   labels:
     {{- include "sbomscanner.labels" . | nindent 4 }}
     app.kubernetes.io/component: storage

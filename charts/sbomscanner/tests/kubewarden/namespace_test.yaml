@@ -45,6 +45,24 @@ tests:
       - equal:
           path: "metadata.namespace"
           value: other
+
+  - it: "should render a numeric release namespace as a string"
+    release:
+      namespace: "123"
+    asserts:
+      - equal:
+          path: "metadata.namespace"
+          value: "123"
+
+  - it: "should render a numeric namespaceOverride as a string"
+    set:
+      namespaceOverride: "123"
+      nats:
+        namespaceOverride: "123"
+    asserts:
+      - equal:
+          path: "metadata.namespace"
+          value: "123"
 ---
 suite: "Values contract: namespaceOverride references"
 templates:
@@ -130,6 +148,31 @@ tests:
           path: "metadata.namespace"
           value: other
         template: "charts/nats/templates/service.yaml"
+
+  - it: "should render a numeric namespace as a string in the namespace references"
+    release:
+      namespace: "123"
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].args"
+          content: "123"
+        template: "templates/controller/deployment.yaml"
+      - equal:
+          path: "subjects[0].namespace"
+          value: "123"
+        template: "templates/controller/rolebinding.yaml"
+      - equal:
+          path: "subjects[0].namespace"
+          value: "123"
+        template: "templates/storage/auth_reader_rolebinding.yaml"
+      - equal:
+          path: "webhooks[0].clientConfig.service.namespace"
+          value: "123"
+        template: "templates/controller/webhooks.yaml"
+      - equal:
+          path: "spec.service.namespace"
+          value: "123"
+        template: "templates/storage/apiservice.yaml"
 ---
 suite: "Values contract: namespaceOverride mismatch"
 templates:

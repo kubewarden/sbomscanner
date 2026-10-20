@@ -3,7 +3,7 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-cnpg-cluster
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
 spec:
   instances: {{ .Values.storage.postgres.cnpg.instances }}
   {{- with .Values.storage.postgres.cnpg.imageName }}

@@ -3,7 +3,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "sbomscanner.fullname" $ }}-storage
-  namespace: {{ include "sbomscanner.namespace" $ }}
+  namespace: {{ include "sbomscanner.namespace" $ | quote }}
   labels:
     {{- include "sbomscanner.labels" $ | nindent 4 }}
     app.kubernetes.io/component: storage
