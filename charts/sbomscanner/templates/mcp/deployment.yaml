@@ -5,7 +5,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-mcp
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "sbomscanner.namespace" . }}
   {{- include "sbomscanner.workloadLabels" $ctx | nindent 2 }}
   {{- with include "sbomscanner.workloadAnnotations" $ctx }}{{ . | nindent 2 }}{{ end }}
 spec:

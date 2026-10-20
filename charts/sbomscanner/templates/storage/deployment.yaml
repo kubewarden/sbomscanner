@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-storage
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "sbomscanner.namespace" . }}
   {{- include "sbomscanner.workloadLabels" $ctx | nindent 2 }}
   {{- with include "sbomscanner.workloadAnnotations" $ctx }}{{ . | nindent 2 }}{{ end }}
 spec:
@@ -40,7 +40,7 @@ spec:
           args:
             - --init
             - -nats-url
-            - {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local:4222
+            - {{ .Release.Name }}-nats.{{ include "sbomscanner.namespace" . }}.svc.cluster.local:4222
             {{- with include "sbomscanner.logLevel" $ctx }}
             - -log-level={{ . }}
             {{- end }}
@@ -77,9 +77,9 @@ spec:
           {{- with include "sbomscanner.extraEnvFrom" $ctx }}{{ . | nindent 10 }}{{ end }}
           args:
             - -nats-url
-            - {{ .Release.Name }}-nats.{{ .Release.Namespace }}.svc.cluster.local:4222
+            - {{ .Release.Name }}-nats.{{ include "sbomscanner.namespace" . }}.svc.cluster.local:4222
             - -service-account-namespace
-            - {{ .Release.Namespace }}
+            - {{ include "sbomscanner.namespace" . }}
             - -service-account-name
             - {{ include "sbomscanner.fullname" . }}-controller
             {{- with include "sbomscanner.logLevel" $ctx }}
