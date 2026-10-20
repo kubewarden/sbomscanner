@@ -3,7 +3,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-nats-selfsigned-issuer
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
   labels:
     {{- include "sbomscanner.labels" . | nindent 4 }}
 spec:
@@ -13,7 +13,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-nats-ca
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
   labels:
     {{- include "sbomscanner.labels" . | nindent 4 }}
 spec:
@@ -35,7 +35,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-nats-ca
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
   labels:
     {{- include "sbomscanner.labels" . | nindent 4 }}
 spec:
@@ -46,7 +46,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-nats-server-tls
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
   labels:
     {{- include "sbomscanner.labels" . | nindent 4 }}
 spec:
@@ -66,7 +66,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ include "sbomscanner.fullname" . }}-nats-routes-tls
-  namespace: {{ include "sbomscanner.namespace" . }}
+  namespace: {{ include "sbomscanner.namespace" . | quote }}
   labels:
     {{- include "sbomscanner.labels" . | nindent 4 }}
 spec:
