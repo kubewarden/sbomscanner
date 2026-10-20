@@ -2,6 +2,7 @@
   "extends": [
     "github>kubewarden/github-actions//renovate-config/default"
   ],
+  "postUpdateOptions": ["helmUpdateSubChartArchives"],
   "customManagers": [
     {
       "customType": "regex",
