@@ -15,7 +15,7 @@ tests:
         image:
           repository: kubewarden/sbomscanner/worker
           tag: v0.1.0
-          pullPolicy: Always
+        imagePullPolicy: Always
         resources:
           limits:
             cpu: 500m
