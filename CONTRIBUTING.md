@@ -98,6 +98,8 @@ Unit tests for other packages are in their respective directories.
 **E2E Tests**
 End-to-end tests are in the `test/e2e` package using the [e2e-framework](https://github.com/kubernetes-sigs/e2e-framework) to test against real Kubernetes clusters.
 You'll need [Kind](https://kind.sigs.k8s.io/) installed to create local test clusters.
+If you set `GITHUB_TOKEN` before you run `make test-e2e`, the worker pods use it to download the VEX repositories from GitHub, so the GitHub rate limit for requests without a token does not stop the scans.
+Use a fine-grained token with read-only access to public repositories.
 
 ## Update fixtures
 
