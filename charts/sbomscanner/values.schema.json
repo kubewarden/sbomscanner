@@ -406,6 +406,9 @@
                                 "instances": {
                                     "type": "integer"
                                 },
+                                "merge": {
+                                    "type": "object"
+                                },
                                 "storage": {
                                     "type": "object",
                                     "properties": {
