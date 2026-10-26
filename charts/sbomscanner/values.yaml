@@ -23,7 +23,7 @@ global:
   cattle:
     # Registry that Rancher sets on install.
     # If this value is not empty, the chart uses it instead of global.imageRegistry.
-    # An imageRegistry in common or in a workload block still wins.
+    # An imageRegistry in a workload block still wins.
     systemDefaultRegistry: ""
   # Registry for all chart images.
   imageRegistry: ghcr.io
@@ -77,14 +77,9 @@ global:
     # This secret must contain `tls.crt` and `tls.key` keys.
     clientCertificateSecretName: ""
 
-# common holds the settings for all workloads of this chart only.
-# A workload value wins over common, and common wins over global.
-# common accepts every key of global, except cattle.
-common: {}
-
-# Deprecated: use common.otel or global.otel.
+# Deprecated: use global.otel or the otel key of a workload block.
 # A later release removes this block.
-# When a key is set here, it wins over the workload otel, common.otel, and global.otel.
+# When a key is set here, it wins over the workload otel and global.otel.
 otel:
   # OTLP gRPC endpoint to export telemetry to, e.g. https://otel-collector:4317.
   # TLS is enabled by the https:// scheme.
@@ -97,8 +92,8 @@ otel:
   # This secret must contain `tls.crt` and `tls.key` keys.
   clientCertificateSecretName: ""
 
-# Each workload block also accepts every key of common.
-# A value in a workload block replaces the value in common and global.
+# Each workload block also accepts every key of global, except cattle.
+# A value in a workload block replaces the value in global.
 # The otel key has no effect in the mcp block, because MCP does not export telemetry.
 controller:
   image:
