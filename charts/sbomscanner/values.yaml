@@ -24,8 +24,11 @@ global:
   # If you set it, it replaces the imageRegistry of every workload block.
   # The NATS images do not use it: set global.image.registry too.
   imageRegistry: ""
-  # Secrets that the kubelet uses to pull the chart images,
-  # for example `[{name: my-registry-secret}]`.
+  # Secrets that the kubelet uses to pull the chart images.
+  # Each item is a Secret name or a map with a name key,
+  # for example [my-secret] or [{name: my-secret}].
+  # The chart adds the items of global and of the workload block, in this order.
+  # The NATS pods do not use this key: see global.image below.
   imagePullSecrets: []
   # Pull policy for the chart images: Always, IfNotPresent, or Never.
   imagePullPolicy: IfNotPresent

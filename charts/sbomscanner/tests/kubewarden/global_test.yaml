@@ -235,6 +235,17 @@ tests:
           value:
             - name: registry-credentials
 
+  - it: "should accept plain Secret names in global.imagePullSecrets"
+    set:
+      global:
+        imagePullSecrets:
+          - registry-credentials
+    asserts:
+      - equal:
+          path: "spec.template.spec.imagePullSecrets"
+          value:
+            - name: registry-credentials
+
   - it: "should render the global values on the init containers"
     set:
       global:

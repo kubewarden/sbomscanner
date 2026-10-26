@@ -248,8 +248,29 @@ priorityClassName: {{ . | quote }}
 {{- include "sbomscanner._labels" (dict "ctx" . "key" "podLabels") -}}
 {{- end -}}
 
+{{/*
+sbomscanner.imagePullSecrets renders "imagePullSecrets:" with the global,
+common, and workload lists, in this order.
+Each item is a Secret name or a map with a name key. The helper renders a
+name as a map. It skips an item with an empty or missing name.
+It keeps an item of any other type, and Kubernetes rejects it.
+*/}}
 {{- define "sbomscanner.imagePullSecrets" -}}
-{{- include "sbomscanner._field" (dict "name" "imagePullSecrets" "value" (include "sbomscanner._concat" (dict "ctx" . "key" "imagePullSecrets") | fromYamlArray)) -}}
+{{- $secrets := list -}}
+{{- range include "sbomscanner._concat" (dict "ctx" . "key" "imagePullSecrets") | fromYamlArray -}}
+{{- if kindIs "string" . -}}
+{{- if . -}}
+{{- $secrets = append $secrets (dict "name" .) -}}
+{{- end -}}
+{{- else if kindIs "map" . -}}
+{{- if .name -}}
+{{- $secrets = append $secrets . -}}
+{{- end -}}
+{{- else -}}
+{{- $secrets = append $secrets . -}}
+{{- end -}}
+{{- end -}}
+{{- include "sbomscanner._field" (dict "name" "imagePullSecrets" "value" $secrets) -}}
 {{- end -}}
 
 {{/* Public helpers that render list entries, or nothing when the list is empty. */}}
