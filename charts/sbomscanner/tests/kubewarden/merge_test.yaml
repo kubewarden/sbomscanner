@@ -210,12 +210,24 @@ tests:
             name: OTEL_EXPORTER_OTLP_ENDPOINT
             value: "http://legacy:4317"
 
-  - it: "should prefer the workload imageRegistry over the Rancher registry"
+  - it: "should prefer global.imageRegistry over the workload imageRegistry"
     set:
       global:
-        imageRegistry: registry.example.com
-        cattle:
-          systemDefaultRegistry: rancher.example.com
+        imageRegistry: global.example.com
+        image:
+          registry: global.example.com
+      controller:
+        imageRegistry: mirror.example.com
+    asserts:
+      - matchRegex:
+          path: "spec.template.spec.containers[0].image"
+          pattern: "^global\\.example\\.com/kubewarden/sbomscanner/"
+      - matchRegex:
+          path: "spec.template.spec.initContainers[0].image"
+          pattern: "^global\\.example\\.com/kubewarden/sbomscanner/"
+
+  - it: "should use the workload imageRegistry when global.imageRegistry is empty"
+    set:
       controller:
         imageRegistry: mirror.example.com
     asserts:

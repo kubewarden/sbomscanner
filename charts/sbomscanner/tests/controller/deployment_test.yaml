@@ -4,10 +4,8 @@ templates:
 tests:
   - it: "should render a Deployment with the correct replica count, logging level, image, resources and imagePullPolicy"
     set:
-      global:
-        cattle:
-          systemDefaultRegistry: kubewarden.io
       controller:
+        imageRegistry: kubewarden.io
         replicas: 5
         logLevel: debug
         image:

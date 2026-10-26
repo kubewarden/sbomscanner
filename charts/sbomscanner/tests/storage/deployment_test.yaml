@@ -6,10 +6,8 @@ templates:
 tests:
   - it: "should render a Deployment with the correct containers settings"
     set:
-      global:
-        cattle:
-          systemDefaultRegistry: kubewarden.io
       storage:
+        imageRegistry: kubewarden.io
         replicas: 5
         logLevel: debug
         image:

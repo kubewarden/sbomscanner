@@ -46,15 +46,11 @@ The NATS chart reads nats.namespaceOverride, so the render fails when the two va
 
 {{/*
 Registry prefix for the chart images, with a trailing "/".
-It takes the workload context dict (see "Values of the workloads" below).
-The order is: the workload imageRegistry, common.imageRegistry,
-global.cattle.systemDefaultRegistry (set by Rancher), then global.imageRegistry.
-Renders "" when all are empty.
+global.imageRegistry wins over the workload imageRegistry.
 */}}
 {{- define "system_default_registry" -}}
 {{- $l := include "sbomscanner._levels" (dict "ctx" . "key" "imageRegistry") | fromYamlArray -}}
-{{- $cattle := dig "cattle" "systemDefaultRegistry" "" (.root.Values.global | default dict) -}}
-{{- with index $l 2 | default (index $l 1) | default $cattle | default (index $l 0) -}}
+{{- with index $l 0 | default (index $l 2) -}}
 {{- printf "%s/" . -}}
 {{- end -}}
 {{- end -}}
@@ -124,6 +120,7 @@ Each public helper reads one key with one private helper. The private helper set
   sbomscanner._map:    the global, common, and workload maps merged. The workload wins on a duplicate key.
   sbomscanner._concat: the global, common, and workload lists, in this order.
 An empty value ("", [] or {}) counts as unset.
+system_default_registry (above) uses its own order and does not read common.
 
 The private helpers take dict "ctx" <context dict> "key" <key>.
 A key with a dot, for example "serviceAccount.annotations", reads a nested map.

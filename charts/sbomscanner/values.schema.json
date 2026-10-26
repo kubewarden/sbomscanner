@@ -55,6 +55,9 @@
                         }
                     }
                 },
+                "imageRegistry": {
+                    "type": "string"
+                },
                 "nodeScan": {
                     "type": "object",
                     "properties": {
@@ -123,14 +126,6 @@
                 },
                 "annotations": {
                     "type": "object"
-                },
-                "cattle": {
-                    "type": "object",
-                    "properties": {
-                        "systemDefaultRegistry": {
-                            "type": "string"
-                        }
-                    }
                 },
                 "extraEnv": {
                     "type": "array"
@@ -264,6 +259,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "imageRegistry": {
+                    "type": "string"
                 },
                 "podDisruptionBudget": {
                     "type": "object"
@@ -566,6 +564,9 @@
                         }
                     }
                 },
+                "imageRegistry": {
+                    "type": "string"
+                },
                 "podDisruptionBudget": {
                     "type": "object"
                 },
@@ -699,6 +700,9 @@
                         }
                     }
                 },
+                "imageRegistry": {
+                    "type": "string"
+                },
                 "podDisruptionBudget": {
                     "type": "object"
                 },
@@ -787,6 +791,9 @@
                             }
                         }
                     }
+                },
+                "imageRegistry": {
+                    "type": "string"
                 },
                 "podSecurityContext": {
                     "type": "object"

@@ -11,17 +11,33 @@ set:
     auth:
       secretName: x
 tests:
-  - it: "should render common.imageRegistry on every workload, before the Rancher registry"
+  - it: "should ignore common.imageRegistry"
     set:
-      global:
-        cattle:
-          systemDefaultRegistry: rancher.example.com
       common:
         imageRegistry: mirror.example.com
     asserts:
       - matchRegex:
           path: "spec.template.spec.containers[0].image"
-          pattern: "^mirror\\.example\\.com/kubewarden/sbomscanner/"
+          pattern: "^ghcr\\.io/kubewarden/sbomscanner/"
+
+  - it: "should ignore common.imageRegistry when the workload imageRegistry is empty"
+    set:
+      common:
+        imageRegistry: mirror.example.com
+      controller:
+        imageRegistry: ""
+      storage:
+        imageRegistry: ""
+      worker:
+        imageRegistry: ""
+      workerNode:
+        imageRegistry: ""
+      mcp:
+        imageRegistry: ""
+    asserts:
+      - matchRegex:
+          path: "spec.template.spec.containers[0].image"
+          pattern: "^kubewarden/sbomscanner/"
 
   - it: "should render common.logLevel on every workload"
     set:

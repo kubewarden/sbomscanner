@@ -20,13 +20,10 @@ namespaceOverride: ""
 # global holds the settings for all workloads.
 # A parent chart can also set these keys.
 global:
-  cattle:
-    # Registry that Rancher sets on install.
-    # If this value is not empty, the chart uses it instead of global.imageRegistry.
-    # An imageRegistry in a workload block still wins.
-    systemDefaultRegistry: ""
   # Registry for all chart images.
-  imageRegistry: ghcr.io
+  # If you set it, it replaces the imageRegistry of every workload block.
+  # The NATS images do not use it: set global.image.registry too.
+  imageRegistry: ""
   # Secrets that the kubelet uses to pull the chart images,
   # for example `[{name: my-registry-secret}]`.
   imagePullSecrets: []
@@ -92,13 +89,17 @@ otel:
   # This secret must contain `tls.crt` and `tls.key` keys.
   clientCertificateSecretName: ""
 
-# Each workload block also accepts every key of global, except cattle.
+# Each workload block also accepts every key of global.
 # A value in a workload block replaces the value in global.
+# Exception: global.imageRegistry wins over the workload imageRegistry.
 # The otel key has no effect in the mcp block, because MCP does not export telemetry.
 controller:
   image:
     repository: kubewarden/sbomscanner/controller
     tag: v0.13.0
+  # Registry for the images of this workload.
+  # global.imageRegistry replaces it when set.
+  imageRegistry: ghcr.io
   replicas: 3
   pprof: false
   workloadScan:
@@ -138,6 +139,9 @@ storage:
   image:
     repository: kubewarden/sbomscanner/storage
     tag: v0.13.0
+  # Registry for the images of this workload.
+  # global.imageRegistry replaces it when set.
+  imageRegistry: ghcr.io
   replicas: 3
   resources:
     limits:
@@ -230,6 +234,9 @@ worker:
   image:
     repository: kubewarden/sbomscanner/worker
     tag: v0.13.0
+  # Registry for the images of this workload.
+  # global.imageRegistry replaces it when set.
+  imageRegistry: ghcr.io
   replicas: 3
   resources:
     limits:
@@ -261,6 +268,10 @@ worker:
 # workerNode configures the DaemonSet that scans the nodes.
 # The DaemonSet uses the image from worker.image.
 workerNode:
+  # Registry for the images of the DaemonSet.
+  # The DaemonSet uses the image from worker.image, with this registry.
+  # global.imageRegistry replaces it when set.
+  imageRegistry: ghcr.io
   resources:
     limits:
       cpu: 500m
@@ -291,6 +302,9 @@ mcp:
   image:
     repository: kubewarden/sbomscanner/mcp
     tag: v0.13.0
+  # Registry for the images of this workload.
+  # global.imageRegistry replaces it when set.
+  imageRegistry: ghcr.io
   replicas: 1
   resources:
     limits:

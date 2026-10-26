@@ -207,21 +207,22 @@ tests:
     set:
       global:
         imageRegistry: registry.example.com
+        image:
+          registry: registry.example.com
     asserts:
       - matchRegex:
           path: "spec.template.spec.containers[0].image"
           pattern: "^registry\\.example\\.com/kubewarden/sbomscanner/"
 
-  - it: "should prefer global.cattle.systemDefaultRegistry over global.imageRegistry"
+  - it: "should ignore global.cattle.systemDefaultRegistry"
     set:
       global:
-        imageRegistry: registry.example.com
         cattle:
           systemDefaultRegistry: rancher.example.com
     asserts:
       - matchRegex:
           path: "spec.template.spec.containers[0].image"
-          pattern: "^rancher\\.example\\.com/kubewarden/sbomscanner/"
+          pattern: "^ghcr\\.io/"
 
   - it: "should render global.imagePullSecrets on every workload"
     set:
