@@ -49,9 +49,29 @@ Registry prefix for the chart images, with a trailing "/".
 global.imageRegistry wins over the workload imageRegistry.
 */}}
 {{- define "system_default_registry" -}}
+{{- include "sbomscanner.checkNatsImageRegistry" .root -}}
 {{- $l := include "sbomscanner._levels" (dict "ctx" . "key" "imageRegistry") | fromYamlArray -}}
 {{- with index $l 0 | default (index $l 2) -}}
 {{- printf "%s/" . -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+sbomscanner.checkNatsImageRegistry fails the render when global.imageRegistry
+is set and no registry is set for the NATS images.
+The NATS chart reads global.image.registry, not global.imageRegistry.
+A user can also set the registry in nats.global.image.registry, so the check
+reads both keys.
+It takes the root context ($).
+*/}}
+{{- define "sbomscanner.checkNatsImageRegistry" -}}
+{{- $global := .Values.global | default dict -}}
+{{- $natsGlobal := (.Values.nats | default dict).global | default dict -}}
+{{- $registry := $global.imageRegistry | default "" -}}
+{{- $natsRegistry := ($global.image | default dict).registry | default "" -}}
+{{- $subchartRegistry := ($natsGlobal.image | default dict).registry | default "" -}}
+{{- if and $registry (not $natsRegistry) (not $subchartRegistry) -}}
+{{- fail "global.imageRegistry is set, but no registry is set for the NATS images. The NATS chart does not read global.imageRegistry. Set global.image.registry, for example to the same value as global.imageRegistry. If you upgrade from 0.13.0 or earlier with --reuse-values, use --reset-then-reuse-values instead." -}}
 {{- end -}}
 {{- end -}}
 

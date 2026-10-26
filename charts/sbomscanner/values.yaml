@@ -30,6 +30,11 @@ global:
   # The chart adds the items of global and of the workload block, in this order.
   # The NATS pods do not use this key: see global.image below.
   imagePullSecrets: []
+  # Registry and pull Secret names for the NATS images.
+  # If you set global.imageRegistry, you must also set global.image.registry.
+  # image:
+  #   registry: ""
+  #   pullSecretNames: []
   # Pull policy for the chart images: Always, IfNotPresent, or Never.
   imagePullPolicy: IfNotPresent
   # Log level for the chart workloads: debug, info, warn, or error.
