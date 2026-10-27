@@ -246,6 +246,32 @@ tests:
           value:
             - name: registry-credentials
 
+  - it: "should skip empty names in imagePullSecrets"
+    set:
+      global:
+        imagePullSecrets:
+          - ""
+          - {}
+          - name: ""
+          - other: x
+          - name: real-secret
+    asserts:
+      - equal:
+          path: "spec.template.spec.imagePullSecrets"
+          value:
+            - name: real-secret
+
+  - it: "should omit imagePullSecrets when all names are empty"
+    set:
+      global:
+        imagePullSecrets:
+          - ""
+          - {}
+          - name: ""
+    asserts:
+      - notExists:
+          path: "spec.template.spec.imagePullSecrets"
+
   - it: "should render the global values on the init containers"
     set:
       global:
