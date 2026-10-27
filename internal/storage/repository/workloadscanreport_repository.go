@@ -84,14 +84,16 @@ func (r *WorkloadScanReportRepository) List(ctx context.Context, db Querier, nam
 		return nil, "", err
 	}
 
+	reports := make([]*storagev1alpha1.WorkloadScanReport, 0, len(objects))
 	for _, obj := range objects {
 		report, ok := obj.(*storagev1alpha1.WorkloadScanReport)
 		if !ok {
 			return nil, "", fmt.Errorf("expected WorkloadScanReport, got %T", obj)
 		}
-		if err := r.populateContainerResults(ctx, db, report); err != nil {
-			return nil, "", err
-		}
+		reports = append(reports, report)
+	}
+	if err := r.populateContainerResults(ctx, db, reports...); err != nil {
+		return nil, "", err
 	}
 
 	return objects, continueToken, nil
@@ -156,12 +158,20 @@ type imageRefQuery struct {
 }
 
 // populateContainerResults fetches images and vulnerability reports, then populates Status, Containers and Summary.
-func (r *WorkloadScanReportRepository) populateContainerResults(ctx context.Context, db Querier, report *storagev1alpha1.WorkloadScanReport) error {
-	if len(report.Spec.Containers) == 0 {
+func (r *WorkloadScanReportRepository) populateContainerResults(ctx context.Context, db Querier, reports ...*storagev1alpha1.WorkloadScanReport) error {
+	var containers []storagev1alpha1.ContainerRef
+	seen := sets.New[storagev1alpha1.ImageRef]()
+	for _, report := range reports {
+		for _, container := range report.Spec.Containers {
+			if !seen.Has(container.ImageRef) {
+				seen.Insert(container.ImageRef)
+				containers = append(containers, container)
+			}
+		}
+	}
+	if len(containers) == 0 {
 		return nil
 	}
-
-	containers := report.Spec.Containers
 
 	imageCounts, err := r.fetchImageCounts(ctx, db, containers)
 	if err != nil {
@@ -173,22 +183,24 @@ func (r *WorkloadScanReportRepository) populateContainerResults(ctx context.Cont
 		return fmt.Errorf("failed to fetch vulnerability reports: %w", err)
 	}
 
-	report.Status.ContainerStatuses = make([]storagev1alpha1.ContainerStatus, len(containers))
-	report.Containers = make([]storagev1alpha1.ContainerResult, len(containers))
-
-	for i, container := range containers {
-		ref := container.ImageRef
-		reports := vulnReports[ref]
-
-		report.Status.ContainerStatuses[i] = storagev1alpha1.ContainerStatus{
-			Name:       container.Name,
-			ScanStatus: r.computeScanStatus(imageCounts[ref], len(reports)),
+	for _, report := range reports {
+		if len(report.Spec.Containers) == 0 {
+			continue
 		}
+		report.Status.ContainerStatuses = make([]storagev1alpha1.ContainerStatus, len(report.Spec.Containers))
+		report.Containers = make([]storagev1alpha1.ContainerResult, len(report.Spec.Containers))
 
-		report.Containers[i] = r.buildContainerResult(container, reports)
+		for i, container := range report.Spec.Containers {
+			ref := container.ImageRef
+			matches := vulnReports[ref]
+			report.Status.ContainerStatuses[i] = storagev1alpha1.ContainerStatus{
+				Name:       container.Name,
+				ScanStatus: r.computeScanStatus(imageCounts[ref], len(matches)),
+			}
+			report.Containers[i] = r.buildContainerResult(container, matches)
+		}
+		r.calculateSummary(report)
 	}
-
-	r.calculateSummary(report)
 
 	return nil
 }
@@ -307,21 +319,30 @@ func (r *WorkloadScanReportRepository) fetchVulnerabilityReports(ctx context.Con
 	return result, nil
 }
 
-// buildImageRefConditions builds OR conditions for querying by ImageRef.
-// Works for both images and vulnerability_reports tables since both have
-// a namespace column and imageMetadata in the object JSONB.
+// buildImageRefConditions matches complete references, including their namespaces.
+// Each array holds one field. Entries at the same position form one image reference.
+// PostgreSQL's unnest combines the four arrays into rows for the lookup.
+// This uses four query parameters regardless of the number of references,
+// so large lists without pagination do not exceed PostgreSQL's parameter limit.
+// IN returns each matching row once, even if the input repeats a reference.
 func (r *WorkloadScanReportRepository) buildImageRefConditions(containers []storagev1alpha1.ContainerRef) []bob.Expression {
-	conditions := make([]bob.Expression, 0, len(containers))
+	namespaces := make([]string, 0, len(containers))
+	registries := make([]string, 0, len(containers))
+	repositories := make([]string, 0, len(containers))
+	tags := make([]string, 0, len(containers))
 	for _, c := range containers {
-		ref := c.ImageRef
-		conditions = append(conditions, psql.And(
-			psql.Quote("namespace").EQ(psql.Arg(ref.Namespace)),
-			psql.Raw("object->'imageMetadata'->>'registry' = ?", ref.Registry),
-			psql.Raw("object->'imageMetadata'->>'repository' = ?", ref.Repository),
-			psql.Raw("object->'imageMetadata'->>'tag' = ?", ref.Tag),
-		))
+		namespaces = append(namespaces, c.ImageRef.Namespace)
+		registries = append(registries, c.ImageRef.Registry)
+		repositories = append(repositories, c.ImageRef.Repository)
+		tags = append(tags, c.ImageRef.Tag)
 	}
-	return conditions
+	return []bob.Expression{psql.Raw(`
+		(namespace, object->'imageMetadata'->>'registry',
+		 object->'imageMetadata'->>'repository', object->'imageMetadata'->>'tag')
+		IN (SELECT refs.namespace, refs.registry, refs.repository, refs.tag
+		    FROM unnest(?::text[], ?::text[], ?::text[], ?::text[])
+		    AS refs(namespace, registry, repository, tag))`,
+		namespaces, registries, repositories, tags)}
 }
 
 // buildContainerResult builds a ContainerResult from a ContainerRef and its vulnerability reports.
@@ -335,7 +356,8 @@ func (r *WorkloadScanReportRepository) buildContainerResult(
 			Name:          vr.ObjectMeta.Name,
 			Namespace:     vr.ObjectMeta.Namespace,
 			ImageMetadata: vr.ImageMetadata,
-			Report:        vr.Report,
+			// Each result owns its nested slices and maps, even for shared references.
+			Report: *vr.Report.DeepCopy(),
 		})
 	}
 
