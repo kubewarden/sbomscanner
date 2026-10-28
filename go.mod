@@ -1,6 +1,6 @@
 module github.com/kubewarden/sbomscanner
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/aquasecurity/trivy v0.76.0
@@ -52,7 +52,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.25.2
 	sigs.k8s.io/e2e-framework v0.7.0
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2
-	sigs.k8s.io/structured-merge-diff/v7 v7.0.1
 )
 
 require (

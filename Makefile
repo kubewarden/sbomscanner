@@ -3,7 +3,7 @@ CONTROLLER_TOOLS_VERSION := v0.16.5
 ENVTEST_VERSION := release-0.24
 ENVTEST_K8S_VERSION := 1.33.0
 # renovate: datasource=go depName=github.com/vektra/mockery/v3
-MOCKERY_VERSION := v3.7.4
+MOCKERY_VERSION := v3.8.1
 # renovate: datasource=go depName=github.com/losisin/helm-values-schema-json/v2
 HELM_VALUES_SCHEMA_JSON_VERSION := v2.3.1
 
