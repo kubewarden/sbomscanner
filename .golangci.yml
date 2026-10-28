@@ -263,7 +263,7 @@ linters:
       # Default: [ switch ]
       check:
         - switch
-        - map
+        - mapliteral
 
     exhaustruct:
       # List of regular expressions to match type names that should be excluded from processing.
@@ -468,6 +468,14 @@ linters:
       # Enable/disable `os.TempDir()` detections.
       # Default: false
       os-temp-dir: true
+
+    wrapcheck:
+      # Additional substrings of signatures to ignore, on top of the defaults.
+      # Kubernetes API status-error constructors (NewInvalid, NewForbidden,
+      # NewNotFound, NewInternalError, ...) build typed errors that must be
+      # returned as-is, so the API server can map them to the right status.
+      extra-ignore-sigs:
+        - k8s.io/apimachinery/pkg/api/errors.New
 
   exclusions:
     # Log a warning if an exclusion rule is unused.
