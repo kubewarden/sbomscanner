@@ -85,8 +85,8 @@ global:
   #   registry: ""
   #   pullSecretNames: []
 
-# Deprecated: use global.otel or the otel key of a workload block.
-# A later release removes this block.
+# Telemetry export configuration for this chart.
+# The controller, storage, worker, and workerNode workloads export telemetry. MCP does not.
 # When a key is set here, it wins over the workload otel and global.otel.
 otel:
   # OTLP gRPC endpoint to export telemetry to, e.g. https://otel-collector:4317.

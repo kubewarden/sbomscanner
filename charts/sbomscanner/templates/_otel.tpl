@@ -1,8 +1,8 @@
 {{/*
 OTel exporter wiring for the instrumented workloads.
 The helpers take the workload context dict (root, workload, component) and
-read the telemetry configuration from the deprecated top-level otel block
-first, then the workload otel block, then common.otel, then global.otel.
+read the telemetry configuration from the top-level otel block first,
+then the workload otel block, then common.otel, then global.otel.
 An empty value counts as unset.
 All templates render nothing when the resolved endpoint is empty.
 The TLS environment variables point at the mounts rendered by
@@ -18,10 +18,10 @@ caSecretName, and clientCertificateSecretName.
 {{- $global := ($values.global | default dict).otel | default dict -}}
 {{- $common := ($values.common | default dict).otel | default dict -}}
 {{- $workload := (index $values .workload | default dict).otel | default dict -}}
-{{- $legacy := $values.otel | default dict -}}
+{{- $chart := $values.otel | default dict -}}
 {{- $out := dict -}}
 {{- range $key := list "endpoint" "caSecretName" "clientCertificateSecretName" -}}
-{{- $_ := set $out $key (index $legacy $key | default (index $workload $key) | default (index $common $key) | default (index $global $key) | default "") -}}
+{{- $_ := set $out $key (index $chart $key | default (index $workload $key) | default (index $common $key) | default (index $global $key) | default "") -}}
 {{- end -}}
 {{- toYaml $out -}}
 {{- end -}}

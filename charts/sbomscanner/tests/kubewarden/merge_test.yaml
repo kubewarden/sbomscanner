@@ -196,10 +196,10 @@ tests:
             secret:
               secretName: common-client
 
-  - it: "should prefer the deprecated top-level otel over the workload otel"
+  - it: "should prefer the top-level otel over the workload otel"
     set:
       otel:
-        endpoint: "http://legacy:4317"
+        endpoint: "http://chart:4317"
       controller:
         otel:
           endpoint: "http://workload:4317"
@@ -208,7 +208,7 @@ tests:
           path: "spec.template.spec.containers[0].env"
           content:
             name: OTEL_EXPORTER_OTLP_ENDPOINT
-            value: "http://legacy:4317"
+            value: "http://chart:4317"
 
   - it: "should prefer global.imageRegistry over the workload imageRegistry"
     set:
