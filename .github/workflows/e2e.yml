@@ -23,6 +23,10 @@ jobs:
           go-version-file: "go.mod"
       - name: Run e2e tests
         run: make test-e2e
+        env:
+          # Trivy uses this token to download the VEX repositories from GitHub.
+          # Without a token, GitHub allows 60 requests per hour, and the scans time out.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload cluster logs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
