@@ -10,6 +10,7 @@ const (
 )
 
 // WorkloadScanConfigurationSpec defines the desired configuration for workload scanning.
+// +kubebuilder:validation:XValidation:rule="!(has(self.caBundle) && has(self.caBundleRef))",message="caBundle and caBundleRef are mutually exclusive"
 type WorkloadScanConfigurationSpec struct {
 	// Enabled controls whether workload scanning is active.
 	// +kubebuilder:default=true
@@ -41,9 +42,15 @@ type WorkloadScanConfigurationSpec struct {
 	// +optional
 	AuthSecret string `json:"authSecret,omitempty"`
 
-	// CABundle is the CA bundle to use when connecting to registries.
+	// CABundle is a PEM-encoded CA bundle to use when connecting to registries.
+	// Prefer CABundleRef, which avoids copying the bundle into every managed Registry. Mutually exclusive with CABundleRef.
 	// +optional
 	CABundle string `json:"caBundle,omitempty"`
+
+	// CABundleRef references a ConfigMap or Secret key in the installation namespace containing a PEM-encoded CA bundle
+	// to use when connecting to registries. Mutually exclusive with CABundle.
+	// +optional
+	CABundleRef *CABundleSource `json:"caBundleRef,omitempty"`
 
 	// Insecure allows insecure connections to registries when set to true.
 	// +optional

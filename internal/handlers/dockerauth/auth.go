@@ -11,7 +11,6 @@ import (
 	"github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/kubewarden/sbomscanner/api"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -24,7 +23,7 @@ import (
 // instead of the registry's namespace.
 func BuildDockerConfigForRegistry(ctx context.Context, k8sClient client.Client, registry *v1alpha1.Registry, installationNamespace string) (string, error) {
 	secretNamespace := registry.Namespace
-	if registry.Labels[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue {
+	if registry.IsWorkloadScanManaged() {
 		secretNamespace = installationNamespace
 	}
 

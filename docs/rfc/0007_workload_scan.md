@@ -90,10 +90,17 @@ spec:
   # credentials to access the registry in dockerconfigjson format.
   # See: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
   authSecret: registry-credentials
-  caBundle: |
-    -----BEGIN CERTIFICATE-----
-    ...
-    -----END CERTIFICATE-----
+  # CA bundle to trust when connecting to registries. Reference a key of a ConfigMap
+  # or Secret in the SBOMScanner installation namespace (e.g. a trust-manager Bundle target).
+  caBundleRef:
+    configMap:
+      name: trust-bundle
+      key: ca.crt
+  # Alternatively, the PEM bundle can be provided inline. Mutually exclusive with caBundleRef.
+  # caBundle: |
+  #   -----BEGIN CERTIFICATE-----
+  #   ...
+  #   -----END CERTIFICATE-----
   insecure: false
   # Platforms to scan. If not specified, all platforms available in the image manifest are scanned.
   platforms:
@@ -108,6 +115,8 @@ The `namespaceSelector` field uses standard Kubernetes label selectors. When spe
 The `artifactsNamespace` field allows centralizing scan artifacts in a single namespace. If not specified, resources are created in the workload's namespace, which is the preferred approach for multi-tenant clusters where scan data should be isolated per namespace. This field can only be changed when `enabled` is `false`.
 
 The `authSecret` field references a secret containing registry credentials. This secret must exist in the SBOMScanner installation namespace and use the `kubernetes.io/dockerconfigjson` format. See [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/) for details on creating this secret.
+
+The `caBundleRef` field references a key of a ConfigMap or Secret in the SBOMScanner installation namespace containing a PEM-encoded CA bundle to trust when connecting to registries. The key defaults to `ca.crt`. This is the recommended way to provide a CA bundle, and it integrates with tools such as [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) that distribute trust bundles as ConfigMaps. The bundle is read by the workers at scan time, so rotating the referenced object does not require updating the configuration. The `caBundle` field allows providing the PEM bundle inline instead; the two fields are mutually exclusive, and only the reference is copied into the managed `Registry` resources when `caBundleRef` is used.
 
 The `platforms` field specifies which platforms to scan for container images. This is useful for multi-arch clusters where nodes run different architectures. When multiple platforms are specified, SBOMScanner will scan each platform variant of the image and produce separate `VulnerabilityReport` resources for each. If not specified, all platforms available in the image manifest are scanned.
 
