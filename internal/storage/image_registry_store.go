@@ -35,6 +35,13 @@ CREATE TABLE IF NOT EXISTS images (
 
 ALTER TABLE images ADD COLUMN IF NOT EXISTS id BIGSERIAL;
 CREATE INDEX IF NOT EXISTS idx_images_id ON images(id);
+CREATE INDEX IF NOT EXISTS idx_images_namespace_imageref
+    ON images (
+        namespace,
+        (object->'imageMetadata'->>'registry'),
+        (object->'imageMetadata'->>'repository'),
+        (object->'imageMetadata'->>'tag')
+    );
 `
 
 // NewImageStore returns a store registry that will work against API services.

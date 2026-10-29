@@ -2,10 +2,13 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/storage/names"
+
+	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 )
 
 func newImageStrategy(typer runtime.ObjectTyper) imageStrategy {
@@ -27,8 +30,14 @@ func (imageStrategy) PrepareForCreate(_ context.Context, _ runtime.Object) {
 func (imageStrategy) PrepareForUpdate(_ context.Context, _, _ runtime.Object) {
 }
 
-func (imageStrategy) Validate(_ context.Context, _ runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+func (imageStrategy) Validate(_ context.Context, obj runtime.Object) field.ErrorList {
+	image, ok := obj.(*storagev1alpha1.Image)
+	if !ok {
+		return field.ErrorList{
+			field.InternalError(field.NewPath(""), fmt.Errorf("expected Image, got %T", obj)),
+		}
+	}
+	return validateImageMetadata(image.ImageMetadata)
 }
 
 // WarningsOnCreate returns warnings for the creation of the given object.
@@ -47,8 +56,8 @@ func (imageStrategy) AllowUnconditionalUpdate(_ context.Context) bool {
 func (imageStrategy) Canonicalize(_ runtime.Object) {
 }
 
-func (imageStrategy) ValidateUpdate(_ context.Context, _, _ runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+func (s imageStrategy) ValidateUpdate(ctx context.Context, obj, _ runtime.Object) field.ErrorList {
+	return s.Validate(ctx, obj)
 }
 
 // WarningsOnUpdate returns warnings for the given update.

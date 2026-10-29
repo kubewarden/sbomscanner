@@ -16,6 +16,12 @@ import (
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 )
 
+type workloadQueryCounter struct {
+	Querier
+
+	queries int
+}
+
 type workloadScanReportRepositoryTestSuite struct {
 	suite.Suite
 
@@ -24,6 +30,11 @@ type workloadScanReportRepositoryTestSuite struct {
 	repo           *WorkloadScanReportRepository
 	imageRepo      *GenericObjectRepository
 	vulnReportRepo *GenericObjectRepository
+}
+
+func (q *workloadQueryCounter) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	q.queries++
+	return q.Querier.Query(ctx, sql, args...)
 }
 
 func TestWorkloadScanReportRepositoryTestSuite(t *testing.T) {
@@ -484,6 +495,55 @@ func (suite *workloadScanReportRepositoryTestSuite) TestList() {
 	suite.Require().NoError(err)
 	suite.Len(items, 1)
 	suite.Empty(continueToken)
+}
+
+func (suite *workloadScanReportRepositoryTestSuite) TestListBatchesSharedImageLookups() {
+	ctx := context.Background()
+	ref := storagev1alpha1.ImageRef{
+		Namespace: "default", Registry: "registry", Repository: "app", Tag: "v1",
+	}
+	image := &storagev1alpha1.Image{
+		Name: "image", Namespace: ref.Namespace, Registry: ref.Registry,
+		Repository: ref.Repository, Tag: ref.Tag,
+	}
+	vulnReport := &storagev1alpha1.VulnerabilityReport{
+		Name: "vuln", Namespace: ref.Namespace,
+		ImageMetadata: storagev1alpha1.ImageMetadata{Registry: ref.Registry, Repository: ref.Repository, Tag: ref.Tag},
+		Report: storagev1alpha1.Report{Results: []storagev1alpha1.Result{{
+			Vulnerabilities: []storagev1alpha1.Vulnerability{{CVE: "CVE-test", Severity: storagev1alpha1.SeverityCritical}},
+		}}},
+	}
+	suite.Require().NoError(suite.runInTx(ctx, func(tx pgx.Tx) error {
+		if err := suite.imageRepo.Create(ctx, tx, image); err != nil {
+			return err
+		}
+		return suite.vulnReportRepo.Create(ctx, tx, vulnReport)
+	}))
+
+	var expected []runtime.Object
+	for _, name := range []string{"first", "second"} {
+		report := testWorkloadScanReportFactory(name, "default", []storagev1alpha1.ContainerRef{{Name: "app", ImageRef: ref}})
+		suite.Require().NoError(suite.runInTx(ctx, func(tx pgx.Tx) error { return suite.repo.Create(ctx, tx, report) }))
+		obj, err := suite.repo.Get(ctx, suite.db, name, "default")
+		suite.Require().NoError(err)
+		expected = append(expected, obj)
+	}
+
+	counter := &workloadQueryCounter{Querier: suite.db}
+	items, token, err := suite.repo.List(ctx, counter, "default", storage.ListOptions{})
+	suite.Require().NoError(err)
+	suite.Equal(3, counter.queries, "one list query and two shared lookups, not two lookups per report")
+	suite.Empty(token)
+	suite.Require().Len(items, 2)
+	suite.Equal(expected, items, "LIST must return the same data as individual GETs")
+	for _, item := range items {
+		report := item.(*storagev1alpha1.WorkloadScanReport)
+		suite.Require().Len(report.Status.ContainerStatuses, 1)
+		suite.Equal(storagev1alpha1.ScanStatusScanComplete, report.Status.ContainerStatuses[0].ScanStatus)
+		suite.Require().Len(report.Containers, 1)
+		suite.Require().Len(report.Containers[0].VulnerabilityReports, 1)
+		suite.Equal(vulnReport.Report, report.Containers[0].VulnerabilityReports[0].Report)
+	}
 }
 
 func (suite *workloadScanReportRepositoryTestSuite) TestFindByImageRef() {
