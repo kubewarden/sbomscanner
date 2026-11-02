@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,11 +18,14 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/webhook"
 )
 
-func SetupScanJobWebhookWithManager(mgr ctrl.Manager, instrumentation *webhook.Instrumentation) error {
+// SetupScanJobWebhookWithManager registers the webhook for ScanJob in the manager.
+func SetupScanJobWebhookWithManager(mgr ctrl.Manager, serviceAccountNamespace, serviceAccountName string, instrumentation *webhook.Instrumentation) error {
 	err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.ScanJob{}).
 		WithValidator(webhook.InstrumentValidator(instrumentation, "ScanJob", &ScanJobCustomValidator{
-			client: mgr.GetAPIReader(),
-			logger: mgr.GetLogger().WithName("scanjob_validator"),
+			client:                  mgr.GetAPIReader(),
+			serviceAccountNamespace: serviceAccountNamespace,
+			serviceAccountName:      serviceAccountName,
+			logger:                  mgr.GetLogger().WithName("scanjob_validator"),
 		})).
 		WithDefaulter(webhook.InstrumentDefaulterWithTraceparent(instrumentation, "ScanJob", &ScanJobCustomDefaulter{
 			logger: mgr.GetLogger().WithName("scanjob_defaulter"),
@@ -58,8 +62,10 @@ func (d *ScanJobCustomDefaulter) Default(_ context.Context, scanJob *v1alpha1.Sc
 // +kubebuilder:webhook:path=/validate-sbomscanner-kubewarden-io-v1alpha1-scanjob,mutating=false,failurePolicy=fail,sideEffects=None,groups=sbomscanner.kubewarden.io,resources=scanjobs,verbs=create;update,versions=v1alpha1,name=vscanjob.sbomscanner.kubewarden.io,admissionReviewVersions=v1
 
 type ScanJobCustomValidator struct {
-	client client.Reader
-	logger logr.Logger
+	client                  client.Reader
+	serviceAccountNamespace string
+	serviceAccountName      string
+	logger                  logr.Logger
 }
 
 var _ admission.Validator[*v1alpha1.ScanJob] = &ScanJobCustomValidator{}
@@ -67,6 +73,12 @@ var _ admission.Validator[*v1alpha1.ScanJob] = &ScanJobCustomValidator{}
 // ValidateCreate validates the object on creation.
 func (v *ScanJobCustomValidator) ValidateCreate(ctx context.Context, scanJob *v1alpha1.ScanJob) (admission.Warnings, error) {
 	v.logger.Info("Validation for ScanJob upon creation", "name", scanJob.GetName())
+
+	if _, ok := scanJob.GetAnnotations()[v1alpha1.AnnotationScanJobRegistryKey]; ok {
+		if err := v.validateRegistrySnapshotWriter(ctx, scanJob); err != nil {
+			return nil, err
+		}
+	}
 
 	var allErrs field.ErrorList
 
@@ -112,8 +124,16 @@ func (v *ScanJobCustomValidator) ValidateCreate(ctx context.Context, scanJob *v1
 }
 
 // ValidateUpdate validates the object on update.
-func (v *ScanJobCustomValidator) ValidateUpdate(_ context.Context, oldJob, newJob *v1alpha1.ScanJob) (admission.Warnings, error) {
+func (v *ScanJobCustomValidator) ValidateUpdate(ctx context.Context, oldJob, newJob *v1alpha1.ScanJob) (admission.Warnings, error) {
 	v.logger.Info("Validation for ScanJob upon update", "name", newJob.GetName())
+
+	oldSnapshot, oldHasSnapshot := oldJob.GetAnnotations()[v1alpha1.AnnotationScanJobRegistryKey]
+	newSnapshot, newHasSnapshot := newJob.GetAnnotations()[v1alpha1.AnnotationScanJobRegistryKey]
+	if oldHasSnapshot != newHasSnapshot || oldSnapshot != newSnapshot {
+		if err := v.validateRegistrySnapshotWriter(ctx, newJob); err != nil {
+			return nil, err
+		}
+	}
 
 	var allErrs field.ErrorList
 	if oldJob.Spec.Registry != newJob.Spec.Registry {
@@ -140,4 +160,27 @@ func (v *ScanJobCustomValidator) ValidateUpdate(_ context.Context, oldJob, newJo
 func (v *ScanJobCustomValidator) ValidateDelete(_ context.Context, scanJob *v1alpha1.ScanJob) (admission.Warnings, error) {
 	v.logger.Info("Validation for ScanJob upon deletion", "name", scanJob.GetName())
 	return nil, nil
+}
+
+// validateRegistrySnapshotWriter ensures that only the designated service account
+// can set or change the Registry snapshot annotation of a ScanJob.
+// The worker reads the Registry from this annotation, including the namespace and the labels
+// that decide where it looks up the auth secret and the CA bundle.
+// A snapshot written by another user could make the worker read objects in other namespaces.
+func (v *ScanJobCustomValidator) validateRegistrySnapshotWriter(ctx context.Context, scanJob *v1alpha1.ScanJob) error {
+	request, err := admission.RequestFromContext(ctx)
+	if err != nil {
+		return apierrors.NewInternalError(errors.New("unable to retrieve admission request from context"))
+	}
+
+	allowedUsername := fmt.Sprintf("system:serviceaccount:%s:%s", v.serviceAccountNamespace, v.serviceAccountName)
+	if request.UserInfo.Username != allowedUsername {
+		return apierrors.NewForbidden(
+			v1alpha1.GroupVersion.WithResource("scanjobs").GroupResource(),
+			scanJob.Name,
+			fmt.Errorf("only the designated service account can set the %s annotation", v1alpha1.AnnotationScanJobRegistryKey),
+		)
+	}
+
+	return nil
 }

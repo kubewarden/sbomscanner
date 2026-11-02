@@ -129,13 +129,9 @@ func (h *CreateCatalogHandler) Handle(ctx context.Context, message messaging.Mes
 	}
 
 	// Retrieve the registry from the scan job annotations.
-	registryData, ok := scanJob.Annotations[v1alpha1.AnnotationScanJobRegistryKey]
-	if !ok {
-		return fmt.Errorf("scan job %s/%s does not have a registry annotation", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name)
-	}
-	registry := &v1alpha1.Registry{}
-	if err = json.Unmarshal([]byte(registryData), registry); err != nil {
-		return fmt.Errorf("cannot unmarshal registry data from scan job %s/%s: %w", createCatalogMessage.ScanJob.Namespace, createCatalogMessage.ScanJob.Name, err)
+	registry, err := registryFromScanJob(scanJob)
+	if err != nil {
+		return err
 	}
 	h.logger.DebugContext(ctx, "Registry found", "registry", registry.Name, "namespace", registry.Namespace)
 

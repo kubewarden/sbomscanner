@@ -59,8 +59,6 @@ func NewGenerateSBOMHandler(
 }
 
 // Handle processes the GenerateSBOMMessage and generates a SBOM resource from the specified image.
-//
-//nolint:funlen
 func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
 	generateSBOMMessage := &GenerateSBOMMessage{}
 	if err := json.Unmarshal(message.Data(), generateSBOMMessage); err != nil {
@@ -120,13 +118,9 @@ func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	h.logger.DebugContext(ctx, "Image found", "image", image)
 
 	// Retrieve the registry from the scan job annotations.
-	registryData, ok := scanJob.Annotations[v1alpha1.AnnotationScanJobRegistryKey]
-	if !ok {
-		return fmt.Errorf("scan job %s/%s does not have a registry annotation", scanJob.Namespace, scanJob.Name)
-	}
-	registry := &v1alpha1.Registry{}
-	if err = json.Unmarshal([]byte(registryData), registry); err != nil {
-		return fmt.Errorf("cannot unmarshal registry data from scan job %s/%s: %w", scanJob.Namespace, scanJob.Name, err)
+	registry, err := registryFromScanJob(scanJob)
+	if err != nil {
+		return err
 	}
 
 	sbom, err := h.getOrGenerateSBOM(ctx, image, registry, generateSBOMMessage)
