@@ -98,6 +98,9 @@ func (v *RegistryCustomValidator) ValidateUpdate(ctx context.Context, oldRegistr
 	if err := v.validatedManagedRegistry(ctx, oldRegistry); err != nil {
 		return nil, err
 	}
+	if err := v.validatedManagedRegistry(ctx, registry); err != nil {
+		return nil, err
+	}
 
 	allErrs := validateRegistry(registry)
 
@@ -124,6 +127,9 @@ func (v *RegistryCustomValidator) ValidateDelete(ctx context.Context, registry *
 }
 
 // validatedManagedRegistry ensures that only the designated service account can modify managed Registry resources.
+// On update, the check runs on both the old and the new object,
+// so other users cannot add the managed-by label to an existing Registry.
+// The worker relies on this rule before it reads objects in the installation namespace.
 func (v *RegistryCustomValidator) validatedManagedRegistry(ctx context.Context, registry *v1alpha1.Registry) error {
 	managedLabel := registry.GetLabels()[api.LabelManagedByKey]
 	if managedLabel != api.LabelManagedByValue {

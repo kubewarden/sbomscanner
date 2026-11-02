@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -443,6 +444,78 @@ func TestRegistryCustomValidator_ManagedResourceUpdate(t *testing.T) {
 			if test.expectForbidden {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "forbidden")
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Empty(t, warnings)
+		})
+	}
+}
+
+func TestRegistryCustomValidator_ManagedLabelAddedOnUpdate(t *testing.T) {
+	oldRegistry := &v1alpha1.Registry{
+		Name:      "test-registry",
+		Namespace: "default",
+		Spec: v1alpha1.RegistrySpec{
+			URI: "registry.test.local",
+		},
+	}
+
+	tests := []struct {
+		name            string
+		labels          map[string]string
+		username        string
+		expectForbidden bool
+	}{
+		{
+			name:            "should deny adding the managed-by label by other user",
+			labels:          map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
+			username:        "system:serviceaccount:default:other-sa",
+			expectForbidden: true,
+		},
+		{
+			name:            "should allow adding the managed-by label by allowed service account",
+			labels:          map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
+			username:        "system:serviceaccount:sbomscanner:sbomscanner-controller",
+			expectForbidden: false,
+		},
+		{
+			name:            "should allow adding only the workloadscan label by other user",
+			labels:          map[string]string{api.LabelWorkloadScanKey: api.LabelWorkloadScanValue},
+			username:        "system:serviceaccount:default:other-sa",
+			expectForbidden: false,
+		},
+		{
+			name:            "should allow an update without labels by other user",
+			labels:          nil,
+			username:        "system:serviceaccount:default:other-sa",
+			expectForbidden: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			validator := &RegistryCustomValidator{
+				serviceAccountNamespace: "sbomscanner",
+				serviceAccountName:      "sbomscanner-controller",
+				logger:                  logr.Discard(),
+			}
+
+			newRegistry := oldRegistry.DeepCopy()
+			newRegistry.Labels = test.labels
+
+			ctx := admission.NewContextWithRequest(t.Context(), admission.Request{
+				UserInfo: authenticationv1.UserInfo{
+					Username: test.username,
+				},
+			})
+
+			warnings, err := validator.ValidateUpdate(ctx, oldRegistry, newRegistry)
+
+			if test.expectForbidden {
+				require.Error(t, err)
+				assert.True(t, apierrors.IsForbidden(err), "expected a forbidden error, got: %v", err)
 			} else {
 				require.NoError(t, err)
 			}
