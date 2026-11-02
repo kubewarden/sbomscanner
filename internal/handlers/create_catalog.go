@@ -422,8 +422,7 @@ func (h *CreateCatalogHandler) discoverImages(
 
 // workloadRepositoryReferences resolves the exact references emitted by the workload controller.
 func workloadRepositoryReferences(registry *v1alpha1.Registry, repo name.Repository) ([]string, bool, error) {
-	if registry.Labels[api.LabelManagedByKey] != api.LabelManagedByValue ||
-		registry.Labels[api.LabelWorkloadScanKey] != api.LabelWorkloadScanValue {
+	if !registry.IsManagedByWorkloadScan() {
 		return nil, false, nil
 	}
 	repository := registry.GetRepository(repo.RepositoryStr())

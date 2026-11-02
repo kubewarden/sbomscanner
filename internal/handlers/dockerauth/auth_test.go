@@ -56,6 +56,7 @@ func TestBuildDockerConfigForRegistry(t *testing.T) {
 				Name:      "workloadscan-ghcr-io",
 				Namespace: "artifacts-ns",
 				Labels: map[string]string{
+					api.LabelManagedByKey:    api.LabelManagedByValue,
 					api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
 				},
 				Spec: v1alpha1.RegistrySpec{
@@ -72,6 +73,30 @@ func TestBuildDockerConfigForRegistry(t *testing.T) {
 				},
 			},
 			installationNamespace: "sbomscanner",
+		},
+		{
+			name: "workloadscan label without managed-by uses the registry namespace",
+			registry: &v1alpha1.Registry{
+				Name:      "tenant-registry",
+				Namespace: "artifacts-ns",
+				Labels: map[string]string{
+					api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
+				},
+				Spec: v1alpha1.RegistrySpec{
+					URI:        "ghcr.io",
+					AuthSecret: "my-secret",
+				},
+			},
+			secret: &corev1.Secret{
+				Name:      "my-secret",
+				Namespace: "sbomscanner",
+				Type:      corev1.SecretTypeDockerConfigJson,
+				Data: map[string][]byte{
+					corev1.DockerConfigJsonKey: dockerConfigJSON(t, "ghcr.io", "user", "pass"),
+				},
+			},
+			installationNamespace: "sbomscanner",
+			expectedError:         "cannot get Secret my-secret",
 		},
 		{
 			name: "secret not found",

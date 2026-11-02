@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
+	"github.com/kubewarden/sbomscanner/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -167,6 +168,13 @@ type Registry struct {
 // IsPrivate returns true when the registry requires authentication.
 func (r *Registry) IsPrivate() bool {
 	return r.Spec.AuthSecret != ""
+}
+
+// IsManagedByWorkloadScan returns true when the registry carries both the managed-by and the workloadscan labels.
+// Only the controller can set the managed-by label; the Registry webhook enforces this.
+func (r *Registry) IsManagedByWorkloadScan() bool {
+	return r.Labels[api.LabelManagedByKey] == api.LabelManagedByValue &&
+		r.Labels[api.LabelWorkloadScanKey] == api.LabelWorkloadScanValue
 }
 
 // RescanRequest is the JSON payload of a rescan-requested annotation on a Registry.
