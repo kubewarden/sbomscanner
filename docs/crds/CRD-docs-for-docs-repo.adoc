@@ -531,7 +531,8 @@ If not set, automatic scanning is disabled. +
 | *`caBundle`* __string__
 | CABundle is a PEM-encoded CA bundle to use when connecting to the registry. +
 If the value does not contain a valid PEM-encoded certificate, the scan fails. +
-Prefer CABundleRef, which avoids storing the bundle in the resource. Mutually exclusive with CABundleRef. +
+This field is deprecated and will be removed in the following versions. Use CABundleRef instead, +
+which avoids storing the bundle in the resource. Mutually exclusive with CABundleRef. +
 | 
 |
 | *`caBundleRef`* __xref:{anchor_prefix}-github-com-kubewarden-sbomscanner-api-v1alpha1-cabundlesource[$$CABundleSource$$]__
@@ -1010,7 +1011,8 @@ Optional +
 | *`caBundle`* __string__
 | CABundle is a PEM-encoded CA bundle to use when connecting to registries. +
 If the value does not contain a valid PEM-encoded certificate, the scan fails. +
-Prefer CABundleRef, which avoids copying the bundle into every managed Registry. Mutually exclusive with CABundleRef. +
+This field is deprecated and will be removed in the following versions. Use CABundleRef instead, +
+which avoids copying the bundle into every managed Registry. Mutually exclusive with CABundleRef. +
 | 
 |
 Optional +

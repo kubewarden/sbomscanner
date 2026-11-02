@@ -44,7 +44,8 @@ type WorkloadScanConfigurationSpec struct {
 
 	// CABundle is a PEM-encoded CA bundle to use when connecting to registries.
 	// If the value does not contain a valid PEM-encoded certificate, the scan fails.
-	// Prefer CABundleRef, which avoids copying the bundle into every managed Registry. Mutually exclusive with CABundleRef.
+	// This field is deprecated and will be removed in the following versions. Use CABundleRef instead,
+	// which avoids copying the bundle into every managed Registry. Mutually exclusive with CABundleRef.
 	// +optional
 	CABundle string `json:"caBundle,omitempty"`
 

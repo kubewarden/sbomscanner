@@ -74,3 +74,14 @@ func Test_validatePlatform(t *testing.T) {
 		})
 	}
 }
+
+func Test_caBundleWarnings(t *testing.T) {
+	if got := caBundleWarnings(""); got != nil {
+		t.Errorf("caBundleWarnings(\"\") = %v, want no warnings", got)
+	}
+
+	got := caBundleWarnings("-----BEGIN CERTIFICATE-----")
+	if len(got) != 1 || got[0] != caBundleDeprecationWarning {
+		t.Errorf("caBundleWarnings() = %v, want [%q]", got, caBundleDeprecationWarning)
+	}
+}

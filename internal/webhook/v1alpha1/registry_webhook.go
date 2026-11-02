@@ -88,7 +88,7 @@ func (v *RegistryCustomValidator) ValidateCreate(ctx context.Context, registry *
 		)
 	}
 
-	return nil, nil
+	return v.registryWarnings(ctx, registry), nil
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for the type Registry.
@@ -112,7 +112,7 @@ func (v *RegistryCustomValidator) ValidateUpdate(ctx context.Context, oldRegistr
 		)
 	}
 
-	return nil, nil
+	return v.registryWarnings(ctx, registry), nil
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for the type Registry.
@@ -141,8 +141,7 @@ func (v *RegistryCustomValidator) validatedManagedRegistry(ctx context.Context, 
 		return apierrors.NewInternalError(errors.New("unable to retrieve admission request from context"))
 	}
 
-	allowedUsername := fmt.Sprintf("system:serviceaccount:%s:%s", v.serviceAccountNamespace, v.serviceAccountName)
-	if request.UserInfo.Username != allowedUsername {
+	if request.UserInfo.Username != v.allowedUsername() {
 		return apierrors.NewForbidden(
 			v1alpha1.GroupVersion.WithResource("registries").GroupResource(),
 			registry.Name,
@@ -151,6 +150,24 @@ func (v *RegistryCustomValidator) validatedManagedRegistry(ctx context.Context, 
 	}
 
 	return nil
+}
+
+// allowedUsername returns the username of the designated service account.
+func (v *RegistryCustomValidator) allowedUsername() string {
+	return fmt.Sprintf("system:serviceaccount:%s:%s", v.serviceAccountNamespace, v.serviceAccountName)
+}
+
+// registryWarnings returns the admission warnings for a Registry.
+// The controller copies spec.caBundle from the WorkloadScanConfiguration into the Registries it manages,
+// and the user already sees the warning on the WorkloadScanConfiguration.
+// So the warning is skipped when the designated service account makes the request.
+func (v *RegistryCustomValidator) registryWarnings(ctx context.Context, registry *v1alpha1.Registry) admission.Warnings {
+	request, err := admission.RequestFromContext(ctx)
+	if err == nil && request.UserInfo.Username == v.allowedUsername() {
+		return nil
+	}
+
+	return caBundleWarnings(registry.Spec.CABundle)
 }
 
 func validateRegistry(registry *v1alpha1.Registry) field.ErrorList {

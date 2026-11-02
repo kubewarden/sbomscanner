@@ -61,7 +61,8 @@ type RegistrySpec struct {
 	ScanInterval *metav1.Duration `json:"scanInterval,omitempty"`
 	// CABundle is a PEM-encoded CA bundle to use when connecting to the registry.
 	// If the value does not contain a valid PEM-encoded certificate, the scan fails.
-	// Prefer CABundleRef, which avoids storing the bundle in the resource. Mutually exclusive with CABundleRef.
+	// This field is deprecated and will be removed in the following versions. Use CABundleRef instead,
+	// which avoids storing the bundle in the resource. Mutually exclusive with CABundleRef.
 	CABundle string `json:"caBundle,omitempty"`
 	// CABundleRef references a ConfigMap or Secret key containing a PEM-encoded CA bundle to use when connecting to the registry.
 	// The object is looked up in the Registry namespace, or in the installation namespace for workloadscan-managed registries.
