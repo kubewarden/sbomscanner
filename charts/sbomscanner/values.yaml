@@ -107,7 +107,7 @@ otel:
 controller:
   image:
     repository: kubewarden/sbomscanner/controller
-    tag: v0.13.0
+    tag: v1.0.0-alpha.1
   # Registry for the images of this workload.
   # global.imageRegistry replaces it when set.
   imageRegistry: ghcr.io
@@ -149,7 +149,7 @@ controller:
 storage:
   image:
     repository: kubewarden/sbomscanner/storage
-    tag: v0.13.0
+    tag: v1.0.0-alpha.1
   # Registry for the images of this workload.
   # global.imageRegistry replaces it when set.
   imageRegistry: ghcr.io
@@ -244,7 +244,7 @@ worker:
   # The workerNode DaemonSet also uses this image.
   image:
     repository: kubewarden/sbomscanner/worker
-    tag: v0.13.0
+    tag: v1.0.0-alpha.1
   # Registry for the images of this workload.
   # global.imageRegistry replaces it when set.
   imageRegistry: ghcr.io
@@ -312,7 +312,7 @@ mcp:
   enabled: false
   image:
     repository: kubewarden/sbomscanner/mcp
-    tag: v0.13.0
+    tag: v1.0.0-alpha.1
   # Registry for the images of this workload.
   # global.imageRegistry replaces it when set.
   imageRegistry: ghcr.io
