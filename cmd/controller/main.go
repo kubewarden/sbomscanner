@@ -330,7 +330,7 @@ func run(cfg Config) error {
 		return fmt.Errorf("creating Registry webhook: %w", err)
 	}
 
-	if err = webhookv1alpha1.SetupScanJobWebhookWithManager(mgr, webhookInstrumentation); err != nil {
+	if err = webhookv1alpha1.SetupScanJobWebhookWithManager(mgr, cfg.ServiceAccountNamespace, cfg.ServiceAccountName, webhookInstrumentation); err != nil {
 		return fmt.Errorf("creating ScanJob webhook: %w", err)
 	}
 

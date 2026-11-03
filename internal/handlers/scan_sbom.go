@@ -89,14 +89,9 @@ func (h *ScanSBOMHandler) Handle(ctx context.Context, message messaging.Message)
 		return nil
 	}
 
-	registryData, ok := scanJob.Annotations[v1alpha1.AnnotationScanJobRegistryKey]
-	if !ok {
-		return fmt.Errorf("scan job %s/%s does not have a registry annotation", scanJobNamespace, scanJobName)
-	}
-
-	registry := &v1alpha1.Registry{}
-	if err := json.Unmarshal([]byte(registryData), registry); err != nil {
-		return fmt.Errorf("cannot unmarshal registry data from scan job %s/%s: %w", scanJobNamespace, scanJobName, err)
+	registry, err := registryFromScanJob(scanJob)
+	if err != nil {
+		return err
 	}
 
 	sbom := &storagev1alpha1.SBOM{}

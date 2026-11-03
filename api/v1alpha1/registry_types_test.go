@@ -6,7 +6,48 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubewarden/sbomscanner/api"
 )
+
+func TestRegistry_IsManagedByWorkloadScan(t *testing.T) {
+	tests := []struct {
+		name     string
+		labels   map[string]string
+		expected bool
+	}{
+		{
+			name:     "no labels",
+			labels:   nil,
+			expected: false,
+		},
+		{
+			name:     "only workloadscan label",
+			labels:   map[string]string{api.LabelWorkloadScanKey: api.LabelWorkloadScanValue},
+			expected: false,
+		},
+		{
+			name:     "only managed-by label",
+			labels:   map[string]string{api.LabelManagedByKey: api.LabelManagedByValue},
+			expected: false,
+		},
+		{
+			name: "both labels",
+			labels: map[string]string{
+				api.LabelManagedByKey:    api.LabelManagedByValue,
+				api.LabelWorkloadScanKey: api.LabelWorkloadScanValue,
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry := &Registry{Labels: tt.labels}
+			assert.Equal(t, tt.expected, registry.IsManagedByWorkloadScan())
+		})
+	}
+}
 
 func TestGetRepository(t *testing.T) {
 	expectedConditions := []MatchCondition{

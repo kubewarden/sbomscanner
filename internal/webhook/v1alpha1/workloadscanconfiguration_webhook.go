@@ -52,7 +52,7 @@ func (v *WorkloadScanConfigurationCustomValidator) ValidateCreate(_ context.Cont
 		)
 	}
 
-	return nil, nil
+	return caBundleWarnings(configuration.Spec.CABundle), nil
 }
 
 // ValidateUpdate implements admission.Validator so a webhook will be registered for the type Registry.
@@ -73,7 +73,7 @@ func (v *WorkloadScanConfigurationCustomValidator) ValidateUpdate(_ context.Cont
 		)
 	}
 
-	return nil, nil
+	return caBundleWarnings(configuration.Spec.CABundle), nil
 }
 
 // ValidateDelete implements admission.Validator so a webhook will be registered for the type Registry.

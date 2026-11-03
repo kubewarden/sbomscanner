@@ -19,6 +19,7 @@ import (
 	"github.com/kubewarden/sbomscanner/api"
 	storagev1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	"github.com/kubewarden/sbomscanner/api/v1alpha1"
+	"github.com/kubewarden/sbomscanner/internal/handlers/cabundle"
 	"github.com/kubewarden/sbomscanner/internal/handlers/dockerauth"
 	"github.com/kubewarden/sbomscanner/internal/messaging"
 )
@@ -59,8 +60,6 @@ func NewGenerateSBOMHandler(
 }
 
 // Handle processes the GenerateSBOMMessage and generates a SBOM resource from the specified image.
-//
-//nolint:funlen
 func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Message) error {
 	generateSBOMMessage := &GenerateSBOMMessage{}
 	if err := json.Unmarshal(message.Data(), generateSBOMMessage); err != nil {
@@ -120,13 +119,9 @@ func (h *GenerateSBOMHandler) Handle(ctx context.Context, message messaging.Mess
 	h.logger.DebugContext(ctx, "Image found", "image", image)
 
 	// Retrieve the registry from the scan job annotations.
-	registryData, ok := scanJob.Annotations[v1alpha1.AnnotationScanJobRegistryKey]
-	if !ok {
-		return fmt.Errorf("scan job %s/%s does not have a registry annotation", scanJob.Namespace, scanJob.Name)
-	}
-	registry := &v1alpha1.Registry{}
-	if err = json.Unmarshal([]byte(registryData), registry); err != nil {
-		return fmt.Errorf("cannot unmarshal registry data from scan job %s/%s: %w", scanJob.Namespace, scanJob.Name, err)
+	registry, err := registryFromScanJob(scanJob)
+	if err != nil {
+		return err
 	}
 
 	sbom, err := h.getOrGenerateSBOM(ctx, image, registry, generateSBOMMessage)
@@ -292,7 +287,11 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 		args = append(args, "--insecure")
 	}
 	// Handle custom CA bundle
-	if registry.Spec.CABundle != "" {
+	caBundle, err := cabundle.Resolve(ctx, h.k8sClient, registry, h.installationNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve CA bundle for registry %s: %w", registry.Name, err)
+	}
+	if len(caBundle) > 0 {
 		// Write CA bundle to a temp file
 		caBundleFile, err := os.CreateTemp(h.workDir, "trivy.cabundle.*.crt")
 		if err != nil {
@@ -303,7 +302,7 @@ func (h *GenerateSBOMHandler) generateSPDX(ctx context.Context, image *storagev1
 				h.logger.ErrorContext(ctx, "failed to remove CA bundle file", "error", err)
 			}
 		}(caBundleFile.Name())
-		if _, err := caBundleFile.WriteString(registry.Spec.CABundle); err != nil {
+		if _, err := caBundleFile.Write(caBundle); err != nil {
 			return nil, fmt.Errorf("failed to write CA bundle content: %w", err)
 		}
 		if err := caBundleFile.Close(); err != nil {

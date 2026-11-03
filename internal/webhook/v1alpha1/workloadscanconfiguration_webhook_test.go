@@ -296,3 +296,37 @@ func TestWorkloadScanConfigurationCustomValidator_ValidateDelete(t *testing.T) {
 		assert.Equal(t, "WorkloadScanConfiguration deleted. Workload scan feature is now disabled", warnings[0])
 	})
 }
+
+func TestWorkloadScanConfigurationCustomValidator_CABundleDeprecationWarning(t *testing.T) {
+	validator := &WorkloadScanConfigurationCustomValidator{
+		logger: logr.Discard(),
+	}
+
+	t.Run("should warn when caBundle is set", func(t *testing.T) {
+		configuration := &v1alpha1.WorkloadScanConfiguration{
+			Spec: v1alpha1.WorkloadScanConfigurationSpec{
+				CABundle: "-----BEGIN CERTIFICATE-----",
+			},
+		}
+
+		createWarnings, err := validator.ValidateCreate(t.Context(), configuration)
+		require.NoError(t, err)
+		assert.Equal(t, []string{caBundleDeprecationWarning}, []string(createWarnings))
+
+		updateWarnings, err := validator.ValidateUpdate(t.Context(), configuration.DeepCopy(), configuration)
+		require.NoError(t, err)
+		assert.Equal(t, []string{caBundleDeprecationWarning}, []string(updateWarnings))
+	})
+
+	t.Run("should not warn when caBundle is empty", func(t *testing.T) {
+		configuration := &v1alpha1.WorkloadScanConfiguration{}
+
+		createWarnings, err := validator.ValidateCreate(t.Context(), configuration)
+		require.NoError(t, err)
+		assert.Empty(t, createWarnings)
+
+		updateWarnings, err := validator.ValidateUpdate(t.Context(), configuration.DeepCopy(), configuration)
+		require.NoError(t, err)
+		assert.Empty(t, updateWarnings)
+	})
+}

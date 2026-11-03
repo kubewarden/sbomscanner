@@ -1107,3 +1107,30 @@ func TestNameOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestTransportFromRegistry_InvalidInlineCABundle(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+
+	handler := &CreateCatalogHandler{
+		k8sClient:             fake.NewClientBuilder().WithScheme(scheme).Build(),
+		installationNamespace: "sbomscanner",
+		logger:                slog.New(slog.DiscardHandler),
+	}
+
+	registry := &v1alpha1.Registry{
+		Name:      "invalid-ca-bundle",
+		Namespace: "default",
+		Spec: v1alpha1.RegistrySpec{
+			URI:      "registry.test.local",
+			CABundle: "not a certificate",
+		},
+	}
+
+	transport, err := handler.transportFromRegistry(t.Context(), registry)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not contain any valid PEM-encoded certificate")
+	assert.Nil(t, transport)
+}

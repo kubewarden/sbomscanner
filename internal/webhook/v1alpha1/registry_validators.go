@@ -10,6 +10,7 @@ import (
 	"github.com/kubewarden/sbomscanner/internal/cel"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // The current validator was developed based on the OCI image spec:
@@ -72,6 +73,19 @@ func validatePlatform(p v1alpha1.Platform) error {
 	}
 
 	return nil
+}
+
+// caBundleDeprecationWarning is the admission warning returned when spec.caBundle is set.
+const caBundleDeprecationWarning = "spec.caBundle is deprecated and will be removed in the following versions. Use spec.caBundleRef instead."
+
+// caBundleWarnings returns the deprecation warning when the inline CA bundle is set.
+// The request is still accepted.
+func caBundleWarnings(caBundle string) admission.Warnings {
+	if caBundle == "" {
+		return nil
+	}
+
+	return admission.Warnings{caBundleDeprecationWarning}
 }
 
 func validateScanInterval(scanInterval *v1.Duration) *field.Error {

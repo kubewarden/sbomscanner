@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -366,8 +367,10 @@ var _ = Describe("WorkloadScan Controller", func() {
 						},
 					},
 					AuthSecret: "auth-secret",
-					CABundle:   "ca-bundle",
-					Insecure:   true,
+					CABundleRef: &v1alpha1.CABundleSource{
+						ConfigMap: &v1alpha1.CABundleKeySelector{Name: "trust-bundle", Key: "root-certs.pem"},
+					},
+					Insecure: true,
 					Platforms: []v1alpha1.Platform{
 						{Architecture: "amd64", OS: "linux"},
 						{Architecture: "arm64", OS: "linux"},
@@ -541,6 +544,7 @@ var _ = Describe("WorkloadScan Controller", func() {
 				Expect(registry.Spec.URI).To(Equal("ghcr.io"))
 				Expect(registry.Spec.AuthSecret).To(Equal(configuration.Spec.AuthSecret))
 				Expect(registry.Spec.CABundle).To(Equal(configuration.Spec.CABundle))
+				Expect(registry.Spec.CABundleRef).To(Equal(configuration.Spec.CABundleRef))
 				Expect(registry.Spec.Insecure).To(Equal(configuration.Spec.Insecure))
 				Expect(registry.Spec.Platforms).To(Equal(configuration.Spec.Platforms))
 
@@ -1596,3 +1600,110 @@ func TestBuildRescanRequest(t *testing.T) {
 		})
 	}
 }
+
+var _ = Describe("CA bundle CRD validation", func() {
+	caBundleRef := &v1alpha1.CABundleSource{
+		ConfigMap: &v1alpha1.CABundleKeySelector{Name: "trust-bundle"},
+	}
+
+	It("should reject a Registry setting both caBundle and caBundleRef", func(ctx context.Context) {
+		registry := &v1alpha1.Registry{
+			Name:      "both-ca-bundle",
+			Namespace: "default",
+			Spec: v1alpha1.RegistrySpec{
+				URI:         "registry.test.local",
+				CatalogType: v1alpha1.CatalogTypeOCIDistribution,
+				CABundle:    "ca-bundle",
+				CABundleRef: caBundleRef,
+			},
+		}
+		err := k8sClient.Create(ctx, registry)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "unexpected error: %v", err)
+		Expect(err.Error()).To(ContainSubstring("caBundle and caBundleRef are mutually exclusive"))
+	})
+
+	It("should reject a caBundleRef setting neither configMap nor secret", func(ctx context.Context) {
+		registry := &v1alpha1.Registry{
+			Name:      "empty-ca-bundle-ref",
+			Namespace: "default",
+			Spec: v1alpha1.RegistrySpec{
+				URI:         "registry.test.local",
+				CatalogType: v1alpha1.CatalogTypeOCIDistribution,
+				CABundleRef: &v1alpha1.CABundleSource{},
+			},
+		}
+		err := k8sClient.Create(ctx, registry)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "unexpected error: %v", err)
+		Expect(err.Error()).To(ContainSubstring("exactly one of configMap or secret must be set"))
+	})
+
+	It("should reject a caBundleRef setting both configMap and secret", func(ctx context.Context) {
+		registry := &v1alpha1.Registry{
+			Name:      "double-ca-bundle-ref",
+			Namespace: "default",
+			Spec: v1alpha1.RegistrySpec{
+				URI:         "registry.test.local",
+				CatalogType: v1alpha1.CatalogTypeOCIDistribution,
+				CABundleRef: &v1alpha1.CABundleSource{
+					ConfigMap: &v1alpha1.CABundleKeySelector{Name: "trust-bundle"},
+					Secret:    &v1alpha1.CABundleKeySelector{Name: "trust-bundle"},
+				},
+			},
+		}
+		err := k8sClient.Create(ctx, registry)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "unexpected error: %v", err)
+		Expect(err.Error()).To(ContainSubstring("exactly one of configMap or secret must be set"))
+	})
+
+	It("should reject a caBundleRef with an empty configMap name", func(ctx context.Context) {
+		registry := &v1alpha1.Registry{
+			Name:      "empty-configmap-name",
+			Namespace: "default",
+			Spec: v1alpha1.RegistrySpec{
+				URI:         "registry.test.local",
+				CatalogType: v1alpha1.CatalogTypeOCIDistribution,
+				CABundleRef: &v1alpha1.CABundleSource{
+					ConfigMap: &v1alpha1.CABundleKeySelector{Name: ""},
+				},
+			},
+		}
+		err := k8sClient.Create(ctx, registry)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "unexpected error: %v", err)
+		Expect(err.Error()).To(ContainSubstring("spec.caBundleRef.configMap.name in body should be at least 1 chars long"))
+	})
+
+	It("should reject a caBundleRef with an empty secret name", func(ctx context.Context) {
+		registry := &v1alpha1.Registry{
+			Name:      "empty-secret-name",
+			Namespace: "default",
+			Spec: v1alpha1.RegistrySpec{
+				URI:         "registry.test.local",
+				CatalogType: v1alpha1.CatalogTypeOCIDistribution,
+				CABundleRef: &v1alpha1.CABundleSource{
+					Secret: &v1alpha1.CABundleKeySelector{Name: ""},
+				},
+			},
+		}
+		err := k8sClient.Create(ctx, registry)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "unexpected error: %v", err)
+		Expect(err.Error()).To(ContainSubstring("spec.caBundleRef.secret.name in body should be at least 1 chars long"))
+	})
+
+	It("should default the caBundleRef key to ca.crt", func(ctx context.Context) {
+		registry := &v1alpha1.Registry{
+			Name:      "defaulted-ca-bundle-ref",
+			Namespace: "default",
+			Spec: v1alpha1.RegistrySpec{
+				URI:         "registry.test.local",
+				CatalogType: v1alpha1.CatalogTypeOCIDistribution,
+				CABundleRef: caBundleRef.DeepCopy(),
+			},
+		}
+		Expect(k8sClient.Create(ctx, registry)).To(Succeed())
+		DeferCleanup(func(ctx context.Context) {
+			Expect(k8sClient.Delete(ctx, registry)).To(Succeed())
+		})
+
+		Expect(registry.Spec.CABundleRef.ConfigMap.Key).To(Equal(v1alpha1.CABundleDefaultKey))
+	})
+})
