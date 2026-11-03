@@ -149,7 +149,7 @@ controller:
 storage:
   image:
     repository: kubewarden/sbomscanner/storage
-    tag: v0.13.0
+    tag: v1.0.0-alpha.1
   # Registry for the images of this workload.
   # global.imageRegistry replaces it when set.
   imageRegistry: ghcr.io
