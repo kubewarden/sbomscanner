@@ -678,6 +678,8 @@ func (h *CreateCatalogHandler) transportFromRegistry(ctx context.Context, regist
 			rootCAs = x509.NewCertPool()
 		}
 
+		// Resolve has already checked that the bundle contains at least one valid certificate,
+		// so this call cannot fail and its result can be ignored.
 		rootCAs.AppendCertsFromPEM(caBundle)
 		transport.TLSClientConfig.RootCAs = rootCAs
 	}
