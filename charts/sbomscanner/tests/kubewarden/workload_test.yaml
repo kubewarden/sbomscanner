@@ -94,54 +94,48 @@ tests:
           value: 1Gi
         template: "templates/worker/deployment.yaml"
 
-  - it: "should render worker.image.registry and workerNode.image.registry on their own workload only"
+  - it: "should render worker.image on the worker Deployment"
+    template: "templates/worker/deployment.yaml"
     set:
       worker:
         image:
           registry: worker.example.com
+          repository: team/worker
+          tag: w1
+          pullPolicy: Always
+    asserts:
+      - equal:
+          path: "spec.template.spec.containers[0].image"
+          value: "worker.example.com/team/worker:w1"
+      - equal:
+          path: "spec.template.spec.initContainers[0].image"
+          value: "worker.example.com/team/worker:w1"
+      - equal:
+          path: "spec.template.spec.containers[0].imagePullPolicy"
+          value: Always
+      - equal:
+          path: "spec.template.spec.initContainers[0].imagePullPolicy"
+          value: Always
+
+  - it: "should render workerNode.image on the DaemonSet"
+    template: "templates/worker/daemonset.yaml"
+    set:
       workerNode:
         image:
           registry: node.example.com
-    asserts:
-      - matchRegex:
-          path: "spec.template.spec.containers[0].image"
-          pattern: "^worker\\.example\\.com/"
-        template: "templates/worker/deployment.yaml"
-      - matchRegex:
-          path: "spec.template.spec.initContainers[0].image"
-          pattern: "^worker\\.example\\.com/"
-        template: "templates/worker/deployment.yaml"
-      - matchRegex:
-          path: "spec.template.spec.containers[0].image"
-          pattern: "^node\\.example\\.com/kubewarden/sbomscanner/worker:"
-        template: "templates/worker/daemonset.yaml"
-      - matchRegex:
-          path: "spec.template.spec.initContainers[0].image"
-          pattern: "^node\\.example\\.com/kubewarden/sbomscanner/worker:"
-        template: "templates/worker/daemonset.yaml"
-
-  - it: "should render worker.image.pullPolicy and workerNode.image.pullPolicy on their own workload only"
-    set:
-      worker:
-        image:
-          pullPolicy: Always
-      workerNode:
-        image:
+          repository: team/node
+          tag: n1
           pullPolicy: Never
     asserts:
       - equal:
-          path: "spec.template.spec.containers[0].imagePullPolicy"
-          value: Always
-        template: "templates/worker/deployment.yaml"
+          path: "spec.template.spec.containers[0].image"
+          value: "node.example.com/team/node:n1"
       - equal:
-          path: "spec.template.spec.initContainers[0].imagePullPolicy"
-          value: Always
-        template: "templates/worker/deployment.yaml"
+          path: "spec.template.spec.initContainers[0].image"
+          value: "node.example.com/team/node:n1"
       - equal:
           path: "spec.template.spec.containers[0].imagePullPolicy"
           value: Never
-        template: "templates/worker/daemonset.yaml"
       - equal:
           path: "spec.template.spec.initContainers[0].imagePullPolicy"
           value: Never
-        template: "templates/worker/daemonset.yaml"

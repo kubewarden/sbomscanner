@@ -108,6 +108,7 @@ func TestMain(m *testing.M) {
 				"--set", "controller.image.tag=latest",
 				"--set", "storage.image.tag=latest",
 				"--set", "worker.image.tag=latest",
+				"--set", "workerNode.image.tag=latest",
 				"--set", "controller.logLevel=debug",
 				"--set", "storage.logLevel=debug",
 				"--set", "worker.logLevel=debug",

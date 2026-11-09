@@ -148,6 +148,7 @@ yaml = helm(
         "controller.image.repository=" + controller_image,
         "storage.image.repository=" + storage_image,
         "worker.image.repository=" + worker_image,
+        "workerNode.image.repository=" + worker_image,
         "mcp.image.repository=" + mcp_image,
         "controller.replicas=1",
         "storage.replicas=1",
