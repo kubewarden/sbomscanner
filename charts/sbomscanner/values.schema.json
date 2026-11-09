@@ -520,6 +520,17 @@
                 }
             }
         },
+        "scanner": {
+            "type": "object",
+            "properties": {
+                "trivyDBRepository": {
+                    "type": "string"
+                },
+                "trivyJavaDBRepository": {
+                    "type": "string"
+                }
+            }
+        },
         "storage": {
             "type": "object",
             "properties": {
@@ -750,12 +761,6 @@
                             }
                         }
                     }
-                },
-                "trivyDBRepository": {
-                    "type": "string"
-                },
-                "trivyJavaDBRepository": {
-                    "type": "string"
                 }
             }
         },

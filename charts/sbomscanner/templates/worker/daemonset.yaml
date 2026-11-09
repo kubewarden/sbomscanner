@@ -78,11 +78,12 @@ spec:
           args:
             - -nats-url
             - {{ .Release.Name }}-nats.{{ include "sbomscanner.namespace" . }}.svc.cluster.local:4222
-            {{- if .Values.worker.trivyDBRepository }}
-            - -trivy-db-repository={{ .Values.worker.trivyDBRepository | quote }}
+            {{- $scanner := .Values.scanner | default dict }}
+            {{- if $scanner.trivyDBRepository }}
+            - -trivy-db-repository={{ $scanner.trivyDBRepository | quote }}
             {{- end }}
-            {{- if .Values.worker.trivyJavaDBRepository }}
-            - -trivy-java-db-repository={{ .Values.worker.trivyJavaDBRepository | quote }}
+            {{- if $scanner.trivyJavaDBRepository }}
+            - -trivy-java-db-repository={{ $scanner.trivyJavaDBRepository | quote }}
             {{- end }}
             - -installation-namespace={{ include "sbomscanner.namespace" . }}
             {{- with include "sbomscanner.logLevel" $ctx }}
