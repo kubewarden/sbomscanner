@@ -94,12 +94,14 @@ tests:
           value: 1Gi
         template: "templates/worker/deployment.yaml"
 
-  - it: "should render worker.imageRegistry and workerNode.imageRegistry on their own workload only"
+  - it: "should render worker.image.registry and workerNode.image.registry on their own workload only"
     set:
       worker:
-        imageRegistry: worker.example.com
+        image:
+          registry: worker.example.com
       workerNode:
-        imageRegistry: node.example.com
+        image:
+          registry: node.example.com
     asserts:
       - matchRegex:
           path: "spec.template.spec.containers[0].image"
@@ -116,4 +118,30 @@ tests:
       - matchRegex:
           path: "spec.template.spec.initContainers[0].image"
           pattern: "^node\\.example\\.com/kubewarden/sbomscanner/worker:"
+        template: "templates/worker/daemonset.yaml"
+
+  - it: "should render worker.image.pullPolicy and workerNode.image.pullPolicy on their own workload only"
+    set:
+      worker:
+        image:
+          pullPolicy: Always
+      workerNode:
+        image:
+          pullPolicy: Never
+    asserts:
+      - equal:
+          path: "spec.template.spec.containers[0].imagePullPolicy"
+          value: Always
+        template: "templates/worker/deployment.yaml"
+      - equal:
+          path: "spec.template.spec.initContainers[0].imagePullPolicy"
+          value: Always
+        template: "templates/worker/deployment.yaml"
+      - equal:
+          path: "spec.template.spec.containers[0].imagePullPolicy"
+          value: Never
+        template: "templates/worker/daemonset.yaml"
+      - equal:
+          path: "spec.template.spec.initContainers[0].imagePullPolicy"
+          value: Never
         template: "templates/worker/daemonset.yaml"

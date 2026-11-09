@@ -20,24 +20,40 @@ tests:
           path: "spec.template.spec.containers[0].image"
           pattern: "^ghcr\\.io/kubewarden/sbomscanner/"
 
-  - it: "should ignore common.imageRegistry when the workload imageRegistry is empty"
+  - it: "should ignore common.imageRegistry when the workload image.registry is empty"
     set:
       common:
         imageRegistry: mirror.example.com
       controller:
-        imageRegistry: ""
+        image:
+          registry: ""
       storage:
-        imageRegistry: ""
+        image:
+          registry: ""
       worker:
-        imageRegistry: ""
+        image:
+          registry: ""
       workerNode:
-        imageRegistry: ""
+        image:
+          registry: ""
       mcp:
-        imageRegistry: ""
+        image:
+          registry: ""
     asserts:
       - matchRegex:
           path: "spec.template.spec.containers[0].image"
           pattern: "^kubewarden/sbomscanner/"
+
+  - it: "should render common.imagePullPolicy when the workload image.pullPolicy is empty"
+    set:
+      global:
+        imagePullPolicy: IfNotPresent
+      common:
+        imagePullPolicy: Never
+    asserts:
+      - equal:
+          path: "spec.template.spec.containers[0].imagePullPolicy"
+          value: Never
 
   - it: "should render common.logLevel on every workload"
     set:

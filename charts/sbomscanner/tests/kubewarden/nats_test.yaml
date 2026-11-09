@@ -56,10 +56,11 @@ tests:
           pattern: "^b\\.example\\.com/nats:"
         template: "charts/nats/templates/stateful-set.yaml"
 
-  - it: "should not fail when only a workload imageRegistry is set"
+  - it: "should not fail when only a workload image.registry is set"
     set:
       controller:
-        imageRegistry: mirror.example.com
+        image:
+          registry: mirror.example.com
     asserts:
       - matchRegex:
           path: "spec.template.spec.containers[0].image"
