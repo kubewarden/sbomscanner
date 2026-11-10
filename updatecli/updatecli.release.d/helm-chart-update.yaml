@@ -101,6 +101,14 @@ targets:
     spec:
       file: charts/sbomscanner/values.yaml
       key: $.worker.image.tag
+  update_worker_node_version:
+    scmid: default
+    name: Update Helm chart worker node version
+    kind: yaml
+    sourceid: releaseVersion
+    spec:
+      file: charts/sbomscanner/values.yaml
+      key: $.workerNode.image.tag
   update_mcp_version:
     scmid: default
     name: Update Helm chart mcp version
