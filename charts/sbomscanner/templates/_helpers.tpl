@@ -47,7 +47,6 @@ The NATS chart reads nats.namespaceOverride, so the render fails when the two va
 {{/*
 Registry prefix for the chart images, with a trailing "/".
 global.imageRegistry wins over the image.registry of the workload block.
-It takes the context dict of the workload helpers (see "Values of the workloads").
 */}}
 {{- define "system_default_registry" -}}
 {{- include "sbomscanner.checkNatsImageRegistry" .root -}}
@@ -152,7 +151,7 @@ Each public helper reads one key with one private helper. The private helper set
   sbomscanner._concat: the global, common, and workload lists, in this order.
 An empty value ("", [] or {}) counts as unset.
 system_default_registry (above) uses its own order:
-global.imageRegistry wins over the workload image.registry. It does not read common.
+global.imageRegistry wins over the workload image.registry.
 
 The private helpers take dict "ctx" <context dict> "key" <key>.
 A key with a dot, for example "serviceAccount.annotations", reads a nested map.

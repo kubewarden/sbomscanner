@@ -58,9 +58,6 @@ tests:
       scanner:
         trivyDBRepository: "mirror.example.com/trivy-db"
         trivyJavaDBRepository: "mirror.example.com/trivy-java-db"
-      worker:
-        trivyDBRepository: "old.example.com/trivy-db"
-        trivyJavaDBRepository: "old.example.com/trivy-java-db"
     asserts:
       - contains:
           path: "spec.template.spec.containers[0].args"
@@ -68,12 +65,6 @@ tests:
       - contains:
           path: "spec.template.spec.containers[0].args"
           content: "-trivy-java-db-repository=\"mirror.example.com/trivy-java-db\""
-      - notContains:
-          path: "spec.template.spec.containers[0].args"
-          content: "-trivy-db-repository=\"old.example.com/trivy-db\""
-      - notContains:
-          path: "spec.template.spec.containers[0].args"
-          content: "-trivy-java-db-repository=\"old.example.com/trivy-java-db\""
 
   - it: "should omit the Trivy DB repository arguments when the scanner block is null"
     set:

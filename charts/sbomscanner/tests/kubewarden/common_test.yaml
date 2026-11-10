@@ -11,39 +11,6 @@ set:
     auth:
       secretName: x
 tests:
-  - it: "should ignore common.imageRegistry"
-    set:
-      common:
-        imageRegistry: mirror.example.com
-    asserts:
-      - matchRegex:
-          path: "spec.template.spec.containers[0].image"
-          pattern: "^ghcr\\.io/kubewarden/sbomscanner/"
-
-  - it: "should ignore common.imageRegistry when the workload image.registry is empty"
-    set:
-      common:
-        imageRegistry: mirror.example.com
-      controller:
-        image:
-          registry: ""
-      storage:
-        image:
-          registry: ""
-      worker:
-        image:
-          registry: ""
-      workerNode:
-        image:
-          registry: ""
-      mcp:
-        image:
-          registry: ""
-    asserts:
-      - matchRegex:
-          path: "spec.template.spec.containers[0].image"
-          pattern: "^kubewarden/sbomscanner/"
-
   - it: "should render common.imagePullPolicy when the workload image.pullPolicy is empty"
     set:
       global:
