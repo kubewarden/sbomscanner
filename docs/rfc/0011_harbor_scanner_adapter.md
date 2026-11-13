@@ -260,6 +260,8 @@ metadata:
   namespace: sbomscanner-harbor
   labels:
     sbomscanner.kubewarden.io/harbor-adapter: "true"
+  annotations:
+    sbomscanner.kubewarden.io/harbor-last-scan-request: "2026-11-13T09:30:00Z"
 spec:
   uri: core.harbor.domain
   catalogType: NoCatalog
@@ -286,6 +288,10 @@ The fields of the `Registry` have these sources:
 | `spec.repositories` | `artifact.repository`, with one match condition for `artifact.digest`       |
 | `spec.scanInterval` | Not set. Harbor decides when a scan runs                                    |
 | `spec.platforms`    | Not set. The digest identifies one platform                                 |
+
+The `sbomscanner.kubewarden.io/harbor-last-scan-request` annotation contains the time of the last scan request for the image.
+The adapter writes this time at each scan request, also when the scan request starts no scan.
+The garbage collector uses this time, and a user can read it to know when Harbor last asked for the image.
 
 The `caBundleRef` field is necessary only when a private CA signed the certificate of Harbor.
 The user creates the referenced ConfigMap or Secret in the artifacts namespace.
@@ -442,9 +448,12 @@ The adapter does these steps:
    If a field is not valid, answer `422`.
 2. Calculate the name of the `Registry`.
 3. If the request is an `sbom` request and the `SBOM` of the image exists, start no scan.
+   Write the time of the scan request on the `Registry`.
    Answer `202` with the name of the most recent complete `ScanJob` of the `Registry`.
-4. If the `Registry` does not exist, create it.
-5. Create the `Secret`, or update it with the credentials of the scan request.
+4. Create the `Registry` with the time of the scan request.
+   If the `Registry` exists already, write the time of the scan request on it.
+5. Create the `Secret`.
+   If the `Secret` exists already, update it with the credentials of the scan request.
 6. If the `Registry` has an active `ScanJob`, answer `202` with the name of that `ScanJob`.
 7. Create the `ScanJob`.
 8. Answer `202` with the name of the new `ScanJob`.
@@ -454,9 +463,18 @@ The adapter also does not change the `Secret` in step 3.
 Harbor deletes the robot account of this scan request when it gets the SBOM, and an active `ScanJob` of the image can need the credentials in the `Secret`.
 If the `Registry` has no complete `ScanJob`, the adapter continues with step 4.
 
+The adapter creates the `Registry` before the `Secret`, because the `Secret` needs the `Registry` as its owner.
+This order causes no problem.
+Nothing reads the `Secret` when the adapter creates the `Registry`.
+The workers read the `Secret` only during a scan, and the adapter creates the `ScanJob` after the `Secret`.
+
 To find the `ScanJob` resources of a `Registry`, the adapter lists them with the field selector `spec.registry=<name of the Registry>`.
 
-Two scan requests for the same image can arrive at the same moment.
+Two scan requests for the same image can do steps 4 and 5 at the same moment.
+For this reason, an "already exists" answer from the API server is not an error in these steps.
+The two scan requests give the same `Registry`, and the `Secret` keeps the credentials of the request that writes last.
+
+Two scan requests for the same image can also do step 7 at the same moment.
 If the `ScanJob` webhook rejects the `ScanJob` in step 7 because a different `ScanJob` is active, the adapter does step 6 again.
 
 If a different step fails, the adapter answers `500`.
@@ -657,12 +675,16 @@ The `SBOM` is the resource that saves the most time, because the workers do not 
 No other component of SBOMscanner deletes the `Registry` resources of the adapter, so the adapter runs a garbage collector.
 
 Each 15 minutes, the garbage collector lists the `Registry` resources with the adapter label in the artifacts namespace.
-It deletes each `Registry` that got no scan request during the retention time.
+It deletes each `Registry` whose retention time ended.
 The `harborAdapter.retention` value of the Helm chart sets the retention time.
 The default is 36 hours.
 
-The retention time starts at the `metadata.creationTimestamp` of the most recent `ScanJob` of the `Registry`.
-If the `Registry` has no `ScanJob`, the retention time starts at the `metadata.creationTimestamp` of the `Registry`.
+The retention time starts at the last scan request for the image.
+The garbage collector reads this time from the `sbomscanner.kubewarden.io/harbor-last-scan-request` annotation of the `Registry`.
+
+The garbage collector deletes a `Registry` only if the `Registry` did not change after the garbage collector read it.
+The delete request contains the resource version of the `Registry` as a precondition.
+If a scan request wrote a new time on the `Registry`, the API server refuses the delete.
 
 The owner references then delete the `Secret`, `ScanJob`, `Image`, `SBOM`, and `VulnerabilityReport` resources of the `Registry`.
 
@@ -703,12 +725,12 @@ The chart creates this namespace.
 
 The adapter has a `Role` in the artifacts namespace only:
 
-| Resources                       | Verbs                             |
-| :------------------------------ | :-------------------------------- |
-| `secrets`                       | `create`, `update`                |
-| `registries`                    | `create`, `get`, `list`, `delete` |
-| `scanjobs`                      | `create`, `get`, `list`           |
-| `vulnerabilityreports`, `sboms` | `get`, `list`                     |
+| Resources                       | Verbs                                      |
+| :------------------------------ | :----------------------------------------- |
+| `secrets`                       | `create`, `update`                         |
+| `registries`                    | `create`, `get`, `list`, `patch`, `delete` |
+| `scanjobs`                      | `create`, `get`, `list`                    |
+| `vulnerabilityreports`, `sboms` | `get`, `list`                              |
 
 The adapter has no permissions in the namespace of SBOMscanner.
 
