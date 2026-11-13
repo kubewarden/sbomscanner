@@ -932,3 +932,15 @@ The VEX configuration of SBOMscanner does not apply to the results that Harbor s
   This topic needs more research.
 - Harbor classifies artifacts by its own rules.
   Which artifacts does Harbor send that SBOMscanner does not see as container images?
+- Do we show the suppressed vulnerabilities in the Harbor UI?
+  The adapter omits these vulnerabilities from the Harbor report.
+  As a result, a Harbor user cannot tell an image with a suppressed vulnerability from an image without that vulnerability.
+  In this RFC, SBOMscanner is the place to see the suppressed vulnerabilities.
+  We assess later whether the Harbor UI also shows them.
+- How do the users understand the difference between the CVE allowlist of Harbor and the VEX support of SBOMscanner?
+  A Harbor administrator can add a CVE to the CVE allowlist of a project or of the system.
+  Harbor then ignores this CVE when a policy decides whether to block an image.
+  SBOMscanner has no allowlist, and the adapter does not read the allowlist of Harbor.
+  As a result, a CVE in the Harbor allowlist still appears in the results of SBOMscanner.
+  The VEX configuration of SBOMscanner applies to Harbor, but the allowlist of Harbor does not apply to SBOMscanner.
+  A user can expect a CVE in the Harbor allowlist to be ignored by SBOMscanner too.
