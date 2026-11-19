@@ -104,6 +104,7 @@ func NewStorageAPIServer(
 	recommendedOptions.Etcd = nil
 	recommendedOptions.Features.EnablePriorityAndFairness = false
 	recommendedOptions.SecureServing.ServerCert.GeneratedCert = dynamicCertKeyPairContent
+	recommendedOptions.SecureServing.BindPort = 6443
 	// The API extension server doesn't use admission policies; disable the plugins.
 	recommendedOptions.Admission.DisablePlugins = append(
 		recommendedOptions.Admission.DisablePlugins,
