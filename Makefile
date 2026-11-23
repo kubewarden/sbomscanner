@@ -3,9 +3,9 @@ CONTROLLER_TOOLS_VERSION := v0.23.0
 ENVTEST_VERSION := release-0.24
 ENVTEST_K8S_VERSION := 1.33.0
 # renovate: datasource=go depName=github.com/vektra/mockery/v3
-MOCKERY_VERSION := v3.9.0
+MOCKERY_VERSION := v3.9.1
 # renovate: datasource=go depName=github.com/losisin/helm-values-schema-json/v2
-HELM_VALUES_SCHEMA_JSON_VERSION := v2.6.0
+HELM_VALUES_SCHEMA_JSON_VERSION := v2.6.1
 
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
