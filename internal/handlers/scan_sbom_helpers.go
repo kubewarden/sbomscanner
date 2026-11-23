@@ -9,7 +9,7 @@ import (
 	"os"
 	"path"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 	_ "modernc.org/sqlite" // sqlite driver for RPM DB and Java DB
 
 	"k8s.io/apimachinery/pkg/runtime"
