@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/aquasecurity/trivy v0.76.2
-	github.com/aquasecurity/trivy-db v0.0.0-20261012084708-cbebf2ecd6df
+	github.com/aquasecurity/trivy-db v0.0.0-20261110091239-6748d2315661
 	github.com/avast/retry-go/v5 v5.1.1
 	github.com/docker/cli v29.9.3+incompatible
 	github.com/docker/go-units v0.5.0
@@ -37,7 +37,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.yaml.in/yaml/v3 v3.0.5
-	go.yaml.in/yaml/v4 v4.0.0
 	golang.org/x/sync v0.25.0
 	golang.org/x/time v0.16.0
 	k8s.io/api v0.37.2
@@ -53,7 +52,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.25.2
 	sigs.k8s.io/e2e-framework v0.7.0
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2
-	sigs.k8s.io/structured-merge-diff/v7 v7.0.1
 )
 
 require (
@@ -428,6 +426,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
+	go.yaml.in/yaml/v4 v4.0.0 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/mod v0.42.0 // indirect
