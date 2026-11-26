@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/storage/names"
@@ -102,18 +103,22 @@ func validateReadOnlyFieldsEmpty(report *storagev1alpha1.WorkloadScanReport) fie
 }
 
 // validateReadOnlyFieldsUnchanged validates that status, summary and containers are not modified on update.
+// The comparison treats a nil list and an empty list as equal.
+// The API server decodes the new object from JSON,
+// and JSON omits an empty list of vulnerability reports,
+// so the new object holds a nil list where the stored object holds an empty list.
 func validateReadOnlyFieldsUnchanged(newReport, oldReport *storagev1alpha1.WorkloadScanReport) field.ErrorList {
 	var errs field.ErrorList
 
-	if !reflect.DeepEqual(newReport.Status, oldReport.Status) {
+	if !equality.Semantic.DeepEqual(newReport.Status, oldReport.Status) {
 		errs = append(errs, field.Forbidden(field.NewPath("status"), "field is read-only"))
 	}
 
-	if !reflect.DeepEqual(newReport.Summary, oldReport.Summary) {
+	if !equality.Semantic.DeepEqual(newReport.Summary, oldReport.Summary) {
 		errs = append(errs, field.Forbidden(field.NewPath("summary"), "field is read-only"))
 	}
 
-	if !reflect.DeepEqual(newReport.Containers, oldReport.Containers) {
+	if !equality.Semantic.DeepEqual(newReport.Containers, oldReport.Containers) {
 		errs = append(errs, field.Forbidden(field.NewPath("containers"), "field is read-only"))
 	}
 
