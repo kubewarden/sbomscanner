@@ -267,6 +267,9 @@ func (r *WorkloadScanReportRepository) fetchImageCounts(ctx context.Context, db 
 }
 
 // fetchVulnerabilityReports returns vulnerability reports grouped by ImageRef.
+// The reports of each ImageRef are ordered by name.
+// The update validation compares the lists of the read-only fields by position,
+// so two reads of the same data must return the reports in the same order.
 func (r *WorkloadScanReportRepository) fetchVulnerabilityReports(ctx context.Context, db Querier, containers []storagev1alpha1.ContainerRef) (map[storagev1alpha1.ImageRef][]storagev1alpha1.VulnerabilityReport, error) {
 	result := make(map[storagev1alpha1.ImageRef][]storagev1alpha1.VulnerabilityReport)
 
@@ -274,9 +277,12 @@ func (r *WorkloadScanReportRepository) fetchVulnerabilityReports(ctx context.Con
 		return result, nil
 	}
 
+	// The pair of namespace and name is unique, so this order is total.
 	qb := psql.Select(
 		sm.Columns("object"),
 		sm.From(psql.Quote(r.vulnerabilityReportsTable)),
+		sm.OrderBy(psql.Quote("namespace")),
+		sm.OrderBy(psql.Quote("name")),
 	)
 
 	qb.Apply(sm.Where(psql.Or(r.buildImageRefConditions(containers)...)))
