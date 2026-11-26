@@ -379,6 +379,82 @@ func (suite *workloadScanReportRepositoryTestSuite) TestGet_ScanInProgress_Parti
 	suite.Equal("default", gotReport.Containers[0].VulnerabilityReports[0].Namespace)
 }
 
+func (suite *workloadScanReportRepositoryTestSuite) TestVulnerabilityReportsOrderedByName() {
+	ctx := context.Background()
+
+	report := testWorkloadScanReportFactory("ordered", "default", []storagev1alpha1.ContainerRef{
+		{
+			Name: "app",
+			ImageRef: storagev1alpha1.ImageRef{
+				Registry:   "docker-registry",
+				Namespace:  "default",
+				Repository: "myorg/myapp",
+				Tag:        "v1.0.0",
+			},
+		},
+	})
+
+	err := suite.runInTx(ctx, func(tx pgx.Tx) error {
+		return suite.repo.Create(ctx, tx, report)
+	})
+	suite.Require().NoError(err)
+
+	// The order of the names differs from the insertion order,
+	// from the order of the platforms,
+	// and from the order of the digests.
+	vulnReports := []struct {
+		name     string
+		platform string
+		digest   string
+	}{
+		{name: "app-vuln-b", platform: "linux/amd64", digest: "sha256:333"},
+		{name: "app-vuln-c", platform: "linux/arm64", digest: "sha256:111"},
+		{name: "app-vuln-a", platform: "linux/s390x", digest: "sha256:222"},
+	}
+	for _, vulnReport := range vulnReports {
+		err := suite.runInTx(ctx, func(tx pgx.Tx) error {
+			return suite.vulnReportRepo.Create(ctx, tx, &storagev1alpha1.VulnerabilityReport{
+				Name:      vulnReport.name,
+				Namespace: "default",
+				ImageMetadata: storagev1alpha1.ImageMetadata{
+					Registry:   "docker-registry",
+					Repository: "myorg/myapp",
+					Tag:        "v1.0.0",
+					Platform:   vulnReport.platform,
+					Digest:     vulnReport.digest,
+				},
+				Report: storagev1alpha1.Report{},
+			})
+		})
+		suite.Require().NoError(err)
+	}
+
+	expected := []string{"app-vuln-a", "app-vuln-b", "app-vuln-c"}
+
+	vulnReportNames := func(container storagev1alpha1.ContainerResult) []string {
+		names := make([]string, 0, len(container.VulnerabilityReports))
+		for _, vulnReport := range container.VulnerabilityReports {
+			names = append(names, vulnReport.Name)
+		}
+		return names
+	}
+
+	got, err := suite.repo.Get(ctx, suite.db, "ordered", "default")
+	suite.Require().NoError(err)
+
+	gotReport := got.(*storagev1alpha1.WorkloadScanReport)
+	suite.Require().Len(gotReport.Containers, 1)
+	suite.Equal(expected, vulnReportNames(gotReport.Containers[0]))
+
+	items, _, err := suite.repo.List(ctx, suite.db, "default", storage.ListOptions{})
+	suite.Require().NoError(err)
+	suite.Require().Len(items, 1)
+
+	listedReport := items[0].(*storagev1alpha1.WorkloadScanReport)
+	suite.Require().Len(listedReport.Containers, 1)
+	suite.Equal(expected, vulnReportNames(listedReport.Containers[0]))
+}
+
 func (suite *workloadScanReportRepositoryTestSuite) TestList() {
 	ctx := context.Background()
 
